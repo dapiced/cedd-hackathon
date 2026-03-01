@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pkill:*)",
+      "Bash(fuser:*)",
+      "Bash(streamlit run:*)"
+    ]
+  }
+}
