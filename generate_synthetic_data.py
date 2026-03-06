@@ -1,5 +1,5 @@
 """
-DDEC — Synthetic Data Generator / Générateur de données synthétiques
+CEDD — Synthetic Data Generator / Générateur de données synthétiques
 =====================================================================
 Generates bilingual synthetic conversations (French and English) for training.
 Génère des conversations synthétiques bilingues (français et anglais) pour l'entraînement.
@@ -179,8 +179,8 @@ def generate_conversation(archetype_name: str, archetype_data: dict, index: int,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate bilingual DDEC synthetic conversations. / "
-                    "Génère des conversations synthétiques bilingues DDEC."
+        description="Generate bilingual CEDD synthetic conversations. / "
+                    "Génère des conversations synthétiques bilingues CEDD."
     )
     parser.add_argument(
         "--lang",

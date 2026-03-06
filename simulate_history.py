@@ -1,5 +1,5 @@
 """
-DDEC — History Simulation / Simulation d'historique
+CEDD — History Simulation / Simulation d'historique
 ====================================================
 Inserts 7 fictitious sessions with a realistic worsening trajectory for jury demos.
 Insère 7 sessions fictives avec une trajectoire réaliste croissante pour la démo au jury.
@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ddec.session_tracker import SessionTracker, DEFAULT_DB_PATH
+from cedd.session_tracker import SessionTracker, DEFAULT_DB_PATH
 
 USER_ID = "demo_user"
 
@@ -102,8 +102,8 @@ LABEL  = {
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Simulate DDEC session history for demo. / "
-                    "Simule un historique de sessions DDEC pour la démo."
+        description="Simulate CEDD session history for demo. / "
+                    "Simule un historique de sessions CEDD pour la démo."
     )
     parser.add_argument(
         "--lang",
@@ -129,7 +129,7 @@ def main():
     tracker = SessionTracker(db_path=DEFAULT_DB_PATH)
 
     print("=" * 62)
-    print("  DDEC — Session history simulation / Simulation d'historique")
+    print("  CEDD — Session history simulation / Simulation d'historique")
     print(f"  7 sessions / 7 days  [{lang.upper()}]")
     print("=" * 62)
     print(f"  User / Utilisateur : {USER_ID}")

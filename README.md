@@ -1,4 +1,4 @@
-# 🧠 DDEC — Conversational Emotional Drift Detection
+# 🧠 CEDD — Conversational Emotional Drift Detection
 
 > **Mila Hackathon · AI Safety in Youth Mental Health · POC v1.0**
 
@@ -8,7 +8,7 @@
 
 ## English Documentation
 
-DDEC is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
+CEDD is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
 
 ---
 
@@ -18,10 +18,10 @@ DDEC is a real-time monitoring system designed to detect **progressive emotional
 - [Architecture](#architecture)
 - [Alert Levels](#alert-levels)
 - [Modules](#modules)
-  - [Feature Extractor](#1-feature-extractor--ddecfeature_extractorpy)
-  - [Classifier](#2-classifier--ddecclassifierpy)
-  - [Response Modulator](#3-response-modulator--ddecresponse_modulatorpy)
-  - [Session Tracker](#4-session-tracker--ddecsession_trackerpy)
+  - [Feature Extractor](#1-feature-extractor--ceddfeature_extractorpy)
+  - [Classifier](#2-classifier--ceddclassifierpy)
+  - [Response Modulator](#3-response-modulator--ceddresponse_modulatorpy)
+  - [Session Tracker](#4-session-tracker--ceddsession_trackerpy)
   - [Streamlit Interface](#5-streamlit-interface--apppy)
 - [Bilingual Support](#bilingual-support)
 - [Synthetic Dataset](#synthetic-dataset)
@@ -36,7 +36,7 @@ DDEC is a real-time monitoring system designed to detect **progressive emotional
 
 ### Context & Motivation
 
-Emotional support chatbots for youth can, without a monitoring layer, fail to detect a user's gradual mental deterioration. DDEC adds an orthogonal analysis layer to the LLM: it monitors the **trajectory** of user messages (not just their instant content) to identify a drift toward distress.
+Emotional support chatbots for youth can, without a monitoring layer, fail to detect a user's gradual mental deterioration. CEDD adds an orthogonal analysis layer to the LLM: it monitors the **trajectory** of user messages (not just their instant content) to identify a drift toward distress.
 
 Detection relies on **purely lexical and structural features** (no LLM, no deep neural network), which ensures:
 - Zero inference latency,
@@ -61,7 +61,7 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
              │ 42D vector
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│   DDECClassifier       │───────►│  Safety rules             │
+│   CEDDClassifier       │───────►│  Safety rules             │
 │  (GradientBoosting)    │        │  (lexical override)       │
 └────────────┬───────────┘        └──────────────────────────┘
              │ level 0-3 + confidence + top features
@@ -94,7 +94,7 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
 
 ### Modules
 
-#### 1. Feature Extractor — `ddec/feature_extractor.py`
+#### 1. Feature Extractor — `cedd/feature_extractor.py`
 
 Analytical core of the system. Extracts **7 base features** per user message:
 
@@ -125,7 +125,7 @@ For each base feature, 6 trajectory statistics computed over the full conversati
 
 ---
 
-#### 2. Classifier — `ddec/classifier.py`
+#### 2. Classifier — `cedd/classifier.py`
 
 **sklearn pipeline:**
 ```
@@ -135,20 +135,23 @@ StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)
 **Safety rules (lexical override):**
 
 *Before ML (< 3 user messages):*
+- Crisis keyword detected (`gun`, `knife`, `suicide`, `kill myself`, `want to die`, etc.) → immediate **Red** (0.90)
 - Critical word detected → minimum **Orange** (0.70 confidence)
 - 2+ distress words → minimum **Yellow** (0.65)
 - Otherwise → **Green** safe mode (0.80)
 
 *After ML (3+ messages):*
-- A `minimum_level` is computed from the full text (same logic)
+- A `minimum_level` is computed from the full text (same keywords as above)
 - ML prediction can **never go below this minimum**: `predicted = max(ml_pred, minimum_level)`
 - If ML confidence < 0.45 → returns **Yellow** by default (precautionary principle)
+- **Short-conversation cap**: ML trained on 12-message conversations — for < 6 user messages, ML is capped at **Orange** max. Red via ML only fires with sufficient conversational context.
+- **Safety override display**: when safety rules raise the level above ML prediction, class probability bars are replaced by a "crisis word detected" badge to avoid misleading output.
 
 **Feature display names** are available in both French and English, selectable via the `lang` parameter.
 
 ---
 
-#### 3. Response Modulator — `ddec/response_modulator.py`
+#### 3. Response Modulator — `cedd/response_modulator.py`
 
 **Adaptive system prompts** (French and English) injected into the LLM based on alert level:
 
@@ -171,7 +174,7 @@ claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local O
 
 ---
 
-#### 4. Session Tracker — `ddec/session_tracker.py`
+#### 4. Session Tracker — `cedd/session_tracker.py`
 
 **Cross-session longitudinal monitoring** using SQLite.
 
@@ -257,7 +260,7 @@ python generate_synthetic_data.py --lang en --count 20
 ```bash
 # 1. Clone the repository
 git clone <repo-url>
-cd ddec-hackathon
+cd cedd-hackathon
 
 # 2. Install dependencies
 pip install streamlit plotly scikit-learn numpy joblib requests anthropic
@@ -323,25 +326,25 @@ Results on the initial 24-conversation dataset:
 ### Project Structure
 
 ```
-ddec-hackathon/
+cedd-hackathon/
 ├── app.py                          # Bilingual Streamlit interface / Interface Streamlit bilingue
 ├── train.py                        # Training script / Script d'entraînement
 ├── generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
 ├── simulate_history.py             # Demo history simulation (FR + EN)
 │
-├── ddec/                           # Main Python package
+├── cedd/                           # Main Python package
 │   ├── __init__.py
 │   ├── feature_extractor.py        # Bilingual lexical + trajectory feature extraction
-│   ├── classifier.py               # DDECClassifier (GradientBoosting + rules)
+│   ├── classifier.py               # CEDDClassifier (GradientBoosting + rules)
 │   ├── response_modulator.py       # Adaptive prompts (FR + EN) + LLM calls
 │   └── session_tracker.py          # Cross-session SQLite tracking
 │
 ├── data/
 │   ├── synthetic_conversations.json  # Training dataset (FR + EN)
-│   └── ddec_sessions.db             # SQLite database (auto-created)
+│   └── cedd_sessions.db             # SQLite database (auto-created)
 │
 └── models/
-    └── ddec_model.joblib            # Trained model (created by train.py)
+    └── cedd_model.joblib            # Trained model (created by train.py)
 ```
 
 ---
@@ -351,7 +354,7 @@ ddec-hackathon/
 | Limitation                                                          | Potential Improvement                                               |
 |---------------------------------------------------------------------|---------------------------------------------------------------------|
 | 24-conversation dataset — high overfitting                         | Generate 100+ conversations per class with `generate_synthetic_data.py` |
-| Trajectory features unreliable before 3-4 messages                 | Safety lexical rules already active for early messages              |
+| ML unreliable for short conversations (< 6 messages)               | ML capped at Orange for < 6 messages; crisis keywords trigger Red instantly at any point |
 | Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
 | ML model trained on French data only                               | Retrain on combined FR+EN dataset                                   |
 | No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
@@ -372,7 +375,7 @@ ddec-hackathon/
 
 ## Documentation en Français
 
-DDEC est un système de surveillance en temps réel conçu pour détecter une **dérive émotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, machine learning et modulation adaptative du LLM pour offrir des réponses ajustées à l'état émotionnel détecté.
+CEDD est un système de surveillance en temps réel conçu pour détecter une **dérive émotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, machine learning et modulation adaptative du LLM pour offrir des réponses ajustées à l'état émotionnel détecté.
 
 ---
 
@@ -394,7 +397,7 @@ DDEC est un système de surveillance en temps réel conçu pour détecter une **
 
 ### Contexte et motivation
 
-Les chatbots de soutien émotionnel pour les jeunes peuvent, sans système de surveillance, ne pas détecter une dégradation progressive de l'état mental de l'utilisateur. DDEC propose une couche d'analyse orthogonale au LLM : elle surveille la **trajectoire** des messages de l'utilisateur (pas uniquement leur contenu ponctuel) pour identifier un glissement vers la détresse.
+Les chatbots de soutien émotionnel pour les jeunes peuvent, sans système de surveillance, ne pas détecter une dégradation progressive de l'état mental de l'utilisateur. CEDD propose une couche d'analyse orthogonale au LLM : elle surveille la **trajectoire** des messages de l'utilisateur (pas uniquement leur contenu ponctuel) pour identifier un glissement vers la détresse.
 
 La détection repose sur des features **purement lexicales et structurelles** (sans LLM, sans réseau de neurones profond), ce qui garantit :
 - une latence nulle à l'inférence,
@@ -419,7 +422,7 @@ La détection repose sur des features **purement lexicales et structurelles** (s
              │ vecteur 42D
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│   DDECClassifier       │───────►│  Règles de sécurité       │
+│   CEDDClassifier       │───────►│  Règles de sécurité       │
 │  (GradientBoosting)    │        │  (override lexical)       │
 └────────────┬───────────┘        └──────────────────────────┘
              │ niveau 0-3 + confiance + features dominantes
@@ -452,7 +455,7 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 
 ### Modules
 
-#### 1. Feature Extractor — `ddec/feature_extractor.py`
+#### 1. Feature Extractor — `cedd/feature_extractor.py`
 
 Cœur analytique du système. Extrait **7 features de base** par message utilisateur. Les **dictionnaires lexicaux** contiennent désormais des termes français **et** anglais : `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`.
 
@@ -460,13 +463,13 @@ Cœur analytique du système. Extrait **7 features de base** par message utilisa
 
 Pour chaque feature de base, 6 statistiques de trajectoire (mean, std, slope, last, max, min).
 
-#### 2. Classifier — `ddec/classifier.py`
+#### 2. Classifier — `cedd/classifier.py`
 
 Pipeline : `StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)`
 
-Règles de sécurité prioritaires (override lexical) avant et après la prédiction ML. Les **noms lisibles des features** sont disponibles en français et en anglais, sélectionnables via le paramètre `lang`.
+Règles de sécurité prioritaires (override lexical) avant et après la prédiction ML. Mots-clés de crise étendus (arme, pistolet, couteau, gun, knife, shoot…) déclenchent **Rouge immédiatement** à tout moment. Pour < 6 messages utilisateur, le ML est plafonné à Orange. En cas d'override de sécurité, les barres de probabilité sont remplacées par un badge "mot de crise détecté". Les **noms lisibles des features** sont disponibles en français et en anglais, sélectionnables via le paramètre `lang`.
 
-#### 3. Response Modulator — `ddec/response_modulator.py`
+#### 3. Response Modulator — `cedd/response_modulator.py`
 
 Quatre prompts système distincts, disponibles en **français et en anglais**, injectés dans le LLM en fonction du niveau d'alerte et de la langue de l'interface.
 
@@ -477,7 +480,7 @@ Quatre prompts système distincts, disponibles en **français et en anglais**, i
 
 Hiérarchie LLM : `claude-haiku → mistral → llama3.2:1b → fallback statique`
 
-#### 4. Session Tracker — `ddec/session_tracker.py`
+#### 4. Session Tracker — `cedd/session_tracker.py`
 
 Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `trend`, `consecutive_high_sessions` et `recommendation` sur les 7 dernières sessions.
 
@@ -523,7 +526,7 @@ python generate_synthetic_data.py --lang en --count 20
 ```bash
 # 1. Cloner le dépôt
 git clone <url-du-repo>
-cd ddec-hackathon
+cd cedd-hackathon
 
 # 2. Installer les dépendances
 pip install streamlit plotly scikit-learn numpy joblib requests anthropic
@@ -583,25 +586,25 @@ Ouvre `http://localhost:8501`. Utiliser le bouton de langue (🇫🇷 / 🇬🇧
 ### Structure du projet
 
 ```
-ddec-hackathon/
+cedd-hackathon/
 ├── app.py                          # Interface Streamlit bilingue
 ├── train.py                        # Script d'entraînement (sortie bilingue)
 ├── generate_synthetic_data.py      # Génération FR + EN via Claude API
 ├── simulate_history.py             # Simulation d'historique FR + EN
 │
-├── ddec/
+├── cedd/
 │   ├── __init__.py
 │   ├── feature_extractor.py        # Extraction lexicale bilingue + trajectoire
-│   ├── classifier.py               # DDECClassifier (GradientBoosting + règles)
+│   ├── classifier.py               # CEDDClassifier (GradientBoosting + règles)
 │   ├── response_modulator.py       # Prompts adaptatifs FR + EN + appels LLM
 │   └── session_tracker.py          # Suivi inter-sessions SQLite
 │
 ├── data/
 │   ├── synthetic_conversations.json  # Dataset FR (+EN générable)
-│   └── ddec_sessions.db             # Base SQLite (créée automatiquement)
+│   └── cedd_sessions.db             # Base SQLite (créée automatiquement)
 │
 └── models/
-    └── ddec_model.joblib            # Modèle entraîné (créé par train.py)
+    └── cedd_model.joblib            # Modèle entraîné (créé par train.py)
 ```
 
 ---
@@ -611,7 +614,7 @@ ddec-hackathon/
 | Limite                                                              | Piste d'amélioration                                             |
 |---------------------------------------------------------------------|------------------------------------------------------------------|
 | Dataset de 24 conversations — overfitting élevé                    | Générer 100+ conversations par classe                            |
-| Features de trajectoire peu fiables avant 3-4 messages             | Règles de sécurité lexicales déjà actives pour les premiers messages |
+| ML peu fiable pour les conversations courtes (< 6 messages)        | ML plafonné à Orange pour < 6 messages ; mots-clés de crise déclenchent Rouge immédiatement |
 | Un seul `user_id` "demo_user" dans l'interface de démo             | Ajouter un système d'authentification léger                      |
 | Modèle ML entraîné uniquement sur données françaises               | Réentraîner sur un dataset FR+EN combiné                         |
 | Aucune validation clinique des seuils                              | Collaboration avec professionnels en santé mentale               |

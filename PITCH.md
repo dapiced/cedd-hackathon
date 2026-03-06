@@ -1,4 +1,4 @@
-# DDEC — Conversational Emotional Drift Detection
+# CEDD — Conversational Emotional Drift Detection
 ### Mila Hackathon · AI Safety & Youth Mental Health
 ### 5-Minute Presentation / Présentation 5 minutes
 
@@ -25,9 +25,9 @@ But they are **blind to trajectory**: they respond message by message, never det
 
 ### 2. Our Solution — What Makes Us Different (1 minute)
 
-**DDEC** is a safety layer that plugs into any chatbot and detects emotional drift by analysing the **evolution** of the conversation, not its instantaneous content.
+**CEDD** is a safety layer that plugs into any chatbot and detects emotional drift by analysing the **evolution** of the conversation, not its instantaneous content.
 
-| Classic approach | DDEC |
+| Classic approach | CEDD |
 |---|---|
 | Trigger keyword detection | Trajectory analysis over 12 exchanges |
 | Single response mode for all | 4 adaptive response modes (green → red) |
@@ -126,7 +126,7 @@ User message
 #### What This PoC Demonstrates
 - Conversational trajectory is a detectable signal using lightweight means (no LLM for detection)
 - 75.8% accuracy with 120 examples — scalable with real data
-- Modular architecture: the DDEC layer plugs into any existing chatbot
+- Modular architecture: the CEDD layer plugs into any existing chatbot
 - **Bilingual**: supports both French and English conversations and interfaces
 
 #### Next Steps
@@ -139,7 +139,7 @@ User message
 
 ### Summary
 
-> DDEC detects what a human would see by re-reading a conversation:
+> CEDD detects what a human would see by re-reading a conversation:
 > **the drift**, not just the alarm cry.
 
 **Stack**: Python · sklearn · Ollama · Streamlit · Claude API (data generation)
@@ -167,9 +167,9 @@ Mais ils sont **aveugles à la trajectoire** : ils répondent message par messag
 
 ### 2. Notre solution — ce qui nous différencie (1 minute)
 
-**DDEC** est une couche de sécurité qui se greffe sur n'importe quel chatbot et détecte la dérive émotionnelle en analysant l'**évolution** de la conversation, pas son contenu instantané.
+**CEDD** est une couche de sécurité qui se greffe sur n'importe quel chatbot et détecte la dérive émotionnelle en analysant l'**évolution** de la conversation, pas son contenu instantané.
 
-| Approche classique | DDEC |
+| Approche classique | CEDD |
 |---|---|
 | Détection par mots-clés triggers | Analyse de trajectoire sur 12 échanges |
 | Réponse unique pour tous | 4 modes de réponse adaptatifs (vert → rouge) |
@@ -268,7 +268,7 @@ Message utilisateur
 #### Ce que ce PoC démontre
 - La trajectoire conversationnelle est un signal détectable avec des moyens légers
 - 75.8% de précision avec 120 exemples — scalable avec plus de données réelles
-- Architecture modulaire : la couche DDEC se greffe sur n'importe quel chatbot existant
+- Architecture modulaire : la couche CEDD se greffe sur n'importe quel chatbot existant
 - **Support bilingue** : conversations et interface en français et en anglais
 
 #### Prochaines étapes
@@ -281,7 +281,7 @@ Message utilisateur
 
 ### En résumé
 
-> DDEC détecte ce qu'un humain verrait en relisant une conversation :
+> CEDD détecte ce qu'un humain verrait en relisant une conversation :
 > **la dérive**, pas juste le cri d'alarme.
 
 **Stack** : Python · sklearn · Ollama · Streamlit · API Claude (génération de données)

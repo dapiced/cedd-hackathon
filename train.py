@@ -1,5 +1,5 @@
 """
-DDEC Training Script / Script d'entraînement DDEC
+CEDD Training Script / Script d'entraînement CEDD
 ==================================================
 Loads synthetic conversations, extracts features, trains the classifier.
 Charge les conversations synthétiques, extrait les features, entraîne le classifieur.
@@ -15,11 +15,11 @@ from sklearn.metrics import classification_report, confusion_matrix, accuracy_sc
 # Add root directory to path / Ajouter le répertoire racine au path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from ddec.feature_extractor import extract_features, extract_trajectory_features
-from ddec.classifier import DDECClassifier
+from cedd.feature_extractor import extract_features, extract_trajectory_features
+from cedd.classifier import CEDDClassifier
 
 DATA_PATH   = "data/synthetic_conversations.json"
-MODEL_PATH  = "models/ddec_model.joblib"
+MODEL_PATH  = "models/cedd_model.joblib"
 LABEL_NAMES = ["verte", "jaune", "orange", "rouge"]
 
 
@@ -70,7 +70,7 @@ def print_separator(char="=", length=60):
 
 def main():
     print_separator()
-    print("  DDEC — Classifier Training / Entraînement du classifieur")
+    print("  CEDD — Classifier Training / Entraînement du classifieur")
     print_separator()
 
     # 1. Load data and extract features / Charger les données et extraire les features
@@ -79,7 +79,7 @@ def main():
 
     # 2. Stratified cross-validation / Validation croisée stratifiée
     print("\n[2/4] Stratified cross-validation (k=4)...")
-    clf = DDECClassifier(n_estimators=200, random_state=42)
+    clf = CEDDClassifier(n_estimators=200, random_state=42)
 
     cv = StratifiedKFold(n_splits=4, shuffle=True, random_state=42)
     cv_scores = cross_val_score(clf.pipeline, X, y, cv=cv, scoring="accuracy")
@@ -129,7 +129,7 @@ def main():
 
     # 6. Reload test / Test de rechargement
     print("\n  Reload test / Test de rechargement...")
-    clf2 = DDECClassifier.load(MODEL_PATH)
+    clf2 = CEDDClassifier.load(MODEL_PATH)
     test_conv = [
         {"role": "user",      "content": "je sais plus pourquoi je continue. plus rien a de sens."},
         {"role": "assistant", "content": "Je suis là. Qu'est-ce qui se passe ?"},
