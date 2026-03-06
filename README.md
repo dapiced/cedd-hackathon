@@ -1,24 +1,390 @@
-# 🧠 DDEC — Détection de Dérive Émotionnelle Conversationnelle
+# 🧠 DDEC — Conversational Emotional Drift Detection
 
-> **Hackathon Mila · Sécurité IA en santé mentale des jeunes · POC v1.0**
+> **Mila Hackathon · AI Safety in Youth Mental Health · POC v1.0**
 
-DDEC est un système de surveillance en temps réel conçu pour détecter une **dérive émotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, machine learning et modulation adaptative du LLM pour offrir des réponses ajustées à l'état émotionnel détecté.
+[🇬🇧 English](#english-documentation) | [🇫🇷 Français](#documentation-en-français)
 
 ---
 
-## Table des matières
+## English Documentation
 
-- [Contexte et motivation](#contexte-et-motivation)
+DDEC is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
+
+---
+
+### Table of Contents
+
+- [Context & Motivation](#context--motivation)
 - [Architecture](#architecture)
-- [Niveaux d'alerte](#niveaux-dalerte)
+- [Alert Levels](#alert-levels)
 - [Modules](#modules)
   - [Feature Extractor](#1-feature-extractor--ddecfeature_extractorpy)
   - [Classifier](#2-classifier--ddecclassifierpy)
   - [Response Modulator](#3-response-modulator--ddecresponse_modulatorpy)
   - [Session Tracker](#4-session-tracker--ddecsession_trackerpy)
-  - [Interface Streamlit](#5-interface-streamlit--apppy)
-- [Données synthétiques](#données-synthétiques)
+  - [Streamlit Interface](#5-streamlit-interface--apppy)
+- [Bilingual Support](#bilingual-support)
+- [Synthetic Dataset](#synthetic-dataset)
 - [Installation](#installation)
+- [Usage](#usage)
+- [Metrics](#metrics)
+- [Project Structure](#project-structure)
+- [Known Limitations & Future Work](#known-limitations--future-work)
+- [Emergency Resources](#emergency-resources)
+
+---
+
+### Context & Motivation
+
+Emotional support chatbots for youth can, without a monitoring layer, fail to detect a user's gradual mental deterioration. DDEC adds an orthogonal analysis layer to the LLM: it monitors the **trajectory** of user messages (not just their instant content) to identify a drift toward distress.
+
+Detection relies on **purely lexical and structural features** (no LLM, no deep neural network), which ensures:
+- Zero inference latency,
+- Full explainability,
+- Offline operation.
+
+---
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              Streamlit Interface (app.py) — FR / EN              │
+│  Chat  │  Alert gauge  │  Probas  │  Features  │  Longitudinal   │
+└────────┬────────────────────────────────────────────────────────┘
+         │ user messages
+         ▼
+┌────────────────────────┐
+│   Feature Extractor    │  ← 7 features/message → 42 trajectory features
+│  (numpy + regex, 0 LLM)│    Bilingual lexicons (FR + EN)
+└────────────┬───────────┘
+             │ 42D vector
+             ▼
+┌────────────────────────┐        ┌──────────────────────────┐
+│   DDECClassifier       │───────►│  Safety rules             │
+│  (GradientBoosting)    │        │  (lexical override)       │
+└────────────┬───────────┘        └──────────────────────────┘
+             │ level 0-3 + confidence + top features
+             ▼
+┌────────────────────────┐        ┌──────────────────────────┐
+│  Response Modulator    │───────►│  LLM (Claude / Mistral / │
+│  (adaptive prompt)     │        │  Llama / static fallback) │
+│  FR or EN system prompt│        └──────────────────────────┘
+└────────────────────────┘
+             │
+             ▼
+┌────────────────────────┐
+│   Session Tracker      │  ← SQLite, cross-session history
+│  (longitudinal SQLite) │
+└────────────────────────┘
+```
+
+---
+
+### Alert Levels
+
+| Level | Color  | Label  | Description                                    | LLM Mode                         |
+|-------|--------|--------|------------------------------------------------|----------------------------------|
+| 0     | 🟢 Green  | verte  | Normal conversation, youth doing well          | Supportive standard              |
+| 1     | 🟡 Yellow | jaune  | Concerning signs, fatigue, loneliness          | Enhanced emotional validation    |
+| 2     | 🟠 Orange | orange | Significant distress, negative thoughts        | Active support + resources       |
+| 3     | 🔴 Red    | rouge  | Potential crisis, finality thoughts            | Crisis — urgent referral         |
+
+---
+
+### Modules
+
+#### 1. Feature Extractor — `ddec/feature_extractor.py`
+
+Analytical core of the system. Extracts **7 base features** per user message:
+
+| Feature              | Description                                                                                           |
+|----------------------|-------------------------------------------------------------------------------------------------------|
+| `longueur_mots`      | Word count of the message                                                                             |
+| `ratio_ponctuation`  | Proportion of punctuation characters (`.`, `!`, `?`, `;`, `…`) over total characters                 |
+| `presence_question`  | Binary 0/1 indicator: does the message contain a `?`                                                  |
+| `score_negatif`      | Ratio of negative words/phrases over message length. Halved when a physical context is detected       |
+| `score_finalite`     | Ratio of finality/distress vocabulary (`disappear`, `end it`, `burden`, `what's the point`…)         |
+| `score_espoir`       | Ratio of hope/resources vocabulary (`tomorrow`, `try`, `family`, `heal`…)                            |
+| `delta_longueur`     | Relative length change vs previous message — detects progressive shortening                          |
+
+**Bilingual lexicons**: `FINALITY_WORDS`, `HOPE_WORDS`, and `NEGATIVE_WORDS` each contain both French and English terms, enabling the system to analyse conversations in either language.
+
+#### Trajectory Features (42 total → classifier input)
+
+For each base feature, 6 trajectory statistics computed over the full conversation:
+
+| Statistic | Description                                                        |
+|-----------|--------------------------------------------------------------------|
+| `_mean`   | Average across all messages                                        |
+| `_std`    | Standard deviation — measures variability                          |
+| `_slope`  | Normalised linear regression slope — captures the trend            |
+| `_last`   | Value of the last message — most recent state                      |
+| `_max`    | Maximum observed in the conversation                               |
+| `_min`    | Minimum observed in the conversation                               |
+
+---
+
+#### 2. Classifier — `ddec/classifier.py`
+
+**sklearn pipeline:**
+```
+StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)
+```
+
+**Safety rules (lexical override):**
+
+*Before ML (< 3 user messages):*
+- Critical word detected → minimum **Orange** (0.70 confidence)
+- 2+ distress words → minimum **Yellow** (0.65)
+- Otherwise → **Green** safe mode (0.80)
+
+*After ML (3+ messages):*
+- A `minimum_level` is computed from the full text (same logic)
+- ML prediction can **never go below this minimum**: `predicted = max(ml_pred, minimum_level)`
+- If ML confidence < 0.45 → returns **Yellow** by default (precautionary principle)
+
+**Feature display names** are available in both French and English, selectable via the `lang` parameter.
+
+---
+
+#### 3. Response Modulator — `ddec/response_modulator.py`
+
+**Adaptive system prompts** (French and English) injected into the LLM based on alert level:
+
+- **Level 0**: Warm supportive assistant, open questions, positive register
+- **Level 1**: Emotional validation priority, one question at a time, active listening
+- **Level 2**: Safe space, resources mentioned naturally (Kids Help Phone: 1-800-668-6868)
+- **Level 3**: Crisis protocol — validate suffering, assess safety, refer to 911/immediate resources
+
+**LLM hierarchy with automatic fallback:**
+```
+claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local Ollama) → static fallback
+```
+
+| Model              | Requires            | Indicator |
+|--------------------|---------------------|-----------|
+| `claude-haiku`     | `ANTHROPIC_API_KEY` | 🟣         |
+| `mistral`          | Local Ollama        | 🔵         |
+| `llama3.2:1b`      | Local Ollama        | ⚪         |
+| `fallback-statique`| None                | ⚠️         |
+
+---
+
+#### 4. Session Tracker — `ddec/session_tracker.py`
+
+**Cross-session longitudinal monitoring** using SQLite.
+
+**Schema:**
+- `sessions`: one row per chat session
+- `alert_events`: one record per analysed message
+
+**Longitudinal risk analysis** over the last 7 sessions:
+- `risk_score`: weighted average of max levels (recent = higher weight), normalised to [0, 1]
+- `trend`: `improving` / `stable` / `worsening`
+- `consecutive_high_sessions`: consecutive recent sessions with level ≥ Orange
+- `recommendation`: action suggested to a healthcare professional
+
+---
+
+#### 5. Streamlit Interface — `app.py`
+
+Two-column interface with real-time updates after each message.
+
+**Language toggle** in the header: switch between 🇬🇧 English and 🇫🇷 Français at any time. The UI, system prompts, and LLM responses all switch to the selected language.
+
+| Component                  | Description                                                                |
+|----------------------------|----------------------------------------------------------------------------|
+| **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
+| **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
+| **Active signals**         | Dominant features displayed as colour-coded pills                          |
+| **Level history**          | Plotly line chart: alert level history for the current session             |
+| **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
+| **LLM selector**           | 4 buttons to choose/force the conversational model                         |
+| **Active system prompt**   | Description of the current mode + expander showing the full prompt         |
+| **Session stats**          | Counters: messages, exchanges, alert peak                                  |
+
+---
+
+### Bilingual Support
+
+| Layer                  | English                        | French                          |
+|------------------------|--------------------------------|---------------------------------|
+| Web UI                 | Full (toggle button in header) | Full (default)                  |
+| LLM system prompts     | All 4 levels                   | All 4 levels                    |
+| Lexical analysis       | EN words in all lexicons        | FR words in all lexicons        |
+| Feature display names  | Via `lang="en"` parameter      | Via `lang="fr"` parameter       |
+| Synthetic data         | `--lang en` flag               | `--lang fr` (default)           |
+| History simulation     | `--lang en` flag               | `--lang fr` (default)           |
+
+---
+
+### Synthetic Dataset
+
+**`data/synthetic_conversations.json`** — 24 seed conversations (6 per class).
+
+Each conversation contains 24 messages (12 user + 12 assistant), in authentic Canadian French, generated via `generate_synthetic_data.py` using Claude Haiku.
+
+#### Generation Archetypes
+
+| Archetype | Characteristics                                                                                           |
+|-----------|-----------------------------------------------------------------------------------------------------------|
+| `verte`   | Future projects, humour, friends/family mentioned, varied messages, normal emotions (exam stress)         |
+| `jaune`   | Persistent fatigue, growing loneliness, self-doubt, gradual drift over 12 messages                       |
+| `orange`  | Feeling of emptiness, crying, feeling like a burden, shorter messages, sense of uselessness               |
+| `rouge`   | Desire to disappear, total isolation, tone of finality, short intense messages, no future plans           |
+
+#### Generating Additional Data (FR and EN)
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Generate 80 French conversations (20 per class) / 80 conversations en français
+python generate_synthetic_data.py --lang fr --count 20
+
+# Generate 80 English conversations (20 per class) / 80 conversations en anglais
+python generate_synthetic_data.py --lang en --count 20
+```
+
+---
+
+### Installation
+
+**Prerequisites:**
+- Python 3.9+
+- (Optional) Ollama for local LLMs
+
+```bash
+# 1. Clone the repository
+git clone <repo-url>
+cd ddec-hackathon
+
+# 2. Install dependencies
+pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+
+# 3. (Optional) Configure Claude API key
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# 4. (Optional) Install Ollama models
+ollama pull mistral
+ollama pull llama3.2:1b
+
+# 5. Train the model
+python train.py
+
+# 6. Launch the interface
+streamlit run app.py
+```
+
+---
+
+### Usage
+
+```bash
+# Train the classifier
+python train.py
+
+# Launch the bilingual web interface
+streamlit run app.py
+
+# Simulate session history for demo (French)
+python simulate_history.py --lang fr
+
+# Simulate session history for demo (English)
+python simulate_history.py --lang en
+
+# Generate additional French synthetic data
+python generate_synthetic_data.py --lang fr --count 20
+
+# Generate additional English synthetic data
+python generate_synthetic_data.py --lang en --count 20
+```
+
+Opens at `http://localhost:8501`. Use the language toggle (🇫🇷 / 🇬🇧) in the header to switch languages. Click **Reset / Réinitialiser** to start a new monitoring session.
+
+---
+
+### Metrics
+
+Results on the initial 24-conversation dataset:
+
+| Metric                    | Value                     |
+|---------------------------|---------------------------|
+| Train accuracy            | 100% (expected overfitting) |
+| CV accuracy (k=4)         | 66.7% ± 26.4%             |
+| Number of features        | 42 (7 × 6 stats)          |
+| Top feature               | `longueur_mots_std`       |
+| 2nd feature               | `score_negatif_mean`      |
+
+> **Note**: 24 conversations is too small for reliable metrics. Running `generate_synthetic_data.py` to produce ~100 conversations per class significantly improves CV accuracy.
+
+---
+
+### Project Structure
+
+```
+ddec-hackathon/
+├── app.py                          # Bilingual Streamlit interface / Interface Streamlit bilingue
+├── train.py                        # Training script / Script d'entraînement
+├── generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
+├── simulate_history.py             # Demo history simulation (FR + EN)
+│
+├── ddec/                           # Main Python package
+│   ├── __init__.py
+│   ├── feature_extractor.py        # Bilingual lexical + trajectory feature extraction
+│   ├── classifier.py               # DDECClassifier (GradientBoosting + rules)
+│   ├── response_modulator.py       # Adaptive prompts (FR + EN) + LLM calls
+│   └── session_tracker.py          # Cross-session SQLite tracking
+│
+├── data/
+│   ├── synthetic_conversations.json  # Training dataset (FR + EN)
+│   └── ddec_sessions.db             # SQLite database (auto-created)
+│
+└── models/
+    └── ddec_model.joblib            # Trained model (created by train.py)
+```
+
+---
+
+### Known Limitations & Future Work
+
+| Limitation                                                          | Potential Improvement                                               |
+|---------------------------------------------------------------------|---------------------------------------------------------------------|
+| 24-conversation dataset — high overfitting                         | Generate 100+ conversations per class with `generate_synthetic_data.py` |
+| Trajectory features unreliable before 3-4 messages                 | Safety lexical rules already active for early messages              |
+| Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
+| ML model trained on French data only                               | Retrain on combined FR+EN dataset                                   |
+| No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
+| LLM not fine-tuned for crisis contexts                             | Fine-tune on certified counsellor conversations                     |
+
+---
+
+### Emergency Resources
+
+> Integrated into Orange and Red alert level prompts.
+
+- **Kids Help Phone**: 1-800-668-6868 (24/7, free, confidential) — text: 686868
+- **Emergency services**: 911
+- **Family doctor / school counselling service**
+
+---
+---
+
+## Documentation en Français
+
+DDEC est un système de surveillance en temps réel conçu pour détecter une **dérive émotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, machine learning et modulation adaptative du LLM pour offrir des réponses ajustées à l'état émotionnel détecté.
+
+---
+
+### Table des matières
+
+- [Contexte et motivation](#contexte-et-motivation)
+- [Architecture](#architecture-1)
+- [Niveaux d'alerte](#niveaux-dalerte)
+- [Modules](#modules-1)
+- [Support bilingue](#support-bilingue)
+- [Données synthétiques](#données-synthétiques)
+- [Installation](#installation-1)
 - [Utilisation](#utilisation)
 - [Métriques](#métriques)
 - [Structure du projet](#structure-du-projet)
@@ -26,7 +392,7 @@ DDEC est un système de surveillance en temps réel conçu pour détecter une **
 
 ---
 
-## Contexte et motivation
+### Contexte et motivation
 
 Les chatbots de soutien émotionnel pour les jeunes peuvent, sans système de surveillance, ne pas détecter une dégradation progressive de l'état mental de l'utilisateur. DDEC propose une couche d'analyse orthogonale au LLM : elle surveille la **trajectoire** des messages de l'utilisateur (pas uniquement leur contenu ponctuel) pour identifier un glissement vers la détresse.
 
@@ -37,20 +403,20 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 
 ---
 
-## Architecture
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Interface Streamlit (app.py)              │
+│            Interface Streamlit (app.py) — FR / EN               │
 │  Chat  │  Jauge alerte  │  Probas  │  Features  │  Longitudinal  │
 └────────┬────────────────────────────────────────────────────────┘
          │ messages utilisateur
          ▼
 ┌────────────────────────┐
-│   Feature Extractor    │  ← 7 features/message → 48 features de trajectoire
-│  (numpy + regex, 0 LLM)│
+│   Feature Extractor    │  ← 7 features/message → 42 features de trajectoire
+│  (numpy + regex, 0 LLM)│    Lexiques bilingues (FR + EN)
 └────────────┬───────────┘
-             │ vecteur 48D
+             │ vecteur 42D
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
 │   DDECClassifier       │───────►│  Règles de sécurité       │
@@ -61,7 +427,8 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 ┌────────────────────────┐        ┌──────────────────────────┐
 │  Response Modulator    │───────►│  LLM (Claude / Mistral / │
 │  (prompt adaptatif)    │        │  Llama / fallback)        │
-└────────────────────────┘        └──────────────────────────┘
+│  Prompt FR ou EN       │        └──────────────────────────┘
+└────────────────────────┘
              │
              ▼
 ┌────────────────────────┐
@@ -72,214 +439,86 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 
 ---
 
-## Niveaux d'alerte
+### Niveaux d'alerte
 
-| Niveau | Couleur | Label  | Description                                    | Mode LLM                          |
-|--------|---------|--------|------------------------------------------------|-----------------------------------|
-| 0      | 🟢 Vert  | verte  | Conversation normale, jeune en bonne forme     | Standard bienveillant             |
-| 1      | 🟡 Jaune | jaune  | Signes préoccupants, fatigue, solitude         | Validation émotionnelle renforcée |
-| 2      | 🟠 Orange| orange | Détresse significative, pensées négatives      | Soutien actif + ressources        |
-| 3      | 🔴 Rouge | rouge  | Crise potentielle, pensées de finalité         | Crise — orientation urgente       |
-
----
-
-## Modules
-
-### 1. Feature Extractor — `ddec/feature_extractor.py`
-
-Cœur analytique du système. Pour chaque message de l'utilisateur, extrait **7 features de base** :
-
-| Feature              | Description                                                                                           |
-|----------------------|-------------------------------------------------------------------------------------------------------|
-| `longueur_mots`      | Nombre de mots du message                                                                             |
-| `ratio_ponctuation`  | Proportion de signes de ponctuation (`.`, `!`, `?`, `;`, `…`) sur le nombre total de caractères     |
-| `presence_question`  | Indicateur binaire 0/1 : le message contient-il un `?`                                               |
-| `score_negatif`      | Ratio de mots/expressions négatifs (`triste`, `épuisé`, `vide`, `honte`…) sur la longueur du message. Réduit de 50% si un contexte physique est détecté (ex : "j'ai mal au dos") |
-| `score_finalite`     | Ratio de mots du champ lexical de finalité/détresse (`disparaître`, `en finir`, `fardeau`, `à quoi bon`…) |
-| `score_espoir`       | Ratio de mots du champ lexical de l'espoir/ressources (`demain`, `essayer`, `famille`, `guérir`…)    |
-| `delta_longueur`     | Variation relative de longueur par rapport au message précédent — détecte les raccourcissements progressifs |
-
-#### Features de trajectoire (48 features → entrée du classifier)
-
-Pour chaque feature de base, 6 statistiques de trajectoire sont calculées sur l'ensemble de la conversation :
-
-| Statistique | Description                                                          |
-|-------------|----------------------------------------------------------------------|
-| `_mean`     | Moyenne sur tous les messages                                        |
-| `_std`      | Écart-type — mesure la variabilité                                   |
-| `_slope`    | Pente de régression linéaire normalisée — capte la tendance          |
-| `_last`     | Valeur du dernier message — état le plus récent                      |
-| `_max`      | Maximum observé dans la conversation                                 |
-| `_min`      | Minimum observé dans la conversation                                 |
-
-Résultat : **vecteur 1D de 42 features** (7 × 6) soumis au classifier.
-
-> **Dictionnaires lexicaux** : trois listes de mots/expressions sont utilisées —
-> `FINALITY_WORDS` (35 entrées), `HOPE_WORDS` (24 entrées), `NEGATIVE_WORDS` (37 entrées).
-> Aucun embedding, aucune API externe.
+| Niveau | Couleur  | Label  | Description                                    | Mode LLM                          |
+|--------|----------|--------|------------------------------------------------|-----------------------------------|
+| 0      | 🟢 Vert   | verte  | Conversation normale, jeune en bonne forme     | Standard bienveillant             |
+| 1      | 🟡 Jaune  | jaune  | Signes préoccupants, fatigue, solitude         | Validation émotionnelle renforcée |
+| 2      | 🟠 Orange | orange | Détresse significative, pensées négatives      | Soutien actif + ressources        |
+| 3      | 🔴 Rouge  | rouge  | Crise potentielle, pensées de finalité         | Crise — orientation urgente       |
 
 ---
 
-### 2. Classifier — `ddec/classifier.py`
+### Modules
 
-#### Pipeline sklearn
+#### 1. Feature Extractor — `ddec/feature_extractor.py`
 
-```
-StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)
-```
+Cœur analytique du système. Extrait **7 features de base** par message utilisateur. Les **dictionnaires lexicaux** contiennent désormais des termes français **et** anglais : `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`.
 
-La normalisation par `StandardScaler` est essentielle car les features sont d'échelles très différentes (longueur en dizaines de mots vs scores en 0-1).
+#### Features de trajectoire (42 features → entrée du classifier)
 
-#### Règles de sécurité (override lexical)
+Pour chaque feature de base, 6 statistiques de trajectoire (mean, std, slope, last, max, min).
 
-Le classifier applique **deux niveaux de règles prioritaires** avant et après la prédiction ML :
+#### 2. Classifier — `ddec/classifier.py`
 
-**Avant la prédiction (contexte insuffisant < 3 messages) :**
-- Si un mot critique est détecté (`mourir`, `suicide`, `en finir`…) → niveau minimum **Orange** (0.70 de confiance)
-- Si 2+ mots de détresse sont détectés (`pleure`, `vide`, `seul`…) → niveau minimum **Jaune** (0.65)
-- Sinon → **Vert** mode sécuritaire (0.80)
+Pipeline : `StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)`
 
-**Après la prédiction ML (3+ messages) :**
-- Un `niveau_minimum` est calculé à partir du texte complet (même logique mots critiques/détresse)
-- La prédiction ML ne peut **jamais descendre sous ce niveau minimum** : `predicted = max(ml_pred, niveau_minimum)`
-- Si la confiance du ML est < 0.45, retourne **Jaune** par défaut (principe de précaution)
+Règles de sécurité prioritaires (override lexical) avant et après la prédiction ML. Les **noms lisibles des features** sont disponibles en français et en anglais, sélectionnables via le paramètre `lang`.
 
-#### Interprétabilité
+#### 3. Response Modulator — `ddec/response_modulator.py`
 
-Les **5 features dominantes** sont calculées à chaque prédiction par le score composite :
+Quatre prompts système distincts, disponibles en **français et en anglais**, injectés dans le LLM en fonction du niveau d'alerte et de la langue de l'interface.
 
-```
-composite_i = feature_importance_i × |valeur_scalée_i|
-```
+- **Niveau 0** : assistant bienveillant, questions ouvertes
+- **Niveau 1** : validation émotionnelle prioritaire, écoute active
+- **Niveau 2** : espace sécurisé, ressources (Jeunesse J'écoute : 1-800-668-6868)
+- **Niveau 3** : protocole de crise — valider la souffrance, évaluer la sécurité, orienter
 
-Un dictionnaire de noms lisibles (`_FEATURE_DISPLAY_NAMES`) traduit les noms techniques en signaux compréhensibles (ex. `score_finalite_slope` → "Tendance hausse finalité").
+Hiérarchie LLM : `claude-haiku → mistral → llama3.2:1b → fallback statique`
 
----
+#### 4. Session Tracker — `ddec/session_tracker.py`
 
-### 3. Response Modulator — `ddec/response_modulator.py`
+Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `trend`, `consecutive_high_sessions` et `recommendation` sur les 7 dernières sessions.
 
-#### Prompts système adaptatifs
+#### 5. Interface Streamlit — `app.py`
 
-Quatre prompts système distincts sont injectés dans le LLM en fonction du niveau d'alerte :
-
-- **Niveau 0** : assistant bienveillant, questions ouvertes, registre positif
-- **Niveau 1** : validation émotionnelle prioritaire, une question à la fois, écoute active
-- **Niveau 2** : espace sécurisé, ressources mentionnées naturellement (Jeunesse J'écoute : 1-800-668-6868)
-- **Niveau 3** : protocole de crise — valider la souffrance, évaluer la sécurité, orienter vers 911/ressources immédiates
-
-#### Hiérarchie de LLM avec fallback automatique
-
-```
-claude-haiku (Anthropic API) → mistral (Ollama local) → llama3.2:1b (Ollama local) → fallback statique
-```
-
-L'utilisateur peut forcer un modèle spécifique depuis l'interface. Si le modèle choisi est indisponible, le fallback statique répond `"Je suis là pour t'écouter. Peux-tu me dire comment tu te sens ?"`.
-
-| Modèle             | Requis          | Indicateur |
-|--------------------|-----------------|------------|
-| `claude-haiku`     | `ANTHROPIC_API_KEY` | 🟣         |
-| `mistral`          | Ollama local    | 🔵         |
-| `llama3.2:1b`      | Ollama local    | ⚪         |
-| `fallback-statique`| Aucun           | ⚠️         |
+Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tête : bascule entre 🇫🇷 Français et 🇬🇧 English. L'interface complète, les prompts système et les réponses LLM basculent vers la langue choisie.
 
 ---
 
-### 4. Session Tracker — `ddec/session_tracker.py`
+### Support bilingue
 
-Module de **surveillance longitudinale inter-sessions** utilisant SQLite (inclus dans Python, zéro dépendance externe).
-
-#### Schéma de base de données (`data/ddec_sessions.db`)
-
-**Table `sessions`** : une ligne par session de chat
-```sql
-id, user_id, session_id (UUID4), started_at, ended_at, max_alert_level, message_count
-```
-
-**Table `alert_events`** : un enregistrement par message analysé
-```sql
-id, user_id, session_id, timestamp, alert_level, confidence, trigger_message (500 chars max)
-```
-
-#### Analyse de risque longitudinal
-
-Sur les 7 dernières sessions complétées, calcule :
-
-- **`risk_score`** : moyenne pondérée des niveaux max (sessions récentes = poids plus élevé), normalisée sur [0, 1]
-- **`trend`** : tendance calculée en comparant la moyenne des 3 dernières sessions aux 3 précédentes
-  - `improving` : baisse > 0.3
-  - `worsening` : hausse > 0.3
-  - `stable` : sinon
-- **`consecutive_high_sessions`** : nombre de sessions consécutives récentes avec niveau ≥ Orange
-- **`recommendation`** : action suggérée au professionnel de santé
-
-| Seuil                                    | Recommandation                          |
-|------------------------------------------|-----------------------------------------|
-| consecutive_high ≥ 3 **ou** score > 0.8  | Intervention prioritaire recommandée    |
-| score > 0.6                              | Consultation professionnelle suggérée   |
-| score > 0.3                              | Attention soutenue recommandée          |
-| sinon                                    | Suivi normal                            |
+| Couche                  | Anglais                              | Français                              |
+|-------------------------|--------------------------------------|---------------------------------------|
+| Interface web           | Complète (bouton dans l'en-tête)     | Complète (langue par défaut)          |
+| Prompts système LLM     | 4 niveaux                            | 4 niveaux                             |
+| Analyse lexicale        | Mots EN dans les lexiques            | Mots FR dans les lexiques             |
+| Noms des features       | Via paramètre `lang="en"`            | Via paramètre `lang="fr"`             |
+| Données synthétiques    | Drapeau `--lang en`                  | Drapeau `--lang fr` (défaut)          |
+| Simulation d'historique | Drapeau `--lang en`                  | Drapeau `--lang fr` (défaut)          |
 
 ---
 
-### 5. Interface Streamlit — `app.py`
+### Données synthétiques
 
-Interface en deux colonnes avec mise à jour en temps réel après chaque message.
+**`data/synthetic_conversations.json`** — 24 conversations initiales (6 par classe) en français québécois authentique.
 
-#### Colonne gauche : Chat
-
-- Bulles de conversation avec CSS personnalisé (style iMessage)
-- Zone de saisie via `st.form` (soumission sur Entrée)
-- Analyse DDEC déclenchée **avant** la génération de la réponse LLM
-
-#### Colonne droite : Dashboard DDEC
-
-| Composant                   | Description                                                                       |
-|-----------------------------|-----------------------------------------------------------------------------------|
-| **Jauge circulaire**        | Indicateur Plotly 0-3 avec barre de confiance                                     |
-| **Barres de probabilité**   | Probabilités par classe (verte/jaune/orange/rouge) avec code couleur              |
-| **Signaux actifs**          | Features dominantes affichées en pills colorés                                    |
-| **Évolution du niveau**     | Graphique ligne Plotly : historique des niveaux de la session courante            |
-| **Historique longitudinal** | Graphique barres par session + tendance + recommandation (données SQLite)         |
-| **Sélecteur LLM**           | 4 boutons pour choisir/forcer le modèle conversationnel                           |
-| **Prompt système actif**    | Description du mode courant + expander pour voir le prompt complet                |
-| **Stats de session**        | Compteurs : messages, échanges, pic d'alerte                                      |
-
----
-
-## Données synthétiques
-
-**`data/synthetic_conversations.json`** — 24 conversations initiales (6 par classe).
-
-Chaque conversation contient 24 messages (12 user + 12 assistant), en français québécois authentique, générées via `generate_synthetic_data.py` à partir de Claude Haiku.
-
-### Archetypes de génération
-
-| Archetype | Caractéristiques                                                                                              |
-|-----------|---------------------------------------------------------------------------------------------------------------|
-| `verte`   | Projets futurs, humour, amis/famille mentionnés, messages variés, émotions normales (stress d'examen)         |
-| `jaune`   | Fatigue persistante, solitude croissante, doutes sur soi, dérive graduelle sur 12 messages                    |
-| `orange`  | Sentiment de vide, pleurs, sentiment d'être un fardeau, messages de plus en plus courts, inutilité            |
-| `rouge`   | Désir de disparaître, isolement total, ton de finalité, messages courts et intenses, plus de projets          |
-
-### Génération de données supplémentaires
+#### Génération de données supplémentaires (FR et EN)
 
 ```bash
-export ANTHROPIC_API_KEY="sk-..."
-python generate_synthetic_data.py   # génère 80 conversations supplémentaires (20 par classe)
-```
+export ANTHROPIC_API_KEY="sk-ant-..."
 
-Le script gère les erreurs JSON et le rate limiting automatiquement, avec jusqu'à 25 tentatives par classe.
+# 80 conversations en français (20 par classe)
+python generate_synthetic_data.py --lang fr --count 20
+
+# 80 conversations en anglais (20 par classe)
+python generate_synthetic_data.py --lang en --count 20
+```
 
 ---
 
-## Installation
-
-### Prérequis
-
-- Python 3.9+
-- (Optionnel) Ollama pour les LLM locaux : https://ollama.ai
-
-### Étapes
+### Installation
 
 ```bash
 # 1. Cloner le dépôt
@@ -305,34 +544,31 @@ streamlit run app.py
 
 ---
 
-## Utilisation
-
-### Entraînement
+### Utilisation
 
 ```bash
+# Entraîner le classifieur
 python train.py
-```
 
-Affiche :
-- Validation croisée stratifiée (k=4 folds)
-- Rapport de classification et matrice de confusion
-- Top 10 des features les plus importantes
-- Sauvegarde dans `models/ddec_model.joblib`
-- Test de rechargement avec une conversation de crise
-
-### Interface web
-
-```bash
+# Lancer l'interface web bilingue
 streamlit run app.py
+
+# Simuler l'historique pour la démo (français)
+python simulate_history.py --lang fr
+
+# Simuler l'historique pour la démo (anglais)
+python simulate_history.py --lang en
+
+# Générer des données synthétiques supplémentaires
+python generate_synthetic_data.py --lang fr --count 20
+python generate_synthetic_data.py --lang en --count 20
 ```
 
-Ouvre `http://localhost:8501`. Pour démarrer une nouvelle session de surveillance, cliquer sur **Réinitialiser** (la session courante est clôturée en base avant le reset).
+Ouvre `http://localhost:8501`. Utiliser le bouton de langue (🇫🇷 / 🇬🇧) dans l'en-tête pour basculer. Cliquer sur **Réinitialiser / Reset** pour démarrer une nouvelle session de surveillance.
 
 ---
 
-## Métriques
-
-Résultats sur le dataset initial de 24 conversations :
+### Métriques
 
 | Métrique                  | Valeur                 |
 |---------------------------|------------------------|
@@ -342,28 +578,27 @@ Résultats sur le dataset initial de 24 conversations :
 | Top feature               | `longueur_mots_std`    |
 | 2e feature                | `score_negatif_mean`   |
 
-> **Note** : le dataset de 24 conversations est trop petit pour des métriques fiables. L'utilisation de `generate_synthetic_data.py` pour générer ~100 conversations par classe améliore significativement la CV accuracy.
-
 ---
 
-## Structure du projet
+### Structure du projet
 
 ```
 ddec-hackathon/
-├── app.py                          # Interface Streamlit
-├── train.py                        # Script d'entraînement
-├── generate_synthetic_data.py      # Génération de données via Claude API
+├── app.py                          # Interface Streamlit bilingue
+├── train.py                        # Script d'entraînement (sortie bilingue)
+├── generate_synthetic_data.py      # Génération FR + EN via Claude API
+├── simulate_history.py             # Simulation d'historique FR + EN
 │
-├── ddec/                           # Package Python principal
-│   ├── __init__.py                 # Version (0.1.0)
-│   ├── feature_extractor.py        # Extraction features lexicales + trajectoire
+├── ddec/
+│   ├── __init__.py
+│   ├── feature_extractor.py        # Extraction lexicale bilingue + trajectoire
 │   ├── classifier.py               # DDECClassifier (GradientBoosting + règles)
-│   ├── response_modulator.py       # Prompts adaptatifs + appels LLM
+│   ├── response_modulator.py       # Prompts adaptatifs FR + EN + appels LLM
 │   └── session_tracker.py          # Suivi inter-sessions SQLite
 │
 ├── data/
-│   ├── synthetic_conversations.json  # Dataset d'entraînement
-│   └── ddec_sessions.db             # Base de données SQLite (créée auto)
+│   ├── synthetic_conversations.json  # Dataset FR (+EN générable)
+│   └── ddec_sessions.db             # Base SQLite (créée automatiquement)
 │
 └── models/
     └── ddec_model.joblib            # Modèle entraîné (créé par train.py)
@@ -371,23 +606,24 @@ ddec-hackathon/
 
 ---
 
-## Limites connues et pistes d'amélioration
+### Limites connues et pistes d'amélioration
 
 | Limite                                                              | Piste d'amélioration                                             |
 |---------------------------------------------------------------------|------------------------------------------------------------------|
-| Dataset de 24 conversations — overfitting élevé                    | Générer 100+ conversations par classe avec `generate_synthetic_data.py` |
+| Dataset de 24 conversations — overfitting élevé                    | Générer 100+ conversations par classe                            |
 | Features de trajectoire peu fiables avant 3-4 messages             | Règles de sécurité lexicales déjà actives pour les premiers messages |
 | Un seul `user_id` "demo_user" dans l'interface de démo             | Ajouter un système d'authentification léger                      |
-| Lexiques en français uniquement                                     | Étendre au français québécois/joual et à l'anglais               |
+| Modèle ML entraîné uniquement sur données françaises               | Réentraîner sur un dataset FR+EN combiné                         |
 | Aucune validation clinique des seuils                              | Collaboration avec professionnels en santé mentale               |
 | LLM non fine-tuné pour le contexte de crise                        | Fine-tuning sur conversations d'intervenants certifiés           |
 
 ---
 
-## Ressources d'urgence (Canada)
+### Ressources d'urgence
 
 > Ces ressources sont intégrées dans les prompts de niveau Orange et Rouge.
 
 - **Jeunesse J'écoute** : 1-800-668-6868 (24h/24, gratuit, confidentiel) — texto : 686868
-- **Urgences** : 911
-- **Médecin de famille / service de soutien scolaire**
+- **Kids Help Phone** : 1-800-668-6868
+- **Urgences / Emergency** : 911
+- **Médecin de famille / school counselling service**
