@@ -59,14 +59,14 @@ ARCHETYPES_FR = {
 
 # ── Archetypes — English / Anglais ───────────────────────────────────────────
 ARCHETYPES_EN = {
-    "verte": {
+    "green": {
         "label": 0,
         "description": """A young person (16-22) who is generally doing well.
         Characteristics: asks questions, makes future plans, mentions friends/family,
         uses humour, messages vary in length, expresses normal emotions
         (exam stress, passing tiredness), responds positively to suggestions.""",
     },
-    "jaune": {
+    "yellow": {
         "label": 1,
         "description": """A young person showing concerning but non-urgent signs.
         Characteristics: persistent fatigue, growing sense of loneliness,
@@ -82,7 +82,7 @@ ARCHETYPES_EN = {
         talks about feeling useless, mentions no one really understands,
         recurring negative thoughts. Clear drift but no explicit plan.""",
     },
-    "rouge": {
+    "red": {
         "label": 3,
         "description": """A young person in crisis requiring immediate intervention.
         Characteristics: expresses wanting to disappear, feeling like a burden to everyone,

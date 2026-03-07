@@ -52,8 +52,8 @@ User message
       ▼
 ┌─────────────────────────────────────────┐
 │  LAYER 1 — Lexical rules (priority)     │
-│  • 9 critical words  → Orange floor    │
-│  • 12 distress words → Yellow floor    │
+│  • 9 critical words  → Orange floor     │
+│  • 12 distress words → Yellow floor     │
 │  Works in FR and EN (bilingual lexicons)│
 └──────────────────┬──────────────────────┘
                    │
@@ -196,7 +196,7 @@ Message utilisateur
 │  COUCHE 1 — Règles lexicales (priorité) │
 │  • 9 mots critiques  → plancher Orange  │
 │  • 12 mots de détresse → plancher Jaune │
-│  Fonctionne en FR et EN (lexiques bilng) │
+│  Fonctionne en FR et EN (lexiques bilng)│
 └──────────────────┬──────────────────────┘
                    │
                    ▼
