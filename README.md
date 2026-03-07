@@ -215,7 +215,7 @@ Two-column interface with real-time updates after each message.
 |------------------------|--------------------------------|---------------------------------|
 | Web UI                 | Full (toggle button in header) | Full (default)                  |
 | LLM system prompts     | All 4 levels                   | All 4 levels                    |
-| Lexical analysis       | EN words in all lexicons        | FR words in all lexicons        |
+| Lexical analysis       | EN words in all lexicons       | FR words in all lexicons        |
 | Feature display names  | Via `lang="en"` parameter      | Via `lang="fr"` parameter       |
 | Synthetic data         | `--lang en` flag               | `--lang fr` (default)           |
 | History simulation     | `--lang en` flag               | `--lang fr` (default)           |
