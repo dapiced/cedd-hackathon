@@ -262,20 +262,25 @@ python generate_synthetic_data.py --lang en --count 20
 git clone <repo-url>
 cd cedd-hackathon
 
-# 2. Install dependencies
-pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+# 2. Create a Python env.
+cedd-hackathon$ python3 -m venv venv
+cedd-hackathon$ source venv/bin/activate
+(venv) /cedd-hackathon$ 
 
-# 3. (Optional) Configure Claude API key
+# 3. Install dependencies
+(venv) /cedd-hackathon$ pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+
+# 4. (Optional) Configure Claude API key
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 4. (Optional) Install Ollama models
+# 5. (Optional) Install Ollama models
 ollama pull mistral
 ollama pull llama3.2:1b
 
-# 5. Train the model
+# 6. Train the model
 python train.py
 
-# 6. Launch the interface
+# 7. Launch the interface
 streamlit run app.py
 ```
 
@@ -528,20 +533,25 @@ python generate_synthetic_data.py --lang en --count 20
 git clone <url-du-repo>
 cd cedd-hackathon
 
-# 2. Installer les dépendances
-pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+# 2. Creer a Python env.
+cedd-hackathon$ python3 -m venv venv
+cedd-hackathon$ source venv/bin/activate
+(venv) /cedd-hackathon$
 
-# 3. (Optionnel) Configurer la clé API Claude
+# 3. Installer les dépendances
+(venv) /cedd-hackathon$ pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+
+# 4. (Optionnel) Configurer la clé API Claude
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 4. (Optionnel) Installer les modèles Ollama
+# 5. (Optional) Installation Ollama models
 ollama pull mistral
 ollama pull llama3.2:1b
 
-# 5. Entraîner le modèle
+# 6. Entraîner le modèle
 python train.py
 
-# 6. Lancer l'interface
+# 7. Lancer l'interface
 streamlit run app.py
 ```
 
