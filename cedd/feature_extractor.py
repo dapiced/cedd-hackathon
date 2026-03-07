@@ -271,13 +271,13 @@ def extract_trajectory_features(features_array: np.ndarray) -> np.ndarray:
 # ── Feature name lists ────────────────────────────────────────────────────────
 
 FEATURE_NAMES = [
-    "longueur_mots",
-    "ratio_ponctuation",
-    "presence_question",
-    "score_negatif",
-    "score_finalite",
-    "score_espoir",
-    "delta_longueur",
+    "word_count",
+    "punctuation_ratio",
+    "question_presence",
+    "negative_score",
+    "finality_score",
+    "hope_score",
+    "length_delta",
 ]
 
 TRAJECTORY_FEATURE_NAMES = [

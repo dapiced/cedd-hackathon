@@ -23,7 +23,7 @@ from .feature_extractor import (
 
 # ML class labels (language-neutral internal keys)
 # Libellés des classes (clés internes indépendantes de la langue)
-LEVEL_LABELS = {0: "verte", 1: "jaune", 2: "orange", 3: "rouge"}
+LEVEL_LABELS = {0: "green", 1: "yellow", 2: "orange", 3: "red"}
 
 # ── Human-readable feature display names ─────────────────────────────────────
 
@@ -207,7 +207,7 @@ class CEDDClassifier:
             if score_urgence >= 1:
                 label_feat = "mot de crise détecté" if lang == "fr" else "crisis word detected"
                 return {
-                    "level": 3, "label": "rouge",
+                    "level": 3, "label": "red",
                     "confidence": 0.90,
                     "dominant_features": [label_feat],
                     "probabilities": {},
@@ -223,7 +223,7 @@ class CEDDClassifier:
             elif score_detresse >= 2:
                 label_feat = "mots de détresse détectés" if lang == "fr" else "distress words detected"
                 return {
-                    "level": 1, "label": "jaune",
+                    "level": 1, "label": "yellow",
                     "confidence": 0.65,
                     "dominant_features": [label_feat],
                     "probabilities": {},
@@ -235,7 +235,7 @@ class CEDDClassifier:
                     else "insufficient context — safe mode"
                 )
                 return {
-                    "level": 0, "label": "verte",
+                    "level": 0, "label": "green",
                     "confidence": 0.80,
                     "dominant_features": [label_feat],
                     "probabilities": {},
