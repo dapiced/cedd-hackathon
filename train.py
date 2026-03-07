@@ -20,7 +20,7 @@ from cedd.classifier import CEDDClassifier
 
 DATA_PATH   = "data/synthetic_conversations.json"
 MODEL_PATH  = "models/cedd_model.joblib"
-LABEL_NAMES = ["verte", "jaune", "orange", "rouge"]
+LABEL_NAMES = ["green", "yellow", "orange", "red"]
 
 
 def load_and_extract(data_path: str):
