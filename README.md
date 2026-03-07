@@ -2,6 +2,10 @@
 
 > **Mila Hackathon · AI Safety in Youth Mental Health · POC v1.0**
 
+| | |
+|---|---|
+| ![App preview 1](screenshots/capture1.jpg) | ![App preview 2](screenshots/capture2.jpg) |
+
 [🇬🇧 English](#english-documentation) | [🇫🇷 Français](#documentation-en-français)
 
 ---
