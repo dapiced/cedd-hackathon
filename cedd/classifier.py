@@ -29,34 +29,34 @@ LEVEL_LABELS = {0: "green", 1: "yellow", 2: "orange", 3: "red"}
 
 # French / Français
 _FEATURE_DISPLAY_NAMES_FR = {
-    "score_finalite_last":       "Mots de finalité récents",
-    "score_finalite_slope":      "Tendance hausse finalité",
-    "score_finalite_mean":       "Niveau moyen finalité",
-    "score_negatif_last":        "Sentiment négatif récent",
-    "score_negatif_slope":       "Tendance sentiment négatif",
-    "score_negatif_mean":        "Niveau moyen négatif",
-    "score_espoir_slope":        "Baisse espoir",
-    "score_espoir_last":         "Espoir résiduel (faible)",
-    "longueur_mots_slope":       "Raccourcissement messages",
-    "longueur_mots_last":        "Longueur dernier message",
-    "ratio_ponctuation_last":    "Ponctuation faible",
-    "delta_longueur_slope":      "Variation longueur",
+    "finality_score_last":    "Mots de finalité récents",
+    "finality_score_slope":   "Tendance hausse finalité",
+    "finality_score_mean":    "Niveau moyen finalité",
+    "negative_score_last":    "Sentiment négatif récent",
+    "negative_score_slope":   "Tendance sentiment négatif",
+    "negative_score_mean":    "Niveau moyen négatif",
+    "hope_score_slope":       "Baisse espoir",
+    "hope_score_last":        "Espoir résiduel (faible)",
+    "word_count_slope":       "Raccourcissement messages",
+    "word_count_last":        "Longueur dernier message",
+    "punctuation_ratio_last": "Ponctuation faible",
+    "length_delta_slope":     "Variation longueur",
 }
 
 # English / Anglais
 _FEATURE_DISPLAY_NAMES_EN = {
-    "score_finalite_last":       "Recent finality words",
-    "score_finalite_slope":      "Rising finality trend",
-    "score_finalite_mean":       "Average finality level",
-    "score_negatif_last":        "Recent negative sentiment",
-    "score_negatif_slope":       "Negative sentiment trend",
-    "score_negatif_mean":        "Average negativity level",
-    "score_espoir_slope":        "Declining hope",
-    "score_espoir_last":         "Residual hope (low)",
-    "longueur_mots_slope":       "Shortening messages",
-    "longueur_mots_last":        "Last message length",
-    "ratio_ponctuation_last":    "Low punctuation",
-    "delta_longueur_slope":      "Length variation trend",
+    "finality_score_last":    "Recent finality words",
+    "finality_score_slope":   "Rising finality trend",
+    "finality_score_mean":    "Average finality level",
+    "negative_score_last":    "Recent negative sentiment",
+    "negative_score_slope":   "Negative sentiment trend",
+    "negative_score_mean":    "Average negativity level",
+    "hope_score_slope":       "Declining hope",
+    "hope_score_last":        "Residual hope (low)",
+    "word_count_slope":       "Shortening messages",
+    "word_count_last":        "Last message length",
+    "punctuation_ratio_last": "Low punctuation",
+    "length_delta_slope":     "Length variation trend",
 }
 
 _FEATURE_DISPLAY_NAMES = {
@@ -166,15 +166,15 @@ class CEDDClassifier:
         display_names = _FEATURE_DISPLAY_NAMES.get(lang, _FEATURE_DISPLAY_NAMES_FR)
 
         # ── Rule 1: insufficient context (< 3 user messages) ─────────────────
-        # Règle 1 : contexte insuffisant (< 3 messages utilisateur)
+        # Règle 1 : context insuffisant (< 3 messages utilisateur)
         messages_user = [m for m in conversation_messages if m["role"] == "user"]
 
         if len(messages_user) < 3:
             # Not enough context for ML — apply safety lexical rules only
-            # Pas assez de contexte pour le ML — règles lexicales de sécurité uniquement
-            texte = " ".join([m["content"] for m in messages_user]).lower()
+            # Pas assez de context pour le ML — règles lexicales de sécurité uniquement
+            text = " ".join([m["content"] for m in messages_user]).lower()
 
-            mots_urgence = [
+            crisis_words = [
                 # FR crisis words
                 "mourir", "suicide", "me tuer", "veux mourir", "envie de mourir",
                 "arme", "pistolet", "fusil", "couteau", "me suicider", "me pendre",
@@ -183,7 +183,7 @@ class CEDDClassifier:
                 "gun", "weapon", "shoot", "shooting", "bullet", "knife", "pistol",
                 "rifle", "firearm", "hang myself", "overdose",
             ]
-            mots_critique = [
+            critical_words = [
                 # FR critical words
                 "disparaitre", "partir", "fardeau", "inutile", "plus envie",
                 "a quoi ca sert", "personne", "jamais mieux", "tout arreter",
@@ -191,7 +191,7 @@ class CEDDClassifier:
                 "disappear", "burden", "useless", "don't want to", "what's the point",
                 "no one", "never better", "stop everything",
             ]
-            mots_detresse = [
+            distress_words = [
                 # FR distress words
                 "pleure", "larmes", "coeur gros", "vide", "souffre", "seul",
                 "peine", "triste", "me sens mal", "ça va mal", "peur", "angoisse",
@@ -200,11 +200,11 @@ class CEDDClassifier:
                 "hurting", "sad", "feel bad", "things are bad", "scared", "anxious",
             ]
 
-            score_urgence = sum(1 for m in mots_urgence if m in texte)
-            score_critique = sum(1 for m in mots_critique if m in texte)
-            score_detresse = sum(1 for m in mots_detresse if m in texte)
+            crisis_score = sum(1 for m in crisis_words if m in text)
+            critical_score = sum(1 for m in critical_words if m in text)
+            distress_score = sum(1 for m in distress_words if m in text)
 
-            if score_urgence >= 1:
+            if crisis_score >= 1:
                 label_feat = "mot de crise détecté" if lang == "fr" else "crisis word detected"
                 return {
                     "level": 3, "label": "red",
@@ -212,7 +212,7 @@ class CEDDClassifier:
                     "dominant_features": [label_feat],
                     "probabilities": {},
                 }
-            if score_critique >= 1:
+            if critical_score >= 1:
                 label_feat = "mot critique détecté" if lang == "fr" else "critical word detected"
                 return {
                     "level": 2, "label": "orange",
@@ -220,7 +220,7 @@ class CEDDClassifier:
                     "dominant_features": [label_feat],
                     "probabilities": {},
                 }
-            elif score_detresse >= 2:
+            elif distress_score >= 2:
                 label_feat = "mots de détresse détectés" if lang == "fr" else "distress words detected"
                 return {
                     "level": 1, "label": "yellow",
@@ -230,7 +230,7 @@ class CEDDClassifier:
                 }
             else:
                 label_feat = (
-                    "contexte insuffisant — mode sécuritaire"
+                    "context insuffisant — mode sécuritaire"
                     if lang == "fr"
                     else "insufficient context — safe mode"
                 )
@@ -244,9 +244,9 @@ class CEDDClassifier:
         # ── Safety rules evaluated before ML ─────────────────────────────────
         # Règles de sécurité prioritaires (évaluées avant le ML)
         user_messages = [m["content"] for m in conversation_messages if m["role"] == "user"]
-        texte_complet = " ".join(user_messages).lower()
+        full_text = " ".join(user_messages).lower()
 
-        mots_urgence = [
+        crisis_words = [
             # FR crisis words
             "mourir", "suicide", "me tuer", "veux mourir", "envie de mourir",
             "arme", "pistolet", "fusil", "couteau", "me suicider", "me pendre",
@@ -255,7 +255,7 @@ class CEDDClassifier:
             "gun", "weapon", "shoot", "shooting", "bullet", "knife", "pistol",
             "rifle", "firearm", "hang myself", "overdose",
         ]
-        mots_detresse = [
+        distress_words = [
             # FR
             "pleure", "larmes", "triste", "me sens mal", "ça va mal",
             "souffre", "coeur gros", "vide", "peine", "seul",
@@ -265,7 +265,7 @@ class CEDDClassifier:
             "suffering", "heartbroken", "empty", "hurting", "alone",
             "tired", "scared", "anxious",
         ]
-        mots_critique = [
+        critical_words = [
             # FR
             "disparaitre", "partir", "fardeau", "inutile", "plus envie",
             "a quoi ca sert", "personne", "jamais mieux", "tout arreter",
@@ -274,50 +274,50 @@ class CEDDClassifier:
             "no one", "never better", "stop everything",
         ]
 
-        score_urgence = sum(1 for m in mots_urgence if m in texte_complet)
-        score_detresse = sum(1 for m in mots_detresse if m in texte_complet)
-        score_critique = sum(1 for m in mots_critique if m in texte_complet)
+        crisis_score = sum(1 for m in crisis_words if m in full_text)
+        distress_score = sum(1 for m in distress_words if m in full_text)
+        critical_score = sum(1 for m in critical_words if m in full_text)
 
-        if score_urgence >= 1:
-            niveau_minimum = 3  # minimum Rouge if crisis word detected
-        elif score_critique >= 1:
-            niveau_minimum = 2  # minimum Orange if critical word detected
-        elif score_detresse >= 2:
-            niveau_minimum = 1  # minimum Yellow if 2+ distress words
+        if crisis_score >= 1:
+            minimum_level = 3  # minimum Rouge if crisis word detected
+        elif critical_score >= 1:
+            minimum_level = 2  # minimum Orange if critical word detected
+        elif distress_score >= 2:
+            minimum_level = 1  # minimum Yellow if 2+ distress words
         else:
-            niveau_minimum = 0
+            minimum_level = 0
 
         # ── ML classification ─────────────────────────────────────────────────
         vector = self._messages_to_vector(conversation_messages)
         probas = self.predict_proba(vector)[0]
-        niveau_ml = int(np.argmax(probas))
-        confidence = float(probas[niveau_ml])
+        ml_level = int(np.argmax(probas))
+        confidence = float(probas[ml_level])
 
         # Confidence threshold: default to Yellow if too uncertain
         # Seuil de confiance : retourner Jaune si le classifieur n'est pas assez confiant
         if confidence < 0.45:
-            niveau_ml = 1  # yellow / jaune by default
-            confidence = float(probas[niveau_ml])
+            ml_level = 1  # yellow / jaune by default
+            confidence = float(probas[ml_level])
 
         # Short-conversation cap: ML trained on 12-msg conversations — with < 6 user
         # messages the trajectory features are too noisy to trust a RED prediction.
         # Cap it at Orange; RED via ML requires sufficient conversational context.
         # Also redistribute the capped probability so the display is consistent.
-        if len(messages_user) < 6 and niveau_ml > 2:
+        if len(messages_user) < 6 and ml_level > 2:
             # Move the red probability mass into orange
             probas = probas.copy()
             probas[2] += probas[3]
             probas[3] = 0.0
-            niveau_ml = 2
+            ml_level = 2
             confidence = float(probas[2])
 
         # ML level cannot go below the safety minimum
         # Le classifieur ML ne peut pas descendre sous le niveau minimum de sécurité
-        predicted_class = max(niveau_ml, niveau_minimum)
+        predicted_class = max(ml_level, minimum_level)
 
         # If safety rules raised the level above what ML predicted, the ML
         # probabilities are misleading — return empty so the override badge shows.
-        safety_override = predicted_class > niveau_ml
+        safety_override = predicted_class > ml_level
 
         # ── Dominant features: importance × scaled value ──────────────────────
         # Features dominantes : importance × valeur normalisée

@@ -100,13 +100,13 @@ Analytical core of the system. Extracts **7 base features** per user message:
 
 | Feature              | Description                                                                                           |
 |----------------------|-------------------------------------------------------------------------------------------------------|
-| `longueur_mots`      | Word count of the message                                                                             |
-| `ratio_ponctuation`  | Proportion of punctuation characters (`.`, `!`, `?`, `;`, `…`) over total characters                 |
-| `presence_question`  | Binary 0/1 indicator: does the message contain a `?`                                                  |
-| `score_negatif`      | Ratio of negative words/phrases over message length. Halved when a physical context is detected       |
-| `score_finalite`     | Ratio of finality/distress vocabulary (`disappear`, `end it`, `burden`, `what's the point`…)         |
-| `score_espoir`       | Ratio of hope/resources vocabulary (`tomorrow`, `try`, `family`, `heal`…)                            |
-| `delta_longueur`     | Relative length change vs previous message — detects progressive shortening                          |
+| `word_count`         | Word count of the message                                                                             |
+| `punctuation_ratio`  | Proportion of punctuation characters (`.`, `!`, `?`, `;`, `…`) over total characters                 |
+| `question_presence`  | Binary 0/1 indicator: does the message contain a `?`                                                  |
+| `negative_score`     | Ratio of negative words/phrases over message length. Halved when a physical context is detected       |
+| `finality_score`     | Ratio of finality/distress vocabulary (`disappear`, `end it`, `burden`, `what's the point`…)         |
+| `hope_score`         | Ratio of hope/resources vocabulary (`tomorrow`, `try`, `family`, `heal`…)                            |
+| `length_delta`       | Relative length change vs previous message — detects progressive shortening                          |
 
 **Bilingual lexicons**: `FINALITY_WORDS`, `HOPE_WORDS`, and `NEGATIVE_WORDS` each contain both French and English terms, enabling the system to analyse conversations in either language.
 
@@ -316,8 +316,8 @@ Results on the initial 24-conversation dataset:
 | Train accuracy            | 100% (expected overfitting) |
 | CV accuracy (k=4)         | 66.7% ± 26.4%             |
 | Number of features        | 42 (7 × 6 stats)          |
-| Top feature               | `longueur_mots_std`       |
-| 2nd feature               | `score_negatif_mean`      |
+| Top feature               | `word_count_std`          |
+| 2nd feature               | `negative_score_mean`     |
 
 > **Note**: 24 conversations is too small for reliable metrics. Running `generate_synthetic_data.py` to produce ~100 conversations per class significantly improves CV accuracy.
 
@@ -578,8 +578,8 @@ Ouvre `http://localhost:8501`. Utiliser le bouton de langue (🇫🇷 / 🇬🇧
 | Train accuracy            | 100% (overfitting attendu) |
 | CV accuracy (k=4)         | 66.7% ± 26.4%          |
 | Nombre de features        | 42 (7 × 6 stats)       |
-| Top feature               | `longueur_mots_std`    |
-| 2e feature                | `score_negatif_mean`   |
+| Top feature               | `word_count_std`       |
+| 2e feature                | `negative_score_mean`  |
 
 ---
 

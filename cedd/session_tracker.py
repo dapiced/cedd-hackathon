@@ -172,7 +172,7 @@ class SessionTracker:
                 "trend": "stable",
                 "consecutive_high_sessions": 0,
                 # Internal key — translated in the UI layer / Clé interne traduite dans l'UI
-                "recommendation": "Suivi normal",
+                "recommendation": "Normal monitoring",
                 "sessions_analyzed": 0,
             }
 
@@ -214,16 +214,16 @@ class SessionTracker:
         else:
             trend = "stable"
 
-        # Recommendation (internal French key — translated in the UI layer)
-        # Recommandation (clé interne en français, traduite dans l'interface)
+        # Recommendation (internal English key — translated in the UI layer)
+        # Recommandation (clé interne en anglais, traduite dans l'interface)
         if consecutive_high >= 3 or risk_score > 0.8:
-            recommendation = "Intervention prioritaire recommandée"
+            recommendation = "Priority intervention recommended"
         elif risk_score > 0.6:
-            recommendation = "Consultation professionnelle suggérée"
+            recommendation = "Professional consultation suggested"
         elif risk_score > 0.3:
-            recommendation = "Attention soutenue recommandée"
+            recommendation = "Sustained attention recommended"
         else:
-            recommendation = "Suivi normal"
+            recommendation = "Normal monitoring"
 
         return {
             "risk_score": round(risk_score, 3),

@@ -108,9 +108,9 @@ User message
 
 #### Top Discriminating Features
 
-1. **`longueur_mots_slope`** — Progressive shortening of messages is the most reliable signal
-2. **`score_negatif_mean`** — Accumulation of negative sentiment over the full conversation
-3. **`presence_question_slope`** — Disappearance of questions (loss of engagement with the future)
+1. **`word_count_slope`** — Progressive shortening of messages is the most reliable signal
+2. **`negative_score_mean`** — Accumulation of negative sentiment over the full conversation
+3. **`question_presence_slope`** — Disappearance of questions (loss of engagement with the future)
 
 > These features align precisely with clinical patterns documented in the literature on suicidal ideation and social withdrawal in youth.
 
@@ -250,9 +250,9 @@ Message utilisateur
 
 #### Top features discriminantes
 
-1. **`longueur_mots_slope`** — Le raccourcissement progressif des messages est le signal le plus fiable
-2. **`score_negatif_mean`** — L'accumulation de sentiment négatif sur toute la conversation
-3. **`presence_question_slope`** — La disparition des questions (perte d'engagement vers l'avenir)
+1. **`word_count_slope`** — Le raccourcissement progressif des messages est le signal le plus fiable
+2. **`negative_score_mean`** — L'accumulation de sentiment négatif sur toute la conversation
+3. **`question_presence_slope`** — La disparition des questions (perte d'engagement vers l'avenir)
 
 > Ces features correspondent exactement aux patterns cliniques documentés dans la littérature sur l'idéation suicidaire et l'isolement social chez les jeunes.
 

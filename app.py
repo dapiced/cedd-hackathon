@@ -236,7 +236,7 @@ STRINGS = {
         "level_labels":        {0: "VERT", 1: "JAUNE", 2: "ORANGE", 3: "ROUGE"},
         "gauge_ticks":         ["Vert", "Jaune", "Orange", "Rouge"],
         "proba_names": {
-            "verte": "Verte", "jaune": "Jaune", "orange": "Orange", "rouge": "Rouge"
+            "green": "Verte", "yellow": "Jaune", "orange": "Orange", "red": "Rouge"
         },
         # Internal recommendation keys from session_tracker (always French)
         # → mapped here for display / Clés internes → affichage traduit
@@ -283,7 +283,7 @@ STRINGS = {
         "level_labels":        {0: "GREEN", 1: "YELLOW", 2: "ORANGE", 3: "RED"},
         "gauge_ticks":         ["Green", "Yellow", "Orange", "Red"],
         "proba_names": {
-            "verte": "Green", "jaune": "Yellow", "orange": "Orange", "rouge": "Red"
+            "green": "Green", "yellow": "Yellow", "orange": "Orange", "red": "Red"
         },
         "rec_normal":       "Normal monitoring",
         "rec_attention":    "Sustained attention recommended",
@@ -293,13 +293,13 @@ STRINGS = {
     },
 }
 
-# Maps French recommendation strings (from session_tracker) to STRINGS keys
-# Mappe les recommandations françaises (session_tracker) vers les clés STRINGS
+# Maps English recommendation strings (from session_tracker) to STRINGS keys
+# Mappe les recommandations anglaises (session_tracker) vers les clés STRINGS
 _REC_KEY_MAP = {
-    "Suivi normal":                          "rec_normal",
-    "Attention soutenue recommandée":        "rec_attention",
-    "Consultation professionnelle suggérée": "rec_consultation",
-    "Intervention prioritaire recommandée":  "rec_intervention",
+    "Normal monitoring":                   "rec_normal",
+    "Sustained attention recommended":     "rec_attention",
+    "Professional consultation suggested": "rec_consultation",
+    "Priority intervention recommended":   "rec_intervention",
 }
 
 # ─── Page config ────────────────────────────────────────────────────────────────
@@ -387,7 +387,7 @@ def init_state():
         "messages":      [],
         "alert_history": [],
         "current_alert": {
-            "level": 0, "label": "verte", "confidence": 0.0,
+            "level": 0, "label": "green", "confidence": 0.0,
             "dominant_features": [], "probabilities": {},
         },
         "selected_llm":    "claude-haiku",
@@ -407,7 +407,7 @@ def reset_conversation():
     st.session_state.messages      = []
     st.session_state.alert_history = []
     st.session_state.current_alert = {
-        "level": 0, "label": "verte", "confidence": 0.0,
+        "level": 0, "label": "green", "confidence": 0.0,
         "dominant_features": [], "probabilities": {},
     }
     st.session_state.input_key += 1
@@ -503,7 +503,7 @@ def render_proba_bars(probabilities: dict, S: dict, level: int = 0):
         return
     st.markdown(S["proba_header"])
     for label_name, proba in probabilities.items():
-        level_num = {"verte": 0, "jaune": 1, "orange": 2, "rouge": 3}[label_name]
+        level_num = {"green": 0, "yellow": 1, "orange": 2, "red": 3}[label_name]
         color     = LEVEL_COLORS[level_num]
         emoji     = LEVEL_EMOJIS[level_num]
         bar_width = int(proba * 100)
