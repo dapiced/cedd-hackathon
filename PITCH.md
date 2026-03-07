@@ -87,7 +87,7 @@ User message
 └─────────────────────────────────────────┘
 ```
 
-**No data leaves the device if wanted.** The LLM runs locally via Ollama or via anthropic api key.
+**No data leaves the device if wanted** The LLM runs locally via Ollama or via anthropic api key.
 
 ---
 
