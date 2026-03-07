@@ -8,6 +8,18 @@
 
 ## What This Project Is
 
+## Hackathon Mission
+
+> **Your mission:** Identify vulnerabilities and engineer robust defences
+> —build the armour that keeps our youth safe—by diving deep into three
+> critical areas:
+>
+> - **Track 1:** Adversarial Stress-Testing
+> - **Track 2:** Logic Hardening
+> - **Track 3:** Synthetic Data Augmentation
+
+Judges evaluate on: **Safety**, **User Experience**, and **Data Quality**.
+
 CEDD is a **real-time safety layer** that sits beside a youth mental health chatbot (ages 16–22). It monitors the **trajectory** of emotional deterioration across an entire conversation — not just individual messages — and raises alerts when it detects drift toward distress.
 
 **Core insight:** A normal chatbot sees each message in isolation. CEDD watches *how messages evolve over time* (getting shorter, more negative, losing questions and hope words) and adapts the chatbot's response accordingly.
