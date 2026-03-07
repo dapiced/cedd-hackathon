@@ -8,3 +8,8 @@ plotly>=5.17.0
 anthropic>=0.84.0
 h5py>=3.16.0
 msgpack>=1.1.2
+### special vscode extension ###
+# sql lite viewer (for viewing .db files)
+# data file viewer (for viewing .joblib files) and run this
+# ==> /home/userx/.config/Code/User/globalStorage/thecalendre.data-file-viewer/python-venv/bin/python -m pip install scikit-learn pandas numpy joblib streamlit requests matplotlib plotly h5py msgpack
+
