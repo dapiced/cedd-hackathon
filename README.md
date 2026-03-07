@@ -49,8 +49,8 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│              Streamlit Interface (app.py) — FR / EN              │
-│  Chat  │  Alert gauge  │  Probas  │  Features  │  Longitudinal   │
+│              Streamlit Interface (app.py) — FR / EN             │
+│  Chat  │  Alert gauge  │  Probas  │  Features  │  Longitudinal  │
 └────────┬────────────────────────────────────────────────────────┘
          │ user messages
          ▼
@@ -61,14 +61,14 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
              │ 42D vector
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│   CEDDClassifier       │───────►│  Safety rules             │
-│  (GradientBoosting)    │        │  (lexical override)       │
+│   CEDDClassifier       │───────►│  Safety rules            │
+│  (GradientBoosting)    │        │  (lexical override)      │
 └────────────┬───────────┘        └──────────────────────────┘
              │ level 0-3 + confidence + top features
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│  Response Modulator    │───────►│  LLM (Claude / Mistral / │
-│  (adaptive prompt)     │        │  Llama / static fallback) │
+│  Response Modulator    │───────►│  LLM Claude / Mistral /  │
+│  (adaptive prompt)     │        │  Llama / without llm     │
 │  FR or EN system prompt│        └──────────────────────────┘
 └────────────────────────┘
              │
@@ -83,12 +83,12 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
 
 ### Alert Levels
 
-| Level | Color  | Label  | Description                                    | LLM Mode                         |
-|-------|--------|--------|------------------------------------------------|----------------------------------|
-| 0     | 🟢 Green  | verte  | Normal conversation, youth doing well          | Supportive standard              |
-| 1     | 🟡 Yellow | jaune  | Concerning signs, fatigue, loneliness          | Enhanced emotional validation    |
-| 2     | 🟠 Orange | orange | Significant distress, negative thoughts        | Active support + resources       |
-| 3     | 🔴 Red    | rouge  | Potential crisis, finality thoughts            | Crisis — urgent referral         |
+| Level | Color     | Label  | Description                                | LLM Mode                         |
+|-------|-----------|--------|--------------------------------------------|----------------------------------|
+| 0     | 🟢 Green  | green  | Normal conversation, youth doing well      | Supportive standard              |
+| 1     | 🟡 Yellow | yellow | Concerning signs, fatigue, loneliness      | Enhanced emotional validation    |
+| 2     | 🟠 Orange | orange | Significant distress, negative thoughts    | Active support + resources       |
+| 3     | 🔴 Red    | red    | Potential crisis, finality thoughts        | Crisis — urgent referral         |
 
 ---
 
@@ -162,15 +162,15 @@ StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **LLM hierarchy with automatic fallback:**
 ```
-claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local Ollama) → static fallback
+claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local Ollama) → without llm
 ```
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
-| `claude-haiku`     | `ANTHROPIC_API_KEY` | 🟣         |
-| `mistral`          | Local Ollama        | 🔵         |
-| `llama3.2:1b`      | Local Ollama        | ⚪         |
-| `fallback-statique`| None                | ⚠️         |
+| `claude-haiku`     | `ANTHROPIC_API_KEY` | 🟣        |
+| `mistral`          | Local Ollama        | 🔵        |
+| `llama3.2:1b`      | Local Ollama        | ⚪        |
+| `without llm`      | None                | ⚠️        |
 
 ---
 
@@ -411,7 +411,7 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │            Interface Streamlit (app.py) — FR / EN               │
-│  Chat  │  Jauge alerte  │  Probas  │  Features  │  Longitudinal  │
+│  Chat  │  Jauge alerte  │  Probas  │  Features  │  Longitudinal │
 └────────┬────────────────────────────────────────────────────────┘
          │ messages utilisateur
          ▼
@@ -422,14 +422,14 @@ La détection repose sur des features **purement lexicales et structurelles** (s
              │ vecteur 42D
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│   CEDDClassifier       │───────►│  Règles de sécurité       │
-│  (GradientBoosting)    │        │  (override lexical)       │
+│   CEDDClassifier       │───────►│  Règles de sécurité      │
+│  (GradientBoosting)    │        │  (override lexical)      │
 └────────────┬───────────┘        └──────────────────────────┘
              │ niveau 0-3 + confiance + features dominantes
              ▼
 ┌────────────────────────┐        ┌──────────────────────────┐
-│  Response Modulator    │───────►│  LLM (Claude / Mistral / │
-│  (prompt adaptatif)    │        │  Llama / fallback)        │
+│  Response Modulator    │───────►│  LLM Claude / Mistral /  │
+│  (prompt adaptatif)    │        │  Llama / sans llm        │
 │  Prompt FR ou EN       │        └──────────────────────────┘
 └────────────────────────┘
              │
@@ -478,7 +478,7 @@ Quatre prompts système distincts, disponibles en **français et en anglais**, i
 - **Niveau 2** : espace sécurisé, ressources (Jeunesse J'écoute : 1-800-668-6868)
 - **Niveau 3** : protocole de crise — valider la souffrance, évaluer la sécurité, orienter
 
-Hiérarchie LLM : `claude-haiku → mistral → llama3.2:1b → fallback statique`
+Hiérarchie LLM : `claude-haiku → mistral → llama3.2:1b → sans llm`
 
 #### 4. Session Tracker — `cedd/session_tracker.py`
 
