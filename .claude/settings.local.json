@@ -4,7 +4,14 @@
       "Bash(python:*)",
       "Bash(pkill:*)",
       "Bash(fuser:*)",
-      "Bash(streamlit run:*)"
+      "Bash(streamlit run:*)",
+      "Bash(sed:*)",
+      "Bash(mv:*)",
+      "Bash(.venv/bin/streamlit run:*)",
+      "Bash(source:*)",
+      "Bash(xargs ls -t)",
+      "Bash(find:*)",
+      "Bash(git:*)"
     ]
   }
 }
