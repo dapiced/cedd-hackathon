@@ -6,3 +6,5 @@ requests>=2.31.0
 matplotlib>=3.7.0
 plotly>=5.17.0
 anthropic>=0.84.0
+h5py>=3.16.0
+msgpack>=1.1.2
