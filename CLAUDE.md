@@ -379,31 +379,101 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 
 ## Planned Improvements (Prioritized for Hackathon Week)
 
+### Recommended Timeline
+
+| When | What | Why |
+|---|---|---|
+| **Before March 16** (pre-hackathon) | Sentence embeddings (Level 2) | Best effort/impact ratio. Impressive to explain to the jury. Shows the team we have a clear upgrade path. |
+| **March 16-19** (first half) | Claude quality annotator (Level 4) + Adversarial test suite + Negation handling (Level 1) | Data quality + robustness. Covers all 3 axes. |
+| **March 20-22** (second half) | Conversational coherence features + Cultural detection enhancements + Warm handoff | Polish, differentiation, UX. |
+| **March 23 morning** (deadline) | Final metrics comparison + report + presentation prep | Show before/after improvement honestly. |
+
+**Presentation strategy:** Show limitations honestly: *"75.8% with simple lexical features. Our next version uses multilingual embeddings — here are the preliminary results."*
+
 ### 🔴 High Priority — Do First
 
-| Improvement | What It Does | Effort | Impact | Axis |
+| Improvement | What It Does | Effort | Est. Gain | Axis |
 |---|---|---|---|---|
-| **Sentence embeddings** | Replace word counting with semantic vectors (`paraphrase-multilingual-MiniLM-L12-v2`). Catches synonyms, paraphrases, sarcasm. Biggest single improvement. | 2-3 hrs | Very High | Logic Hardening |
-| **Claude as quality annotator** | Use Claude API to score each synthetic conversation for ambiguity/realism, filter low-quality examples, generate targeted edge cases. | 2-3 hrs | Very High | Data Augmentation |
-| **Adversarial test suite** | Systematic red-teaming: sarcasm, code-switching, Québécois slang, negation patterns, minimization ("I'm fine"), somatization ("my chest hurts"). | 3-4 hrs | High | Stress-Testing |
+| **Sentence embeddings** | Replace word counting with semantic vectors. Catches synonyms, paraphrases, sarcasm that lexical counting misses entirely. Example: `"je pèse sur tout le monde"` → semantically close to `"fardeau"` without containing the exact word. | 2-3 hrs | **+8-12%** | Logic Hardening |
+| **Claude as quality annotator** | Use Claude API to score each synthetic conversation for ambiguity/realism, filter low-quality examples, generate targeted edge cases. Quality >> Quantity. | 2-3 hrs | **+15-20%** | Data Augmentation |
+| **Adversarial test suite** | Systematic red-teaming: sarcasm, code-switching, Québécois slang, negation patterns, minimization ("I'm fine"), somatization ("my chest hurts"). | 3-4 hrs | **+5-8%** | Stress-Testing |
+
+#### Code reference — Sentence embeddings (Level 2):
+```python
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+
+# "je pèse sur tout le monde"
+# → 384-dimension vector
+# → semantically close to "fardeau" even without the exact word
+# This is the single highest-impact change.
+```
+
+#### Code reference — Claude quality annotator (Level 4):
+```python
+# For each generated conversation, ask Claude:
+# "On a scale of 0-3, what is the distress level
+#  of this conversation? Justify in 2 sentences."
+#
+# Filter conversations where Claude hesitates
+# = keep only unambiguous examples
+# Quality >> Quantity
+```
 
 ### 🟠 Medium Priority — Do If Time Allows
 
-| Improvement | What It Does | Effort | Impact | Axis |
+| Improvement | What It Does | Effort | Est. Gain | Axis |
 |---|---|---|---|---|
-| **Negation handling** | Detect "je ne me sens pas bien" as negative. Regex patterns for FR/EN negation. | 1-2 hrs | Medium | Logic Hardening |
-| **Somatization flag** | When physical complaints co-occur with declining hope trajectory, escalate instead of reducing score. | 1-2 hrs | Medium | Logic Hardening |
-| **Identity-conflict lexicon** | Add 2SLGBTQ+ distress expressions ("my family won't accept me", "I can't be who I am"). | 1 hr | Medium | Data Augmentation |
-| **Silence/withdrawal detection** | Track message frequency, response delays, conversation abandonment as crisis signals. | 2-3 hrs | Medium | Logic Hardening |
-| **English training data** | Generate 120 English conversations to match the French set. | 1-2 hrs | Medium | Data Augmentation |
+| **Negation handling** | Detect `"je ne me sens pas bien"` as negative (currently scores 0). Regex patterns for FR/EN negation (`ne...pas`, `ne...plus`, `ne...jamais` + positive word = negative signal). | 1-2 hrs | **+5-8%** | Logic Hardening |
+| **Conversational coherence features** | Add 3 new features that track conversational engagement beyond lexical content. | 2-3 hrs | **+5-8%** | Logic Hardening |
+| **Somatization flag** | When physical complaints co-occur with declining hope trajectory, escalate instead of reducing score. | 1-2 hrs | **+2-4%** | Logic Hardening |
+| **Identity-conflict lexicon** | Add 2SLGBTQ+ distress expressions ("my family won't accept me", "I can't be who I am"). | 1 hr | **+2-3%** | Data Augmentation |
+| **Silence/withdrawal detection** | Track message frequency, response delays, conversation abandonment as crisis signals. | 2-3 hrs | **+3-5%** | Logic Hardening |
+| **English training data** | Generate 120 English conversations to match the French set. | 1-2 hrs | **+3-5%** | Data Augmentation |
+
+#### Code reference — Negation handling (Level 1):
+```python
+# Currently:
+# "je ne me sens pas bien" → negative_score = 0 (missed!)
+
+# Improved:
+# Detect "ne ... pas + positive word" = negative signal
+negation_patterns_fr = [
+    r"ne\s+\w+\s+pas",    # ne ... pas
+    r"ne\s+\w+\s+plus",   # ne ... plus
+    r"ne\s+\w+\s+jamais",  # ne ... jamais
+    r"plus\s+envie",       # plus envie
+]
+negation_patterns_en = [
+    r"don'?t\s+feel\s+(good|well|better|ok)",
+    r"can'?t\s+(cope|go on|take it|do this)",
+    r"no\s+(hope|point|reason|future)",
+    r"never\s+(get better|be happy|feel ok)",
+]
+```
+
+#### Code reference — Conversational coherence features:
+```python
+# 3 new features to add to feature_extractor.py:
+
+# 1. Short response ratio — messages < 5 words = disengagement signal
+short_response_ratio = sum(1 for m in user_msgs if len(m.split()) < 5) / len(user_msgs)
+
+# 2. Topic shift detection — abrupt subject changes indicate avoidance
+# (can use embedding cosine similarity between consecutive messages)
+
+# 3. Response timing proxy — if available, track time between messages
+# (faster responses when agitated, slower when withdrawing)
+```
 
 ### 🟡 Lower Priority — Nice to Have
 
-| Improvement | What It Does | Effort | Impact | Axis |
+| Improvement | What It Does | Effort | Est. Gain | Axis |
 |---|---|---|---|---|
-| **LSTM sequence model** | Replace GradientBoosting with a model that understands message order natively. | 3-4 hrs | High | Logic Hardening |
-| **Minimization detection** | Cross-reference "I'm fine" with contradicting behavioral signals. | 1-2 hrs | Low-Med | Logic Hardening |
-| **Burst vs sustained patterns** | Temporal smoothing to distinguish ADHD emotional bursts from sustained crisis. | 2-3 hrs | Low-Med | Logic Hardening |
+| **LSTM sequence model** | Replace GradientBoosting with a model that understands message order natively. Currently: model sees [mean, std, slope...] = summary statistics, loses ordering. LSTM sees [msg1 → msg2 → msg3...] = understands that msg4 is more concerning *because* it follows msg3. | 3-4 hrs | **+10-15%** | Logic Hardening |
+| **Minimization detection** | Cross-reference "I'm fine" with contradicting behavioral signals. | 1-2 hrs | **+1-3%** | Logic Hardening |
+| **Burst vs sustained patterns** | Temporal smoothing to distinguish ADHD emotional bursts from sustained crisis. | 2-3 hrs | **+1-3%** | Logic Hardening |
 | **Warm handoff prompt flow** | Implement the 5-step transition conversation flow for Red level. | 2-3 hrs | High (UX) | UX |
 
 ---
