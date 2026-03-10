@@ -201,29 +201,226 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **French-trained model** — English conversations not yet in training set
 - **No clinical validation** — thresholds are not validated by mental health professionals
 - **Single demo user** in the Streamlit UI (`demo_user`)
+- **No somatization awareness** — physical complaints ("my chest hurts") reduce negative scores via `PHYSICAL_CONTEXT_WORDS`, which may mask somatized emotional distress common in South Asian and East Asian cultural contexts
+- **No silence/withdrawal detection** — sudden drop in message frequency or conversation abandonment is not tracked as a potential crisis signal
+- **No identity-conflict lexicon** — expressions like "my family won't accept me" or "I can't be who I am" are not captured by current distress lexicons, missing 2SLGBTQ+ youth in crisis
 
 ---
 
-## Planned Improvements (Hackathon Week)
+## Testing & Validation Rules
 
-These are potential directions discussed pre-hackathon. The team decides together what to prioritize.
+**Every code change that touches the ML pipeline must be validated.** This is non-negotiable for a safety-critical application.
 
-### Axis 1 — Adversarial Stress-Testing
-- Systematic adversarial test cases: sarcasm, code-switching, Québécois slang, negation patterns
-- Test false positives ("j'ai mal au dos" vs "j'ai mal au coeur")
-- Test bypass attempts and edge cases
+### After modifying `feature_extractor.py`:
+```bash
+# 1. Verify training still works
+python train.py
+# 2. Check accuracy didn't drop (baseline: 75.8% ± 6%)
+# 3. Check top features still make clinical sense
+# 4. Run the app and test with a sample conversation
+streamlit run app.py
+```
 
-### Axis 2 — Logic Hardening
-- **Negation handling** in `feature_extractor.py` (e.g., "ne...pas + positive word" = negative signal)
-- **Sentence embeddings** (`paraphrase-multilingual-MiniLM-L12-v2`) to replace word counting with semantic similarity — biggest impact improvement
-- **Conversational coherence features** (response length ratio, topic shifts, response timing)
-- **LSTM** for true sequential modeling (messages as a time series instead of aggregated stats)
+### After modifying `classifier.py`:
+```bash
+# 1. Re-train and compare metrics
+python train.py
+# 2. CRITICAL: Test all 6 safety gates still function correctly
+#    - Gate 2: "je veux mourir" MUST trigger Orange/Red floor
+#    - Gate 4: Low confidence MUST default to Yellow
+#    - Gate 6: ML MUST NOT go below keyword safety floor
+# 3. Test edge cases:
+#    - Empty message → should not crash
+#    - Single message → should return Green (Gate 1)
+#    - 3 messages with crisis words → should trigger Red
+```
 
-### Axis 3 — Synthetic Data Augmentation
-- **Claude as quality annotator** — score each generated conversation for ambiguity/realism, filter low-quality examples
-- Generate targeted adversarial training examples
-- Add English Canadian conversations
-- Cultural and linguistic diversity (regional idioms, bilingual code-switching)
+### After modifying `response_modulator.py`:
+```bash
+# 1. Verify all 4 prompt levels still exist (FR + EN = 8 prompts)
+# 2. Verify Orange/Red prompts still contain KHP resources:
+#    - 1-800-668-6868
+#    - Text 686868
+#    - 911 for immediate danger
+# 3. Test LLM fallback chain: Claude → Ollama → static text
+```
+
+### After modifying `generate_synthetic_data.py` or training data:
+```bash
+# 1. Regenerate data
+python generate_synthetic_data.py
+# 2. Verify balanced distribution: 30 per class × 4 classes
+# 3. Retrain and compare accuracy to baseline
+python train.py
+# 4. Check for data leakage: no test conversations in training set
+```
+
+### Quick Smoke Test (run after ANY change):
+```bash
+# Must complete without errors
+python -c "
+from cedd.feature_extractor import extract_features, extract_trajectory_features
+from cedd.classifier import CEDDClassifier
+msgs = [{'role':'user','content':'I feel terrible'},{'role':'assistant','content':'I hear you'},{'role':'user','content':'Nothing matters anymore'},{'role':'assistant','content':'Tell me more'},{'role':'user','content':'I want to disappear'}]
+feats = extract_features(msgs)
+traj = extract_trajectory_features(feats)
+clf = CEDDClassifier()
+clf.load('models/cedd_model.joblib')
+level, conf, top = clf.get_alert_level(msgs)
+print(f'Level: {level}, Confidence: {conf:.2f}')
+assert level >= 2, f'SAFETY FAILURE: crisis message got level {level}'
+print('Smoke test PASSED')
+"
+```
+
+---
+
+## ML Modification Protocol
+
+### Rules for modifying the ML pipeline:
+
+1. **Never reduce safety** — Changes must not lower alert levels for known crisis scenarios. If in doubt, over-alert.
+
+2. **Benchmark before and after** — Before any ML change, record:
+   - Cross-validation accuracy (k=4)
+   - Per-class precision/recall (especially Red recall — must be > 80%)
+   - Top 5 features by importance
+   - Run the smoke test
+
+3. **Safety gates are sacred** — The 6-gate logic in `classifier.py` exists for clinical safety reasons. Do not simplify, remove, or weaken any gate without full team discussion.
+
+4. **New features must be explainable** — Every feature added to the extractor must have a clear clinical rationale. "Because it improved accuracy" is not sufficient for a mental health application. Document: *what does this feature measure, and why is it a signal of emotional drift?*
+
+5. **Lexicon changes require bilingual parity** — If you add a word to `FINALITY_WORDS` in English, add the French equivalent. If you add a French expression, add the English equivalent.
+
+6. **Embedding models are additive** — If sentence embeddings are added (e.g., `paraphrase-multilingual-MiniLM-L12-v2`), they must complement the existing lexical features, NOT replace them. The lexical layer is the explainability backbone.
+
+7. **Data generation changes require retrain** — Any change to `generate_synthetic_data.py` or manual edits to `synthetic_conversations.json` require a full retrain + metric comparison.
+
+8. **Model serialization** — Always save the trained model to `models/cedd_model.joblib` via `train.py`. Never commit a model trained outside the documented pipeline.
+
+---
+
+## Competitive Landscape & Positioning
+
+### CEDD vs EmoAgent (Princeton/Michigan, arXiv:2504.09689)
+
+EmoAgent is the closest academic reference. Key differences:
+
+| | CEDD | EmoAgent |
+|---|---|---|
+| Detection | Lexical + GradientBoosting (0ms, $0) | Multi-agent GPT-4o (slow, expensive) |
+| Explainability | Full (feature weights visible) | Black box |
+| Bilingual | FR + EN native | English only |
+| Cross-session | SQLite longitudinal tracking | Per-conversation only |
+| Clinical tools | 4-level alert system | PHQ-9, PDI, PANSS (validated) |
+
+**Our pitch:** "EmoAgent needs 4 GPT-4o calls per message. CEDD detects in 0ms with regex and GradientBoosting, and only calls the LLM to modulate the response. It's the difference between an IDS that deep-inspects all traffic vs a lightweight edge firewall."
+
+**What to borrow from EmoAgent:**
+- EmoEval-style virtual patients for adversarial testing (Track 1)
+- Simplified PHQ-9 as complementary metric
+- Critic agent architecture for warm handoff at Orange/Red
+
+### Competitive UX Audit (Amanda Wu, March 2026)
+
+Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across desirability, usability, and accessibility. Key finding from slide 5:
+
+**No platform currently offers:**
+- Canadian-specific crisis resources (Kids Help Phone) → CEDD does
+- French-language crisis detection → CEDD does
+- Subtle/coded distress detection → CEDD's trajectory analysis does
+- Warm handoff to human responder → CEDD's roadmap
+- Cross-session memory → CEDD does
+
+---
+
+## Canadian Multicultural Context
+
+**Critical for this hackathon:** Canada is the most diverse G7 country. Crisis detection trained only on Western English expressions will systematically fail the most vulnerable youth.
+
+### Cultural expression patterns that affect detection:
+
+| Cultural Group | How Distress Is Expressed | Impact on CEDD |
+|---|---|---|
+| **Indigenous** | Storytelling, substance references, holistic/spiritual framing | Standard lexicons miss indirect expressions |
+| **South Asian** | Somatization — "my chest hurts" = emotional pain | `PHYSICAL_CONTEXT_WORDS` may wrongly reduce scores |
+| **East Asian** | Withdrawal, silence, minimizing ("I'm fine") | Silence and flat affect = inverted crisis signals |
+| **Francophone** | French-language distress, diverse dialects | ✅ CEDD has native FR lexicons (advantage) |
+| **2SLGBTQ+** | Identity conflict, coded rejection language | Need identity-aware lexicon additions |
+| **Neurodivergent** | Literal language, shutdown, emotional bursts | Temporal patterns distinguish from sustained crisis |
+
+### Key stats (Kids Help Phone 2024):
+- **46%** of youth supported identified as 2SLGBTQ+
+- **10%** Indigenous (2x population proportion)
+- **75%** share something they've never told anyone else
+- Suicide contacts among youth **13 and under doubled** in 4 years
+
+---
+
+## Warm Handoff Architecture (Planned)
+
+The warm handoff replaces the industry standard "cold" referral (display a phone number, end conversation) with a **5-step accompanied transition**:
+
+1. **Empathetic acknowledgment** — Validate feelings, no hotline number yet
+2. **Permission-based transition** — Ask consent, frame as "upgrade" not rejection
+3. **Context bridge** — Generate anonymized summary (trajectory, signals, topics, language, session history) for KHP responder
+4. **Seamless connection** — Text-based (686868), same modality, no story repetition
+5. **Background monitoring + follow-up** — CEDD stays active, acknowledges returning users
+
+**Design principle:** Crisis detection is the *beginning* of a handoff process, not the end of the AI's job.
+
+**Research backing:**
+- 71% of youth prefer non-verbal communication (JMIR, May 2025)
+- 44% of 988 callers abandon before connecting (GSA/OES)
+- 20% seek suicide help via text vs 5% via phone in Ontario (CBC)
+
+---
+
+## Planned Improvements (Prioritized for Hackathon Week)
+
+### 🔴 High Priority — Do First
+
+| Improvement | What It Does | Effort | Impact | Axis |
+|---|---|---|---|---|
+| **Sentence embeddings** | Replace word counting with semantic vectors (`paraphrase-multilingual-MiniLM-L12-v2`). Catches synonyms, paraphrases, sarcasm. Biggest single improvement. | 2-3 hrs | Very High | Logic Hardening |
+| **Claude as quality annotator** | Use Claude API to score each synthetic conversation for ambiguity/realism, filter low-quality examples, generate targeted edge cases. | 2-3 hrs | Very High | Data Augmentation |
+| **Adversarial test suite** | Systematic red-teaming: sarcasm, code-switching, Québécois slang, negation patterns, minimization ("I'm fine"), somatization ("my chest hurts"). | 3-4 hrs | High | Stress-Testing |
+
+### 🟠 Medium Priority — Do If Time Allows
+
+| Improvement | What It Does | Effort | Impact | Axis |
+|---|---|---|---|---|
+| **Negation handling** | Detect "je ne me sens pas bien" as negative. Regex patterns for FR/EN negation. | 1-2 hrs | Medium | Logic Hardening |
+| **Somatization flag** | When physical complaints co-occur with declining hope trajectory, escalate instead of reducing score. | 1-2 hrs | Medium | Logic Hardening |
+| **Identity-conflict lexicon** | Add 2SLGBTQ+ distress expressions ("my family won't accept me", "I can't be who I am"). | 1 hr | Medium | Data Augmentation |
+| **Silence/withdrawal detection** | Track message frequency, response delays, conversation abandonment as crisis signals. | 2-3 hrs | Medium | Logic Hardening |
+| **English training data** | Generate 120 English conversations to match the French set. | 1-2 hrs | Medium | Data Augmentation |
+
+### 🟡 Lower Priority — Nice to Have
+
+| Improvement | What It Does | Effort | Impact | Axis |
+|---|---|---|---|---|
+| **LSTM sequence model** | Replace GradientBoosting with a model that understands message order natively. | 3-4 hrs | High | Logic Hardening |
+| **Minimization detection** | Cross-reference "I'm fine" with contradicting behavioral signals. | 1-2 hrs | Low-Med | Logic Hardening |
+| **Burst vs sustained patterns** | Temporal smoothing to distinguish ADHD emotional bursts from sustained crisis. | 2-3 hrs | Low-Med | Logic Hardening |
+| **Warm handoff prompt flow** | Implement the 5-step transition conversation flow for Red level. | 2-3 hrs | High (UX) | UX |
+
+---
+
+## Team Documents (Google Drive)
+
+The team shared folder contains research and design documents that inform the project direction:
+
+| Document | Author | Key Content |
+|---|---|---|
+| **Competitive-UX-Audit.pptx** | Amanda Wu | 6-platform comparison, slide 5 = feature gap table, desirability/usability/accessibility audit |
+| **Conversation-Journey-Map.pptx** | Amanda Wu | User journey mapping for crisis flow |
+| **404HarmNotFound_Report_Skeleton.docx** | Team | Hackathon report structure with Amanda's review comments |
+| **CEDD vs EmoAgent — Comparative Analysis** | Dominic/DomBot | Comparison with Princeton/Michigan academic paper |
+| **CEDD — Service Blueprint: Warm Handoff Architecture** | Dominic/DomBot | 5-step warm handoff design, before/after mockups, research evidence |
+| **KHP Statistics & Research Data** | Dominic/DomBot | Kids Help Phone stats, demographics, AI initiatives |
+| **Canadian Multicultural Context & Crisis Detection** | Dominic/DomBot | 6 cultural groups, expression patterns, detection gaps, proposed fixes |
 
 ---
 
@@ -272,6 +469,8 @@ streamlit run app.py
 - **Variable names**: English
 - **Lexicons**: bilingual dictionaries in `feature_extractor.py`
 - **Error handling**: LLM fallback chain (Claude → Ollama → static text)
+- **Git workflow**: Feature branches, PRs reviewed by at least one teammate, main branch protected
+- **No secrets in code**: API keys via environment variables only
 
 ---
 
@@ -285,6 +484,10 @@ streamlit run app.py
 6. **The team has 4 members with different expertise.** Code changes may need discussion. The repo is subject to change during the hackathon week.
 7. **Dominic (repo owner) is learning ML/DS.** When explaining code changes, explain the *why* — the ML concepts, algorithm choices, and hyperparameter reasoning.
 8. **`digest.txt` in the project files** is a complete 11-step pedagogical guide to the entire codebase. Consult it for detailed explanations of every component.
+9. **Run the smoke test after every change.** See "Testing & Validation Rules" section above.
+10. **Red recall is the most important metric.** Missing a crisis (false negative on Red) is the worst possible outcome. Optimize accordingly.
+11. **Cultural sensitivity matters.** See "Canadian Multicultural Context" section. Detection that only works for Western English speakers is not acceptable for this hackathon.
+12. **The warm handoff is a design goal, not yet implemented.** See "Warm Handoff Architecture" section. Don't implement it without team discussion.
 
 ---
 
@@ -296,4 +499,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 2026 — Pre-hackathon baseline*
+*Last updated: March 10, 2026 — Pre-hackathon v2*
