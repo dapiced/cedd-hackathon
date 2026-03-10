@@ -383,9 +383,9 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 
 | When | What | Why |
 |---|---|---|
-| **Before March 16** (pre-hackathon) | Sentence embeddings (Level 2) | Best effort/impact ratio. Impressive to explain to the jury. Shows the team we have a clear upgrade path. |
-| **March 16-19** (first half) | Claude quality annotator (Level 4) + Adversarial test suite + Negation handling (Level 1) | Data quality + robustness. Covers all 3 axes. |
-| **March 20-22** (second half) | Conversational coherence features + Cultural detection enhancements + Warm handoff | Polish, differentiation, UX. |
+| **March 16-23** (pre-hackathon) | Sentence embeddings (Level 2) | Best effort/impact ratio. Impressive to explain to the jury. Shows the team we have a clear upgrade path. |
+| **March 16-23** (first half) | Claude quality annotator (Level 4) + Adversarial test suite + Negation handling (Level 1) | Data quality + robustness. Covers all 3 axes. |
+| **March 16-23** (second half) | Conversational coherence features + Cultural detection enhancements + Warm handoff | Polish, differentiation, UX. |
 | **March 23 morning** (deadline) | Final metrics comparison + report + presentation prep | Show before/after improvement honestly. |
 
 **Presentation strategy:** Show limitations honestly: *"75.8% with simple lexical features. Our next version uses multilingual embeddings — here are the preliminary results."*
