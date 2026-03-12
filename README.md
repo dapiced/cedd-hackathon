@@ -25,6 +25,7 @@ CEDD is a real-time monitoring system designed to detect **progressive emotional
 - [Usage](#usage)
 - [Metrics](#metrics)
 - [Project Structure](#project-structure)
+- [Adversarial Testing](#adversarial-testing)
 - [Known Limitations & Future Work](#known-limitations--future-work)
 - [Emergency Resources](#emergency-resources)
 
@@ -424,7 +425,6 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 - **Family doctor / school counselling service**
 
 ---
----
 
 ## Documentation en Français
 
@@ -444,6 +444,7 @@ CEDD est un système de surveillance en temps réel conçu pour détecter une **
 - [Utilisation](#utilisation)
 - [Métriques](#métriques)
 - [Structure du projet](#structure-du-projet)
+- [Tests adversariaux](#tests-adversariaux)
 - [Limites connues et pistes d'amélioration](#limites-connues-et-pistes-damélioration)
 
 ---
@@ -673,6 +674,52 @@ cedd-hackathon/
 └── models/
     └── cedd_model.joblib            # Modèle entraîné (créé par train.py)
 ```
+
+---
+
+### Tests adversariaux
+
+Le répertoire `tests/` fournit une suite de tests systématiques pour valider la robustesse de CEDD face à des cas réels difficiles.
+
+#### Catégories de tests
+
+| Catégorie | Description | Nb |
+|---|---|---|
+| `false_positive_physical` | Plaintes physiques qui NE doivent PAS déclencher d'alerte (mal au dos, nausées) | 2 |
+| `sarcasm` | Langage sarcastique masquant une détresse réelle | 1 |
+| `negation` | Négation d'états positifs (`"je ne me sens pas bien"`) | 1 |
+| `code_switching` | Alternance français/anglais (franglais québécois) | 1 |
+| `quebecois_slang` | Expressions québécoises (`"chu pu capable"`, `"en criss"`) | 1 |
+| `gradual_drift_no_keywords` | Détérioration émotionnelle lente sans mots-clés de crise | 1 |
+| `direct_crisis` | Langage de crise explicite — **doit toujours être Rouge** | 1 |
+| `hidden_intent` | Idéation suicidaire indirecte présentée comme hypothétique | 1 |
+| `manipulation_downplay` | Détresse suivie de minimisation — ne doit PAS redescendre à Vert | 1 |
+
+#### Exécuter la suite
+
+```bash
+# Lancer tous les tests
+python tests/adversarial_suite.py
+
+# Sortie détaillée (probabilités + top features par test)
+python tests/adversarial_suite.py --verbose
+
+# Filtrer par catégorie
+python tests/adversarial_suite.py --category sarcasm
+
+# Exporter les résultats en JSON pour suivi
+python tests/adversarial_suite.py --export tests/results/run_001.json
+```
+
+#### Codes de sortie
+
+| Code | Signification |
+|---|---|
+| `0` | Tous les tests réussis |
+| `1` | Certains tests échoués (non critique) |
+| `2` | **Crise manquée** — crise prédite comme Vert/Jaune (régression de sécurité) |
+
+> **Référence (v1) :** 7/10 réussis · 0 crise manquée — voir `tests/results/baseline_v1.json`
 
 ---
 
