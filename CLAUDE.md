@@ -107,9 +107,9 @@ feature_extractor.py  →  10 features per message → 60 trajectory + 4 embeddi
          ↓
 classifier.py  →  6-gate decision logic → alert level (0-3)
          ↓
-response_modulator.py  →  adaptive system prompt → LLM response
+response_modulator.py  →  adaptive system prompt (+ 5-step warm handoff at Red) → LLM response
          ↓
-session_tracker.py  →  saves to SQLite for longitudinal tracking
+session_tracker.py  →  saves to SQLite for longitudinal tracking + withdrawal detection
 ```
 
 ---
@@ -241,7 +241,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Single demo user** in the Streamlit UI (`demo_user`)
 - **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
-- **No silence/withdrawal detection** — sudden drop in message frequency or conversation abandonment is not tracked as a potential crisis signal (though `short_response_ratio` catches within-conversation disengagement)
+- **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
 - **Sample-to-feature ratio below ideal** — 320 samples / 67 features = 4.8:1 ratio (ideal is 10:1)
 
 ---
@@ -459,8 +459,8 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Identity-conflict lexicon** | DONE | `identity_conflict_score` feature (#8): 2SLGBTQ+ distress expressions (FR+EN) | Logic Hardening |
 | ✅ **Somatization flag** | DONE | `somatization_score` feature (#9): physical+emotional co-occurrence. Removed blunt `score *= 0.5` dampening. | Logic Hardening |
 | ✅ **Conversational coherence** | DONE | 3 coherence features: `short_response_ratio`, `min_topic_coherence`, `question_response_ratio` | Logic Hardening |
-
-### 🟠 Remaining — If Time Allows
+| ✅ **Warm handoff prompt flow** | DONE | 5-step guided crisis transition: validation → permission → resources → encouragement → continued presence. Step-specific bilingual prompts, handoff progress UI, SQLite logging | UX |
+| ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -469,7 +469,6 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | **LSTM sequence model** | Replace GradientBoosting with a model that understands message order natively. Currently: model sees [mean, std, slope...] = summary statistics, loses ordering. LSTM sees [msg1 → msg2 → msg3...] = understands that msg4 is more concerning *because* it follows msg3. | 3-4 hrs | **+10-15%** | Logic Hardening |
 | **Minimization detection** | Cross-reference "I'm fine" with contradicting behavioral signals. | 1-2 hrs | **+1-3%** | Logic Hardening |
 | **Burst vs sustained patterns** | Temporal smoothing to distinguish ADHD emotional bursts from sustained crisis. | 2-3 hrs | **+1-3%** | Logic Hardening |
-| **Warm handoff prompt flow** | Implement the 5-step transition conversation flow for Red level. | 2-3 hrs | High (UX) | UX |
 
 ---
 
