@@ -153,7 +153,7 @@ class CEDDClassifier:
         Returns:
             dict with / dict avec :
               - level (int 0-3)
-              - label (str "verte"/"jaune"/"orange"/"rouge")  — ML internal key
+              - label (str "green"/"yellow"/"orange"/"red")  — ML internal key
               - confidence (float 0-1)
               - probabilities (dict level_label → proba)
               - dominant_features (list of str, in the requested language)
@@ -175,13 +175,19 @@ class CEDDClassifier:
             text = " ".join([m["content"] for m in messages_user]).lower()
 
             crisis_words = [
-                # FR crisis words
+                # FR crisis words / Mots de crise français
                 "mourir", "suicide", "me tuer", "veux mourir", "envie de mourir",
                 "arme", "pistolet", "fusil", "couteau", "me suicider", "me pendre",
-                # EN crisis words
+                "en finir", "en finir avec tout", "finir avec tout",
+                "mettre fin à mes jours", "mettre fin a mes jours",
+                "plus envie de vivre", "veux plus vivre",
+                # EN crisis words / Mots de crise anglais
                 "die", "kill myself", "want to die", "end my life",
                 "gun", "weapon", "shoot", "shooting", "bullet", "knife", "pistol",
                 "rifle", "firearm", "hang myself", "overdose",
+                "end it all", "end it tonight", "end it all tonight",
+                "not worth living", "take my life", "end my pain",
+                "want it to end", "make it stop forever",
             ]
             critical_words = [
                 # FR critical words
@@ -247,13 +253,19 @@ class CEDDClassifier:
         full_text = " ".join(user_messages).lower()
 
         crisis_words = [
-            # FR crisis words
+            # FR crisis words / Mots de crise français
             "mourir", "suicide", "me tuer", "veux mourir", "envie de mourir",
             "arme", "pistolet", "fusil", "couteau", "me suicider", "me pendre",
-            # EN crisis words
+            "en finir", "en finir avec tout", "finir avec tout",
+            "mettre fin à mes jours", "mettre fin a mes jours",
+            "plus envie de vivre", "veux plus vivre",
+            # EN crisis words / Mots de crise anglais
             "die", "kill myself", "want to die", "end my life",
             "gun", "weapon", "shoot", "shooting", "bullet", "knife", "pistol",
             "rifle", "firearm", "hang myself", "overdose",
+            "end it all", "end it tonight", "end it all tonight",
+            "not worth living", "take my life", "end my pain",
+            "want it to end", "make it stop forever",
         ]
         distress_words = [
             # FR
