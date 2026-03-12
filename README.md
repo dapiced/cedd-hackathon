@@ -1,13 +1,5 @@
 # 🧠 CEDD — Conversational Emotional Drift Detection
 
-> **Mila Hackathon · AI Safety in Youth Mental Health · POC v1.0**
-
-| | |
-|---|---|
-| ![App preview 1](screenshots/capture1.jpg) | ![App preview 2](screenshots/capture2.jpg) |
-
-[🇬🇧 English](#english-documentation) | [🇫🇷 Français](#documentation-en-français)
-
 ---
 
 ## English Documentation
@@ -348,6 +340,12 @@ cedd-hackathon/
 │   ├── response_modulator.py       # Adaptive prompts (FR + EN) + LLM calls
 │   └── session_tracker.py          # Cross-session SQLite tracking
 │
+├── tests/                          # Adversarial test suite / Suite de tests adversariaux
+│   ├── adversarial_suite.py        # Test runner with CLI (--verbose, --category, --export)
+│   ├── test_cases_adversarial.json # 10 adversarial test cases (FR + EN)
+│   └── results/
+│       └── baseline_v1.json        # Baseline snapshot: 7/10 passed, 0 critical misses
+│
 ├── data/
 │   ├── synthetic_conversations.json  # Training dataset (FR + EN)
 │   └── cedd_sessions.db             # SQLite database (auto-created)
@@ -355,6 +353,52 @@ cedd-hackathon/
 └── models/
     └── cedd_model.joblib            # Trained model (created by train.py)
 ```
+
+---
+
+### Adversarial Testing
+
+The `tests/` directory provides a systematic red-teaming suite to validate CEDD robustness against real-world edge cases.
+
+#### Test categories
+
+| Category | Description | Count |
+|---|---|---|
+| `false_positive_physical` | Physical complaints that should NOT trigger alerts (back pain, nausea) | 2 |
+| `sarcasm` | Sarcastic language masking real distress | 1 |
+| `negation` | Negation of positive states (`"je ne me sens pas bien"`) | 1 |
+| `code_switching` | French/English mixing (Québécois franglais) | 1 |
+| `quebecois_slang` | Québécois slang (`"chu pu capable"`, `"en criss"`) | 1 |
+| `gradual_drift_no_keywords` | Slow emotional deterioration with no crisis keywords | 1 |
+| `direct_crisis` | Explicit crisis language — **must always be Red** | 1 |
+| `hidden_intent` | Indirect suicidal ideation framed as hypothetical | 1 |
+| `manipulation_downplay` | Distress followed by minimisation — must NOT drop to Green | 1 |
+
+#### Running the suite
+
+```bash
+# Run all tests
+python tests/adversarial_suite.py
+
+# Verbose output (probabilities + top features per test)
+python tests/adversarial_suite.py --verbose
+
+# Filter by category
+python tests/adversarial_suite.py --category sarcasm
+
+# Export results to JSON for tracking
+python tests/adversarial_suite.py --export tests/results/run_001.json
+```
+
+#### Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | All tests passed |
+| `1` | Some tests failed (non-critical) |
+| `2` | **Critical miss** — crisis predicted as Green/Yellow (safety regression) |
+
+> **Baseline (v1):** 7/10 passed · 0 critical misses — see `tests/results/baseline_v1.json`
 
 ---
 
@@ -559,6 +603,9 @@ python train.py
 streamlit run app.py
 ```
 
+```powershell
+For Windows OS only See file setup-cedd-for-win.ps1
+```
 ---
 
 ### Utilisation
@@ -612,6 +659,12 @@ cedd-hackathon/
 │   ├── classifier.py               # CEDDClassifier (GradientBoosting + règles)
 │   ├── response_modulator.py       # Prompts adaptatifs FR + EN + appels LLM
 │   └── session_tracker.py          # Suivi inter-sessions SQLite
+│
+├── tests/                          # Suite de tests adversariaux
+│   ├── adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
+│   ├── test_cases_adversarial.json # 10 cas de test adversariaux (FR + EN)
+│   └── results/
+│       └── baseline_v1.json        # Référence : 7/10 réussis, 0 crise manquée
 │
 ├── data/
 │   ├── synthetic_conversations.json  # Dataset FR (+EN générable)

@@ -64,10 +64,13 @@ cedd-hackathon/
 ├── models/
 │   └── cedd_model.joblib            # Trained model (created by train.py)
 │
-├── screenshots/                     # App screenshots for README
-├── README.md                        # Full bilingual documentation
-├── PITCH.md                         # Pitch deck content
-└── explanation.md                   # Detailed technical walkthrough (11 steps)
+├── tests/                           # Adversarial test suite (Track 1 — Stress-Testing)
+│   ├── adversarial_suite.py         # CLI test runner: --verbose, --category, --export
+│   ├── test_cases_adversarial.json  # 10 adversarial cases across 7 categories (FR + EN)
+│   └── results/
+│       └── baseline_v1.json         # Baseline snapshot: 7/10 passed, 0 critical misses
+│
+└── README.md                        # Full bilingual documentation
 ```
 
 ---
@@ -272,6 +275,25 @@ assert level >= 2, f'SAFETY FAILURE: crisis message got level {level}'
 print('Smoke test PASSED')
 "
 ```
+
+### Adversarial Test Suite (run after any ML or classifier change):
+```bash
+# Run all 10 adversarial cases — exit code 2 = critical miss (safety regression)
+python tests/adversarial_suite.py
+
+# Verbose output with probabilities and top features
+python tests/adversarial_suite.py --verbose
+
+# Export results snapshot for comparison
+python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).json
+```
+
+**Test categories:** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
+`quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`
+
+**Baseline:** 7/10 passed · 0 critical misses (`tests/results/baseline_v1.json`)
+
+**Critical rule:** Exit code `2` means a crisis was predicted as Green or Yellow — this is a **safety regression** and blocks any merge.
 
 ---
 
@@ -553,8 +575,8 @@ streamlit run app.py
 5. **Bilingual is required.** Any new feature, prompt, or UI element must work in both French and English.
 6. **The team has 4 members with different expertise.** Code changes may need discussion. The repo is subject to change during the hackathon week.
 7. **Dominic (repo owner) is learning ML/DS.** When explaining code changes, explain the *why* — the ML concepts, algorithm choices, and hyperparameter reasoning.
-8. **`digest.txt` in the project files** is a complete 11-step pedagogical guide to the entire codebase. Consult it for detailed explanations of every component.
-9. **Run the smoke test after every change.** See "Testing & Validation Rules" section above.
+8. **Run the smoke test after every change.** See "Testing & Validation Rules" section above.
+9. **Run the adversarial suite after any ML or classifier change.** Exit code `2` = critical miss = safety regression. See `tests/adversarial_suite.py`.
 10. **Red recall is the most important metric.** Missing a crisis (false negative on Red) is the worst possible outcome. Optimize accordingly.
 11. **Cultural sensitivity matters.** See "Canadian Multicultural Context" section. Detection that only works for Western English speakers is not acceptable for this hackathon.
 12. **The warm handoff is a design goal, not yet implemented.** See "Warm Handoff Architecture" section. Don't implement it without team discussion.
