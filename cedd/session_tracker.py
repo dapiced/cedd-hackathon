@@ -42,6 +42,26 @@ CREATE TABLE IF NOT EXISTS alert_events (
 );
 """
 
+_CREATE_HANDOFF_EVENTS = """
+CREATE TABLE IF NOT EXISTS handoff_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     TEXT NOT NULL,
+    session_id  TEXT NOT NULL,
+    timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    step        INTEGER NOT NULL,
+    alert_level INTEGER NOT NULL
+);
+"""
+
+_CREATE_LAST_ACTIVITY = """
+CREATE TABLE IF NOT EXISTS last_activity (
+    user_id          TEXT PRIMARY KEY,
+    last_message_at  TIMESTAMP NOT NULL,
+    session_id       TEXT NOT NULL,
+    had_closing      INTEGER DEFAULT 0
+);
+"""
+
 
 class SessionTracker:
     """
@@ -66,6 +86,8 @@ class SessionTracker:
         with self._connect() as conn:
             conn.execute(_CREATE_SESSIONS)
             conn.execute(_CREATE_ALERT_EVENTS)
+            conn.execute(_CREATE_HANDOFF_EVENTS)
+            conn.execute(_CREATE_LAST_ACTIVITY)
             conn.commit()
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -108,6 +130,84 @@ class SessionTracker:
                 ),
             )
             conn.commit()
+
+    def log_handoff_step(
+        self,
+        user_id: str,
+        session_id: str,
+        step: int,
+        alert_level: int,
+    ):
+        """
+        Record a warm handoff step transition in handoff_events.
+        Enregistre une transition d'étape de transfert accompagné.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO handoff_events
+                   (user_id, session_id, timestamp, step, alert_level)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (user_id, session_id, datetime.now().isoformat(), step, alert_level),
+            )
+            conn.commit()
+
+    def update_last_activity(self, user_id: str, session_id: str):
+        """
+        Update the last activity timestamp for a user.
+        Met à jour le timestamp de dernière activité pour un utilisateur.
+        """
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO last_activity (user_id, last_message_at, session_id, had_closing)
+                   VALUES (?, ?, ?, 0)
+                   ON CONFLICT(user_id) DO UPDATE SET
+                       last_message_at = excluded.last_message_at,
+                       session_id = excluded.session_id""",
+                (user_id, datetime.now().isoformat(), session_id),
+            )
+            conn.commit()
+
+    def mark_session_closed(self, user_id: str):
+        """
+        Mark that the user explicitly closed/reset the session (not a withdrawal).
+        Marque que l'utilisateur a explicitement fermé la session (pas un abandon).
+        """
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE last_activity SET had_closing = 1 WHERE user_id = ?",
+                (user_id,),
+            )
+            conn.commit()
+
+    def check_withdrawal_risk(self, user_id: str, threshold_hours: float = 24.0) -> dict:
+        """
+        Check if a returning user may have abandoned a previous session.
+        Vérifie si un utilisateur de retour a peut-être abandonné une session précédente.
+
+        Returns:
+            dict with / dict avec :
+                is_withdrawal (bool): True if user left without closing + exceeded threshold
+                hours_since_last (float): hours since last message (0.0 if no history)
+                previous_session_id (str | None): session_id of the abandoned session
+        """
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT last_message_at, session_id, had_closing FROM last_activity WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+
+        if not row:
+            return {"is_withdrawal": False, "hours_since_last": 0.0, "previous_session_id": None}
+
+        last_msg_time = datetime.fromisoformat(row["last_message_at"])
+        hours_since = (datetime.now() - last_msg_time).total_seconds() / 3600
+        had_closing = bool(row["had_closing"])
+
+        return {
+            "is_withdrawal": hours_since >= threshold_hours and not had_closing,
+            "hours_since_last": round(hours_since, 1),
+            "previous_session_id": row["session_id"],
+        }
 
     def end_session(
         self,

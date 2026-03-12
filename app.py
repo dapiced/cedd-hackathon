@@ -16,6 +16,7 @@ from cedd.response_modulator import (
     get_llm_response,
     get_level_description,
     get_system_prompt,
+    get_handoff_description,
 )
 from cedd.session_tracker import SessionTracker
 
@@ -245,6 +246,10 @@ STRINGS = {
         "rec_consultation": "Consultation professionnelle suggérée",
         "rec_intervention": "Intervention prioritaire recommandée",
         "llm_fallback":     "Sans LLM",
+        "handoff_title":      "Transfert accompagné",
+        "handoff_step_label": "Étape {step}/5 : <b>{desc}</b>",
+        "withdrawal_banner":  "Bon retour. Ça fait un moment — comment tu te sens ?",
+        "withdrawal_badge":   "Retour après absence",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -290,6 +295,10 @@ STRINGS = {
         "rec_consultation": "Professional consultation suggested",
         "rec_intervention": "Priority intervention recommended",
         "llm_fallback":     "Without LLM",
+        "handoff_title":      "Warm Handoff",
+        "handoff_step_label": "Step {step}/5: <b>{desc}</b>",
+        "withdrawal_banner":  "Welcome back. It's been a while — how are you feeling?",
+        "withdrawal_badge":   "Returned after absence",
     },
 }
 
@@ -397,6 +406,8 @@ def init_state():
         "session_id":      None,
         "lang":            "en",   # default language / langue par défaut
         "theme":           "light",
+        "handoff_step":    0,      # 0 = not in handoff, 1-5 = warm handoff steps
+        "withdrawal_detected": False,  # True if user returned after extended absence
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -411,6 +422,8 @@ def reset_conversation():
         "dominant_features": [], "probabilities": {},
     }
     st.session_state.input_key += 1
+    st.session_state.handoff_step = 0
+    st.session_state.withdrawal_detected = False
 
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
@@ -661,6 +674,11 @@ def main():
     # Start a session if needed (first visit or after reset)
     # Démarrer une session si nécessaire (première visite ou après reset)
     if st.session_state.session_id is None:
+        # Check for withdrawal risk before starting new session
+        # Vérifier le risque d'abandon avant de démarrer une nouvelle session
+        withdrawal = tracker.check_withdrawal_risk(st.session_state.user_id)
+        if withdrawal["is_withdrawal"]:
+            st.session_state.withdrawal_detected = True
         st.session_state.session_id = tracker.start_session(st.session_state.user_id)
 
     # ── Header ─────────────────────────────────────────────────────────────────
@@ -693,6 +711,7 @@ def main():
                 st.session_state.user_id, st.session_state.session_id,
                 max_lvl, n_user,
             )
+            tracker.mark_session_closed(st.session_state.user_id)
             reset_conversation()
             st.session_state.session_id = None
             st.rerun()
@@ -705,6 +724,11 @@ def main():
     # ── LEFT: Chat interface / GAUCHE : Interface de chat ─────────────────────
     with col_chat:
         st.markdown(S["chat_header"])
+
+        # Withdrawal banner / Bannière de retour après absence
+        if st.session_state.withdrawal_detected and not st.session_state.messages:
+            st.info(S["withdrawal_banner"])
+
         render_chat(S)
 
         # Input form / Zone de saisie
@@ -737,6 +761,31 @@ def main():
                 user_msg,
             )
 
+            # Update last activity for withdrawal detection / MAJ activité pour détection d'abandon
+            tracker.update_last_activity(st.session_state.user_id, st.session_state.session_id)
+
+            # Warm handoff step management / Gestion des étapes de transfert accompagné
+            if alert["level"] == 3:
+                if st.session_state.handoff_step == 0:
+                    # First Red detection — start handoff at step 1
+                    # Première détection Rouge — démarrer le transfert à l'étape 1
+                    st.session_state.handoff_step = 1
+                elif st.session_state.handoff_step < 5:
+                    # Advance to next step / Avancer à l'étape suivante
+                    st.session_state.handoff_step += 1
+                # If already at step 5, stay at step 5 (continued presence)
+                # Si déjà à l'étape 5, rester à 5 (présence continue)
+
+                # Log handoff step / Enregistrer l'étape de transfert
+                tracker.log_handoff_step(
+                    st.session_state.user_id,
+                    st.session_state.session_id,
+                    st.session_state.handoff_step,
+                    alert["level"],
+                )
+            # If level drops below Red, keep handoff_step as-is (crisis may not be over)
+            # Si le niveau descend sous Rouge, garder handoff_step tel quel
+
             # Generate assistant response / Générer la réponse de l'assistant
             with st.spinner("..."):
                 result = get_llm_response(
@@ -744,6 +793,7 @@ def main():
                     alert["level"],
                     force_model=st.session_state.selected_llm,
                     lang=lang,
+                    handoff_step=st.session_state.handoff_step,
                 )
             st.session_state.last_llm_source = result["source"]
 
@@ -773,6 +823,12 @@ def main():
 
         # Active signals / Signaux actifs
         st.markdown(S["signals_header"])
+        if st.session_state.withdrawal_detected:
+            st.markdown(
+                f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
+                f'⏰ {S["withdrawal_badge"]}</span>',
+                unsafe_allow_html=True,
+            )
         render_dominant_features(alert.get("dominant_features", []), S)
 
         st.divider()
@@ -829,9 +885,31 @@ def main():
             unsafe_allow_html=True,
         )
 
+        # Warm handoff progress indicator / Indicateur de transfert accompagné
+        if st.session_state.handoff_step > 0:
+            step = st.session_state.handoff_step
+            step_desc = get_handoff_description(step, lang=lang)
+            progress = step / 5
+
+            step_colors = {1: "#e74c3c", 2: "#e67e22", 3: "#f1c40f", 4: "#27ae60", 5: "#2ecc71"}
+            step_color = step_colors.get(step, "#e74c3c")
+
+            handoff_title = S["handoff_title"]
+            handoff_label = S["handoff_step_label"].format(step=step, desc=step_desc)
+
+            st.markdown(f"**{handoff_title}**")
+            st.markdown(
+                f'<div style="background:{step_color}22;border-left:4px solid {step_color};'
+                f'padding:8px 12px;border-radius:4px;margin:4px 0;color:{text_color};">'
+                f'{handoff_label}</div>',
+                unsafe_allow_html=True,
+            )
+            st.progress(progress)
+            st.divider()
+
         # System prompt expander / Affichage du prompt
         with st.expander(S["prompt_expander"]):
-            st.code(get_system_prompt(level, lang=lang), language=None)
+            st.code(get_system_prompt(level, lang=lang, handoff_step=st.session_state.handoff_step), language=None)
 
         st.divider()
 
