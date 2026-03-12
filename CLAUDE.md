@@ -3,6 +3,7 @@
 > **CEDD — Conversational Emotional Drift Detection**
 > Hackathon Mila × Bell × Kids Help Phone · March 16–23, 2026
 > Team: **404HarmNotFound**
+> **Submission deadline: March 22, 8:00 PM EST** (code + report on GitHub)
 
 ---
 
@@ -591,12 +592,33 @@ streamlit run app.py
 
 ---
 
+## Hackathon Schedule
+
+| Date | Event |
+|------|-------|
+| **March 16, 8:30 AM–5:00 PM** | Opening conference + training (hybrid) |
+| **March 16, afternoon** | Technical credentials distributed (GitHub invitation + submission guidelines) |
+| **March 17–22** | Solutions development (virtual, autonomous) |
+| **March 22, 8:00 PM EST** | ⚠️ **DEADLINE** — Submit code + report to GitHub *(was March 23, 7 AM)* |
+| **March 23, 12:00 PM** | 18 finalist teams announced |
+| **March 23, 1:00–5:00 PM** | Final presentations *(was 1–4 PM)* |
+| **March 27, 12:00–1:00 PM** | Winners announced |
+
+**Communication:** Slack is the main hackathon channel. GitHub invitation and submission guidelines arrive Monday. Credentials distributed Monday PM.
+
+**Effective work window:** Monday evening March 16 → Saturday evening March 22 (~6 days).
+
+---
+
 ## Emergency Resources (Integrated in Orange/Red Prompts)
 
 - **Kids Help Phone**: 1-800-668-6868 (24/7, free, confidential) — text: 686868
+- **Suicide Crisis Helpline**: 9-8-8 (988.ca)
+- **Multi-Écoute**: 514-378-3430 (multiecoute.org)
+- **Tracom**: 514-483-3033 (tracom.ca)
 - **Emergency services**: 911
 - **Family doctor / school counselling service**
 
 ---
 
-*Last updated: March 12, 2026 — Pre-hackathon v3 (dataset 320, adversarial 10/10, bilingual)*
+*Last updated: March 12, 2026 — Schedule updated (deadline moved to March 22 at 8 PM)*
