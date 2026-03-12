@@ -1,10 +1,13 @@
-# 🧠 CEDD — Conversational Emotional Drift Detection
+# CEDD — Conversational Emotional Drift Detection
 
 ---
 
 ## English Documentation
 
-CEDD is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
+CEDD is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, sentence embeddings, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
+
+**Hackathon**: Mila x Bell x Jeunesse, J'ecoute (Kids Help Phone) — March 16–23, 2026
+**Team**: 404HarmNotFound
 
 ---
 
@@ -35,45 +38,47 @@ CEDD is a real-time monitoring system designed to detect **progressive emotional
 
 Emotional support chatbots for youth can, without a monitoring layer, fail to detect a user's gradual mental deterioration. CEDD adds an orthogonal analysis layer to the LLM: it monitors the **trajectory** of user messages (not just their instant content) to identify a drift toward distress.
 
-Detection relies on **purely lexical and structural features** (no LLM, no deep neural network), which ensures:
-- Zero inference latency,
-- Full explainability,
-- Offline operation.
+Detection relies on a hybrid approach:
+- **Lexical and structural features** (10 per-message features with bilingual lexicons) — zero latency, full explainability
+- **Multilingual sentence embeddings** (`paraphrase-multilingual-MiniLM-L12-v2`) — semantic understanding that catches synonyms, paraphrases, and sarcasm
+- **Conversational coherence features** — behavioral withdrawal patterns like short responses and topic avoidance
+- **GradientBoosting classifier** with 6-gate safety logic — safety rules that can never be overridden by ML
 
 ---
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│              Streamlit Interface (app.py) — FR / EN             │
-│  Chat  │  Alert gauge  │  Probas  │  Features  │  Longitudinal  │
-└────────┬────────────────────────────────────────────────────────┘
-         │ user messages
-         ▼
-┌────────────────────────┐
-│   Feature Extractor    │  ← 7 features/message → 42 trajectory features
-│  (numpy + regex, 0 LLM)│    Bilingual lexicons (FR + EN)
-└────────────┬───────────┘
-             │ 42D vector
-             ▼
-┌────────────────────────┐        ┌──────────────────────────┐
-│   CEDDClassifier       │───────►│  Safety rules            │
-│  (GradientBoosting)    │        │  (lexical override)      │
-└────────────┬───────────┘        └──────────────────────────┘
-             │ level 0-3 + confidence + top features
-             ▼
-┌────────────────────────┐        ┌──────────────────────────┐
-│  Response Modulator    │───────►│  LLM Claude / Mistral /  │
-│  (adaptive prompt)     │        │  Llama / without llm     │
-│  FR or EN system prompt│        └──────────────────────────┘
-└────────────────────────┘
-             │
-             ▼
-┌────────────────────────┐
-│   Session Tracker      │  ← SQLite, cross-session history
-│  (longitudinal SQLite) │
-└────────────────────────┘
++-----------------------------------------------------------------+
+|              Streamlit Interface (app.py) -- FR / EN             |
+|  Chat  |  Alert gauge  |  Probas  |  Features  |  Longitudinal  |
++--------+----------------------------------------------------+---+
+         | user messages
+         v
++------------------------+
+|   Feature Extractor    |  <- 10 features/message -> 67 trajectory features
+|  (numpy + regex +      |     Bilingual lexicons (FR + EN)
+|   sentence embeddings) |     + embedding drift + coherence
++------------+-----------+
+             | 67D vector
+             v
++------------------------+        +--------------------------+
+|   CEDDClassifier       |------->|  Safety rules            |
+|  (GradientBoosting)    |        |  (lexical override)      |
++------------+-----------+        +--------------------------+
+             | level 0-3 + confidence + top features
+             v
++------------------------+        +--------------------------+
+|  Response Modulator    |------->|  LLM Claude / Mistral /  |
+|  (adaptive prompt)     |        |  Llama / static fallback |
+|  FR or EN system prompt|        +--------------------------+
++------------------------+
+             |
+             v
++------------------------+
+|   Session Tracker      |  <- SQLite, cross-session history
+|  (longitudinal SQLite) |
++------------------------+
 ```
 
 ---
@@ -82,96 +87,138 @@ Detection relies on **purely lexical and structural features** (no LLM, no deep 
 
 | Level | Color     | Label  | Description                                | LLM Mode                         |
 |-------|-----------|--------|--------------------------------------------|----------------------------------|
-| 0     | 🟢 Green  | green  | Normal conversation, youth doing well      | Supportive standard              |
-| 1     | 🟡 Yellow | yellow | Concerning signs, fatigue, loneliness      | Enhanced emotional validation    |
-| 2     | 🟠 Orange | orange | Significant distress, negative thoughts    | Active support + resources       |
-| 3     | 🔴 Red    | red    | Potential crisis, finality thoughts        | Crisis — urgent referral         |
+| 0     | Green     | green  | Normal conversation, youth doing well      | Supportive standard              |
+| 1     | Yellow    | yellow | Concerning signs, fatigue, loneliness      | Enhanced emotional validation    |
+| 2     | Orange    | orange | Significant distress, negative thoughts    | Active support + resources       |
+| 3     | Red       | red    | Potential crisis, finality thoughts        | Crisis -- urgent referral        |
 
 ---
 
 ### Modules
 
-#### 1. Feature Extractor — `cedd/feature_extractor.py`
+#### 1. Feature Extractor -- `cedd/feature_extractor.py`
 
-Analytical core of the system. Extracts **7 base features** per user message:
+Analytical core of the system. Extracts **10 base features** per user message:
 
-| Feature              | Description                                                                                           |
-|----------------------|-------------------------------------------------------------------------------------------------------|
-| `word_count`         | Word count of the message                                                                             |
-| `punctuation_ratio`  | Proportion of punctuation characters (`.`, `!`, `?`, `;`, `…`) over total characters                 |
-| `question_presence`  | Binary 0/1 indicator: does the message contain a `?`                                                  |
-| `negative_score`     | Ratio of negative words/phrases over message length. Halved when a physical context is detected       |
-| `finality_score`     | Ratio of finality/distress vocabulary (`disappear`, `end it`, `burden`, `what's the point`…)         |
-| `hope_score`         | Ratio of hope/resources vocabulary (`tomorrow`, `try`, `family`, `heal`…)                            |
-| `length_delta`       | Relative length change vs previous message — detects progressive shortening                          |
+| # | Feature                  | Description                                                                                           |
+|---|--------------------------|-------------------------------------------------------------------------------------------------------|
+| 0 | `word_count`             | Word count of the message                                                                             |
+| 1 | `punctuation_ratio`      | Proportion of punctuation characters over total characters                                            |
+| 2 | `question_presence`      | Binary 0/1 indicator: does the message contain a `?`                                                  |
+| 3 | `negative_score`         | Ratio of negative words/phrases over message length                                                   |
+| 4 | `finality_score`         | Ratio of finality/distress vocabulary (`disappear`, `end it`, `burden`, `mourir`...)                 |
+| 5 | `hope_score`             | Ratio of hope/resources vocabulary (`tomorrow`, `try`, `family`, `demain`...)                        |
+| 6 | `length_delta`           | Relative length change vs previous message -- detects progressive shortening                          |
+| 7 | `negation_score`         | Detects negated positive states: `"je ne me sens pas bien"`, `"can't cope"`, `"no hope"`            |
+| 8 | `identity_conflict_score`| Detects 2SLGBTQ+ and cultural identity distress: `"my family won't accept me"`, `"je dois me cacher"` |
+| 9 | `somatization_score`     | Detects emotional distress co-occurring with physical complaints (pure physical = 0.0)                |
 
-**Bilingual lexicons**: `FINALITY_WORDS`, `HOPE_WORDS`, and `NEGATIVE_WORDS` each contain both French and English terms, enabling the system to analyse conversations in either language.
+**Bilingual lexicons** (all contain FR + EN terms):
+- `FINALITY_WORDS` -- crisis/ending language (36 terms)
+- `HOPE_WORDS` -- resilience/future (24 terms)
+- `NEGATIVE_WORDS` -- distress sentiment (40 terms)
+- `PHYSICAL_CONTEXT_WORDS` -- body-related complaints (14 terms)
+- `IDENTITY_CONFLICT_WORDS` -- 2SLGBTQ+ / cultural identity (13+ phrases)
+- `SOMATIZATION_EMOTIONAL_WORDS` -- emotional co-occurrence with physical (18 terms)
+- `NEGATION_PATTERNS_FR` / `NEGATION_PATTERNS_EN` -- regex patterns for negation structures
 
-#### Trajectory Features (42 total → classifier input)
+#### Trajectory Features (60 = 10 x 6 stats)
 
-For each base feature, 6 trajectory statistics computed over the full conversation:
+For each of the 10 base features, 6 trajectory statistics are computed over the full conversation:
 
 | Statistic | Description                                                        |
 |-----------|--------------------------------------------------------------------|
 | `_mean`   | Average across all messages                                        |
-| `_std`    | Standard deviation — measures variability                          |
-| `_slope`  | Normalised linear regression slope — captures the trend            |
-| `_last`   | Value of the last message — most recent state                      |
+| `_std`    | Standard deviation -- measures variability                         |
+| `_slope`  | Normalised linear regression slope -- captures the trend           |
+| `_last`   | Value of the last message -- most recent state                     |
 | `_max`    | Maximum observed in the conversation                               |
 | `_min`    | Minimum observed in the conversation                               |
 
+#### Embedding Features (4)
+
+Computed using `paraphrase-multilingual-MiniLM-L12-v2` (384-dim, lazy-loaded):
+
+| Feature              | Description                                                        |
+|----------------------|--------------------------------------------------------------------|
+| `embedding_drift`    | Mean cosine distance between consecutive user messages              |
+| `crisis_similarity`  | Cosine similarity of last message to a crisis language centroid     |
+| `embedding_slope`    | PCA->1D slope over message order (directional semantic drift)      |
+| `embedding_variance` | Mean pairwise cosine distance (overall conversation coherence)     |
+
+#### Coherence Features (3)
+
+Behavioral withdrawal patterns computed at conversation level:
+
+| Feature                   | Description                                                      |
+|---------------------------|------------------------------------------------------------------|
+| `short_response_ratio`    | Fraction of user messages with < 5 words (disengagement signal)  |
+| `min_topic_coherence`     | Min cosine similarity between consecutive user messages           |
+| `question_response_ratio` | Fraction of assistant questions followed by a responsive reply    |
+
+**Total features: 67** = 10 x 6 trajectory + 4 embedding + 3 coherence
+
 ---
 
-#### 2. Classifier — `cedd/classifier.py`
+#### 2. Classifier -- `cedd/classifier.py`
 
 **sklearn pipeline:**
 ```
-StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)
+StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 ```
+
+**6-Gate Safety Logic:**
+
+| Gate | Condition | Action |
+|------|-----------|--------|
+| 1 | < 3 user messages | Return Green (insufficient context) + keyword check only |
+| 2 | Crisis keyword detected (`suicide`, `gun`, `kill myself`, etc.) | Force Red (confidence 0.90) |
+| 3 | ML prediction | Run GradientBoosting on 67D feature vector |
+| 4 | ML confidence < 0.45 | Default to Yellow (precautionary principle) |
+| 5 | < 6 user messages | Cap ML at Orange max (trajectory features noisy on short convos) |
+| 6 | ML < safety minimum | Enforce safety floor: ML can never go below keyword-based level |
 
 **Safety rules (lexical override):**
 
 *Before ML (< 3 user messages):*
-- Crisis keyword detected (`gun`, `knife`, `suicide`, `kill myself`, `want to die`, etc.) → immediate **Red** (0.90)
-- Critical word detected → minimum **Orange** (0.70 confidence)
-- 2+ distress words → minimum **Yellow** (0.65)
-- Otherwise → **Green** safe mode (0.80)
+- Crisis keyword -> immediate **Red** (0.90 confidence)
+- Critical word -> minimum **Orange** (0.70)
+- 2+ distress words -> minimum **Yellow** (0.65)
+- Otherwise -> **Green** safe mode (0.80)
 
 *After ML (3+ messages):*
-- A `minimum_level` is computed from the full text (same keywords as above)
+- Same keyword scan sets a `minimum_level`
 - ML prediction can **never go below this minimum**: `predicted = max(ml_pred, minimum_level)`
-- If ML confidence < 0.45 → returns **Yellow** by default (precautionary principle)
-- **Short-conversation cap**: ML trained on 12-message conversations — for < 6 user messages, ML is capped at **Orange** max. Red via ML only fires with sufficient conversational context.
-- **Safety override display**: when safety rules raise the level above ML prediction, class probability bars are replaced by a "crisis word detected" badge to avoid misleading output.
+- **Safety override display**: when rules raise the level above ML, probability bars are replaced by a "crisis word detected" badge
 
-**Feature display names** are available in both French and English, selectable via the `lang` parameter.
+**Feature display names** are available in both French and English (30+ entries), selectable via the `lang` parameter.
 
 ---
 
-#### 3. Response Modulator — `cedd/response_modulator.py`
+#### 3. Response Modulator -- `cedd/response_modulator.py`
 
 **Adaptive system prompts** (French and English) injected into the LLM based on alert level:
 
 - **Level 0**: Warm supportive assistant, open questions, positive register
 - **Level 1**: Emotional validation priority, one question at a time, active listening
 - **Level 2**: Safe space, resources mentioned naturally (Kids Help Phone: 1-800-668-6868)
-- **Level 3**: Crisis protocol — validate suffering, assess safety, refer to 911/immediate resources
+- **Level 3**: Crisis protocol -- validate suffering, assess safety, refer to 911/immediate resources
 
 **LLM hierarchy with automatic fallback:**
 ```
-claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local Ollama) → without llm
+claude-haiku (Anthropic API) -> mistral (local Ollama) -> llama3.2:1b (local Ollama) -> static text
 ```
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
-| `claude-haiku`     | `ANTHROPIC_API_KEY` | 🟣        |
-| `mistral`          | Local Ollama        | 🔵        |
-| `llama3.2:1b`      | Local Ollama        | ⚪        |
-| `without llm`      | None                | ⚠️        |
+| `claude-haiku`     | `ANTHROPIC_API_KEY` | Purple    |
+| `mistral`          | Local Ollama        | Blue      |
+| `llama3.2:1b`      | Local Ollama        | White     |
+| `static fallback`  | None                | Warning   |
 
 ---
 
-#### 4. Session Tracker — `cedd/session_tracker.py`
+#### 4. Session Tracker -- `cedd/session_tracker.py`
 
 **Cross-session longitudinal monitoring** using SQLite.
 
@@ -182,16 +229,16 @@ claude-haiku (Anthropic API) → mistral (local Ollama) → llama3.2:1b (local O
 **Longitudinal risk analysis** over the last 7 sessions:
 - `risk_score`: weighted average of max levels (recent = higher weight), normalised to [0, 1]
 - `trend`: `improving` / `stable` / `worsening`
-- `consecutive_high_sessions`: consecutive recent sessions with level ≥ Orange
+- `consecutive_high_sessions`: consecutive recent sessions with level >= Orange
 - `recommendation`: action suggested to a healthcare professional
 
 ---
 
-#### 5. Streamlit Interface — `app.py`
+#### 5. Streamlit Interface -- `app.py`
 
 Two-column interface with real-time updates after each message.
 
-**Language toggle** in the header: switch between 🇬🇧 English and 🇫🇷 Français at any time. The UI, system prompts, and LLM responses all switch to the selected language.
+**Language toggle** in the header: switch between English and Francais at any time. The UI, system prompts, and LLM responses all switch to the selected language.
 
 | Component                  | Description                                                                |
 |----------------------------|----------------------------------------------------------------------------|
@@ -215,34 +262,35 @@ Two-column interface with real-time updates after each message.
 | Lexical analysis       | EN words in all lexicons       | FR words in all lexicons        |
 | Feature display names  | Via `lang="en"` parameter      | Via `lang="fr"` parameter       |
 | Synthetic data         | `--lang en` flag               | `--lang fr` (default)           |
-| History simulation     | `--lang en` flag               | `--lang fr` (default)           |
+| Training data          | 160 EN conversations           | 160 FR conversations            |
+| Adversarial tests      | 6 EN + mixed                   | 7 FR + mixed                    |
 
 ---
 
 ### Synthetic Dataset
 
-**`data/synthetic_conversations.json`** — 24 seed conversations (6 per class).
+**`data/synthetic_conversations.json`** -- 320 balanced bilingual conversations (40 per class x 4 classes x 2 languages).
 
-Each conversation contains 24 messages (12 user + 12 assistant), in authentic Canadian French, generated via `generate_synthetic_data.py` using Claude Haiku.
+Each conversation contains ~12 user + 12 assistant messages, generated via `generate_synthetic_data.py` using Claude Haiku in authentic Canadian French and English.
 
 #### Generation Archetypes
 
 | Archetype | Characteristics                                                                                           |
 |-----------|-----------------------------------------------------------------------------------------------------------|
-| `verte`   | Future projects, humour, friends/family mentioned, varied messages, normal emotions (exam stress)         |
-| `jaune`   | Persistent fatigue, growing loneliness, self-doubt, gradual drift over 12 messages                       |
+| `green`   | Future projects, humour, friends/family mentioned, varied messages, normal emotions (exam stress)         |
+| `yellow`  | Persistent fatigue, growing loneliness, self-doubt, gradual drift over 12 messages                       |
 | `orange`  | Feeling of emptiness, crying, feeling like a burden, shorter messages, sense of uselessness               |
-| `rouge`   | Desire to disappear, total isolation, tone of finality, short intense messages, no future plans           |
+| `red`     | Desire to disappear, total isolation, tone of finality, short intense messages, no future plans           |
 
 #### Generating Additional Data (FR and EN)
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Generate 80 French conversations (20 per class) / 80 conversations en français
+# Generate 80 French conversations (20 per class)
 python generate_synthetic_data.py --lang fr --count 20
 
-# Generate 80 English conversations (20 per class) / 80 conversations en anglais
+# Generate 80 English conversations (20 per class)
 python generate_synthetic_data.py --lang en --count 20
 ```
 
@@ -259,13 +307,12 @@ python generate_synthetic_data.py --lang en --count 20
 git clone <repo-url>
 cd cedd-hackathon
 
-# 2. Create a Python env.
-cedd-hackathon$ python3 -m venv venv
-cedd-hackathon$ source venv/bin/activate
-(venv) /cedd-hackathon$ 
+# 2. Create a Python env
+python3 -m venv venv
+source venv/bin/activate
 
 # 3. Install dependencies
-(venv) /cedd-hackathon$ pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+pip install -r requirements.txt
 
 # 4. (Optional) Configure Claude API key
 export ANTHROPIC_API_KEY="sk-ant-..."
@@ -292,36 +339,49 @@ python train.py
 # Launch the bilingual web interface
 streamlit run app.py
 
-# Simulate session history for demo (French)
-python simulate_history.py --lang fr
+# Simulate session history for demo
+python simulate_history.py --lang fr   # French
+python simulate_history.py --lang en   # English
 
-# Simulate session history for demo (English)
-python simulate_history.py --lang en
-
-# Generate additional French synthetic data
+# Generate additional synthetic data
 python generate_synthetic_data.py --lang fr --count 20
-
-# Generate additional English synthetic data
 python generate_synthetic_data.py --lang en --count 20
+
+# Run adversarial tests
+python tests/adversarial_suite.py --verbose
 ```
 
-Opens at `http://localhost:8501`. Use the language toggle (🇫🇷 / 🇬🇧) in the header to switch languages. Click **Reset / Réinitialiser** to start a new monitoring session.
+Opens at `http://localhost:8501`. Use the language toggle in the header to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
 
 ---
 
 ### Metrics
 
-Results on the initial 24-conversation dataset:
+Results on the 320-conversation balanced bilingual dataset:
 
-| Metric                    | Value                     |
-|---------------------------|---------------------------|
-| Train accuracy            | 100% (expected overfitting) |
-| CV accuracy (k=4)         | 66.7% ± 26.4%             |
-| Number of features        | 42 (7 × 6 stats)          |
-| Top feature               | `word_count_std`          |
-| 2nd feature               | `negative_score_mean`     |
+| Metric                    | Value                         |
+|---------------------------|-------------------------------|
+| CV accuracy (k=4)         | **92.5% +/- 1.5%**           |
+| Train accuracy            | 100% (expected overfitting)   |
+| Number of features        | **67** (10x6 + 4 emb + 3 coh)|
+| Training conversations    | **320** (40/class x FR + EN)  |
+| Top feature               | `word_count_slope` (0.391)    |
+| 2nd feature               | `word_count_max` (0.246)      |
+| 3rd feature               | `length_delta_mean` (0.103)   |
+| 4th feature               | `finality_score_mean` (0.103) |
+| Adversarial tests         | **13/13 passing**             |
+| Critical misses           | **0**                         |
+| Languages                 | French + English (bilingual)  |
 
-> **Note**: 24 conversations is too small for reliable metrics. Running `generate_synthetic_data.py` to produce ~100 conversations per class significantly improves CV accuracy.
+#### Metrics History
+
+| Date | Event | CV Accuracy | Adversarial |
+|------|-------|-------------|-------------|
+| March 10 | Baseline (24 FR convos, 42 features) | 66.7% +/- 26.4% | 7/10 |
+| March 12 | Data expansion (320 bilingual convos) | ~91.2% +/- 1.5% | 9/10 |
+| March 12 | Crisis keyword expansion | ~91.2% +/- 1.5% | 10/10 |
+| March 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
+| March 12 | +Identity + Somatization + Coherence (67 features) | **92.5% +/- 1.5%** | **13/13** |
 
 ---
 
@@ -329,30 +389,42 @@ Results on the initial 24-conversation dataset:
 
 ```
 cedd-hackathon/
-├── app.py                          # Bilingual Streamlit interface / Interface Streamlit bilingue
-├── train.py                        # Training script / Script d'entraînement
-├── generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
-├── simulate_history.py             # Demo history simulation (FR + EN)
-│
-├── cedd/                           # Main Python package
-│   ├── __init__.py
-│   ├── feature_extractor.py        # Bilingual lexical + trajectory feature extraction
-│   ├── classifier.py               # CEDDClassifier (GradientBoosting + rules)
-│   ├── response_modulator.py       # Adaptive prompts (FR + EN) + LLM calls
-│   └── session_tracker.py          # Cross-session SQLite tracking
-│
-├── tests/                          # Adversarial test suite / Suite de tests adversariaux
-│   ├── adversarial_suite.py        # Test runner with CLI (--verbose, --category, --export)
-│   ├── test_cases_adversarial.json # 10 adversarial test cases (FR + EN)
-│   └── results/
-│       └── baseline_v1.json        # Baseline snapshot: 7/10 passed, 0 critical misses
-│
-├── data/
-│   ├── synthetic_conversations.json  # Training dataset (FR + EN)
-│   └── cedd_sessions.db             # SQLite database (auto-created)
-│
-└── models/
-    └── cedd_model.joblib            # Trained model (created by train.py)
++-- app.py                          # Bilingual Streamlit interface
++-- train.py                        # Training: load -> cross-validate -> fit -> save
++-- generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
++-- simulate_history.py             # Demo history simulation (FR + EN)
++-- annotate_data.py                # Quality annotation tool (Claude-based)
++-- requirements.txt                # Python dependencies
+|
++-- cedd/                           # Main Python package
+|   +-- __init__.py
+|   +-- feature_extractor.py        # 10 features/msg + embeddings + coherence -> 67D
+|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 6-gate safety)
+|   +-- response_modulator.py       # Adaptive prompts (FR + EN) + LLM fallback chain
+|   +-- session_tracker.py          # Cross-session SQLite longitudinal tracking
+|
++-- tests/                          # Adversarial test suite (Track 1)
+|   +-- adversarial_suite.py        # CLI test runner (--verbose, --category, --export)
+|   +-- test_cases_adversarial.json # 13 adversarial test cases (FR + EN)
+|   +-- results/
+|       +-- baseline_v1.json        # Original: 7/10 passed
+|       +-- post_data_expansion.json# 320 convos: 9/10 passed
+|       +-- post_keyword_fix.json   # Crisis keywords: 10/10 passed
+|       +-- post_negation_embeddings.json  # +Negation +Embeddings
+|       +-- post_features_456.json  # Current: 13/13 passed, 0 critical misses
+|
++-- data/
+|   +-- synthetic_conversations.json  # 320 labeled conversations (balanced FR + EN)
+|   +-- annotated_conversations.json  # Quality-annotated subset
+|   +-- filtered_conversations.json   # Post-annotation filtered
+|   +-- cedd_sessions.db              # SQLite database (auto-created)
+|
++-- models/
+|   +-- cedd_model.joblib            # Trained model (created by train.py)
+|
++-- demo/
+    +-- demo_scenario.md             # FR demo: Felix, CEGEP, Green->Yellow->Orange
+    +-- demo_scenario_en.md          # EN demo: Alex, university, Green->Yellow->Orange
 ```
 
 ---
@@ -361,19 +433,21 @@ cedd-hackathon/
 
 The `tests/` directory provides a systematic red-teaming suite to validate CEDD robustness against real-world edge cases.
 
-#### Test categories
+#### Test categories (13 tests)
 
 | Category | Description | Count |
 |---|---|---|
 | `false_positive_physical` | Physical complaints that should NOT trigger alerts (back pain, nausea) | 2 |
 | `sarcasm` | Sarcastic language masking real distress | 1 |
 | `negation` | Negation of positive states (`"je ne me sens pas bien"`) | 1 |
-| `code_switching` | French/English mixing (Québécois franglais) | 1 |
-| `quebecois_slang` | Québécois slang (`"chu pu capable"`, `"en criss"`) | 1 |
+| `code_switching` | French/English mixing (Quebec franglais) | 1 |
+| `quebecois_slang` | Quebec slang (`"chu pu capable"`, `"en criss"`) | 1 |
 | `gradual_drift_no_keywords` | Slow emotional deterioration with no crisis keywords | 1 |
-| `direct_crisis` | Explicit crisis language — **must always be Red** | 1 |
+| `direct_crisis` | Explicit crisis language -- **must always be Red** | 1 |
 | `hidden_intent` | Indirect suicidal ideation framed as hypothetical | 1 |
-| `manipulation_downplay` | Distress followed by minimisation — must NOT drop to Green | 1 |
+| `manipulation_downplay` | Distress followed by minimisation -- must NOT drop to Green | 1 |
+| `somatization` | Physical pain + emotional decline (somatized distress) | 1 |
+| `identity_conflict` | 2SLGBTQ+ identity crisis and family rejection (EN + FR) | 2 |
 
 #### Running the suite
 
@@ -385,7 +459,7 @@ python tests/adversarial_suite.py
 python tests/adversarial_suite.py --verbose
 
 # Filter by category
-python tests/adversarial_suite.py --category sarcasm
+python tests/adversarial_suite.py --category identity_conflict
 
 # Export results to JSON for tracking
 python tests/adversarial_suite.py --export tests/results/run_001.json
@@ -397,9 +471,10 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 |---|---|
 | `0` | All tests passed |
 | `1` | Some tests failed (non-critical) |
-| `2` | **Critical miss** — crisis predicted as Green/Yellow (safety regression) |
+| `2` | **Critical miss** -- crisis predicted as Green/Yellow (safety regression, blocks merge) |
 
-> **Baseline (v1):** 7/10 passed · 0 critical misses — see `tests/results/baseline_v1.json`
+> **Current (v6):** 13/13 passed, 0 critical misses -- see `tests/results/post_features_456.json`
+> **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
 
 ---
 
@@ -407,12 +482,15 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 
 | Limitation                                                          | Potential Improvement                                               |
 |---------------------------------------------------------------------|---------------------------------------------------------------------|
-| 24-conversation dataset — high overfitting                         | Generate 100+ conversations per class with `generate_synthetic_data.py` |
-| ML unreliable for short conversations (< 6 messages)               | ML capped at Orange for < 6 messages; crisis keywords trigger Red instantly at any point |
-| Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
-| ML model trained on French data only                               | Retrain on combined FR+EN dataset                                   |
+| ML unreliable for short conversations (< 6 messages)               | ML capped at Orange for < 6 messages; crisis keywords trigger Red instantly |
 | No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
+| Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
+| Identity conflict detection is phrase-based, not contextual         | Fine-tune embeddings on identity-distress corpus                    |
+| No silence/withdrawal detection (message frequency)                 | Track inter-message timing as a crisis signal                       |
+| Somatization relies on word co-occurrence, not clinical reasoning   | Add validated somatization scales as complementary signal            |
+| 320 samples / 67 features ratio (4.8:1) below ideal 10:1           | Generate more synthetic data or reduce features via PCA             |
 | LLM not fine-tuned for crisis contexts                             | Fine-tune on certified counsellor conversations                     |
+| No warm handoff to human responder                                 | Implement 5-step warm handoff architecture                          |
 
 ---
 
@@ -420,78 +498,86 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 
 > Integrated into Orange and Red alert level prompts.
 
-- **Kids Help Phone**: 1-800-668-6868 (24/7, free, confidential) — text: 686868
+- **Kids Help Phone**: 1-800-668-6868 (24/7, free, confidential) -- text: 686868
+- **Suicide Crisis Helpline**: 9-8-8 (988.ca)
+- **Multi-Ecoute**: 514-378-3430 (multiecoute.org)
+- **Tracom**: 514-483-3033 (tracom.ca)
 - **Emergency services**: 911
 - **Family doctor / school counselling service**
 
 ---
 
-## Documentation en Français
+## Documentation en Francais
 
-CEDD est un système de surveillance en temps réel conçu pour détecter une **dérive émotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, machine learning et modulation adaptative du LLM pour offrir des réponses ajustées à l'état émotionnel détecté.
+CEDD est un systeme de surveillance en temps reel concu pour detecter une **derive emotionnelle progressive** chez des jeunes (16-22 ans) lors de conversations avec un chatbot de soutien. Il combine analyse lexicale, embeddings de phrases multilingues, machine learning et modulation adaptative du LLM pour offrir des reponses ajustees a l'etat emotionnel detecte.
+
+**Hackathon** : Mila x Bell x Jeunesse, J'ecoute -- 16-23 mars 2026
+**Equipe** : 404HarmNotFound
 
 ---
 
-### Table des matières
+### Table des matieres
 
 - [Contexte et motivation](#contexte-et-motivation)
 - [Architecture](#architecture-1)
 - [Niveaux d'alerte](#niveaux-dalerte)
 - [Modules](#modules-1)
 - [Support bilingue](#support-bilingue)
-- [Données synthétiques](#données-synthétiques)
+- [Donnees synthetiques](#donnees-synthetiques)
 - [Installation](#installation-1)
 - [Utilisation](#utilisation)
-- [Métriques](#métriques)
+- [Metriques](#metriques)
 - [Structure du projet](#structure-du-projet)
 - [Tests adversariaux](#tests-adversariaux)
-- [Limites connues et pistes d'amélioration](#limites-connues-et-pistes-damélioration)
+- [Limites connues et pistes d'amelioration](#limites-connues-et-pistes-damelioration)
 
 ---
 
 ### Contexte et motivation
 
-Les chatbots de soutien émotionnel pour les jeunes peuvent, sans système de surveillance, ne pas détecter une dégradation progressive de l'état mental de l'utilisateur. CEDD propose une couche d'analyse orthogonale au LLM : elle surveille la **trajectoire** des messages de l'utilisateur (pas uniquement leur contenu ponctuel) pour identifier un glissement vers la détresse.
+Les chatbots de soutien emotionnel pour les jeunes peuvent, sans systeme de surveillance, ne pas detecter une degradation progressive de l'etat mental de l'utilisateur. CEDD propose une couche d'analyse orthogonale au LLM : elle surveille la **trajectoire** des messages de l'utilisateur (pas uniquement leur contenu ponctuel) pour identifier un glissement vers la detresse.
 
-La détection repose sur des features **purement lexicales et structurelles** (sans LLM, sans réseau de neurones profond), ce qui garantit :
-- une latence nulle à l'inférence,
-- une complète explicabilité,
-- un fonctionnement hors-ligne.
+La detection repose sur une approche hybride :
+- **Features lexicales et structurelles** (10 features par message avec lexiques bilingues) -- latence nulle, explicabilite complete
+- **Embeddings de phrases multilingues** (`paraphrase-multilingual-MiniLM-L12-v2`) -- comprehension semantique qui detecte synonymes, paraphrases et sarcasme
+- **Features de coherence conversationnelle** -- patterns de retrait comportemental (reponses courtes, evitement thematique)
+- **Classifieur GradientBoosting** avec logique de securite a 6 portes -- les regles de securite ne peuvent jamais etre outrepassees par le ML
 
 ---
 
 ### Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│            Interface Streamlit (app.py) — FR / EN               │
-│  Chat  │  Jauge alerte  │  Probas  │  Features  │  Longitudinal │
-└────────┬────────────────────────────────────────────────────────┘
-         │ messages utilisateur
-         ▼
-┌────────────────────────┐
-│   Feature Extractor    │  ← 7 features/message → 42 features de trajectoire
-│  (numpy + regex, 0 LLM)│    Lexiques bilingues (FR + EN)
-└────────────┬───────────┘
-             │ vecteur 42D
-             ▼
-┌────────────────────────┐        ┌──────────────────────────┐
-│   CEDDClassifier       │───────►│  Règles de sécurité      │
-│  (GradientBoosting)    │        │  (override lexical)      │
-└────────────┬───────────┘        └──────────────────────────┘
-             │ niveau 0-3 + confiance + features dominantes
-             ▼
-┌────────────────────────┐        ┌──────────────────────────┐
-│  Response Modulator    │───────►│  LLM Claude / Mistral /  │
-│  (prompt adaptatif)    │        │  Llama / sans llm        │
-│  Prompt FR ou EN       │        └──────────────────────────┘
-└────────────────────────┘
-             │
-             ▼
-┌────────────────────────┐
-│   Session Tracker      │  ← SQLite, historique inter-sessions
-│  (longitudinal SQLite) │
-└────────────────────────┘
++-----------------------------------------------------------------+
+|            Interface Streamlit (app.py) -- FR / EN               |
+|  Chat  |  Jauge alerte  |  Probas  |  Features  |  Longitudinal |
++--------+----------------------------------------------------+---+
+         | messages utilisateur
+         v
++------------------------+
+|   Feature Extractor    |  <- 10 features/message -> 67 features de trajectoire
+|  (numpy + regex +      |     Lexiques bilingues (FR + EN)
+|   embeddings phrases)  |     + derive semantique + coherence
++------------+-----------+
+             | vecteur 67D
+             v
++------------------------+        +--------------------------+
+|   CEDDClassifier       |------->|  Regles de securite      |
+|  (GradientBoosting)    |        |  (override lexical)      |
++------------+-----------+        +--------------------------+
+             | niveau 0-3 + confiance + features dominantes
+             v
++------------------------+        +--------------------------+
+|  Response Modulator    |------->|  LLM Claude / Mistral /  |
+|  (prompt adaptatif)    |        |  Llama / sans llm        |
+|  Prompt FR ou EN       |        +--------------------------+
++------------------------+
+             |
+             v
++------------------------+
+|   Session Tracker      |  <- SQLite, historique inter-sessions
+|  (longitudinal SQLite) |
++------------------------+
 ```
 
 ---
@@ -500,73 +586,120 @@ La détection repose sur des features **purement lexicales et structurelles** (s
 
 | Niveau | Couleur  | Label  | Description                                    | Mode LLM                          |
 |--------|----------|--------|------------------------------------------------|-----------------------------------|
-| 0      | 🟢 Vert   | verte  | Conversation normale, jeune en bonne forme     | Standard bienveillant             |
-| 1      | 🟡 Jaune  | jaune  | Signes préoccupants, fatigue, solitude         | Validation émotionnelle renforcée |
-| 2      | 🟠 Orange | orange | Détresse significative, pensées négatives      | Soutien actif + ressources        |
-| 3      | 🔴 Rouge  | rouge  | Crise potentielle, pensées de finalité         | Crise — orientation urgente       |
+| 0      | Vert     | verte  | Conversation normale, jeune en bonne forme     | Standard bienveillant             |
+| 1      | Jaune    | jaune  | Signes preoccupants, fatigue, solitude         | Validation emotionnelle renforcee |
+| 2      | Orange   | orange | Detresse significative, pensees negatives      | Soutien actif + ressources        |
+| 3      | Rouge    | rouge  | Crise potentielle, pensees de finalite         | Crise -- orientation urgente      |
 
 ---
 
 ### Modules
 
-#### 1. Feature Extractor — `cedd/feature_extractor.py`
+#### 1. Feature Extractor -- `cedd/feature_extractor.py`
 
-Cœur analytique du système. Extrait **7 features de base** par message utilisateur. Les **dictionnaires lexicaux** contiennent désormais des termes français **et** anglais : `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`.
+Coeur analytique du systeme. Extrait **10 features de base** par message utilisateur :
 
-#### Features de trajectoire (42 features → entrée du classifier)
+| # | Feature | Description |
+|---|---------|-------------|
+| 0 | `word_count` | Nombre de mots du message |
+| 1 | `punctuation_ratio` | Ratio de ponctuation par rapport au total de caracteres |
+| 2 | `question_presence` | Indicateur binaire 0/1 : le message contient-il un `?` |
+| 3 | `negative_score` | Ratio de mots negatifs sur la longueur du message |
+| 4 | `finality_score` | Ratio de vocabulaire de finalite/detresse |
+| 5 | `hope_score` | Ratio de vocabulaire d'espoir/ressources |
+| 6 | `length_delta` | Variation relative de longueur vs message precedent |
+| 7 | `negation_score` | Detecte les negations d'etats positifs : `"ne...pas bien"`, `"can't cope"` |
+| 8 | `identity_conflict_score` | Detecte la detresse identitaire 2SLGBTQ+ : `"ma famille ne m'accepte pas"` |
+| 9 | `somatization_score` | Detecte la detresse emotionnelle co-occurrente avec des plaintes physiques |
+
+**Lexiques bilingues** (tous contiennent des termes FR + EN) :
+- `FINALITY_WORDS` -- langage de crise/fin (36 termes)
+- `HOPE_WORDS` -- resilience/avenir (24 termes)
+- `NEGATIVE_WORDS` -- sentiment de detresse (40 termes)
+- `PHYSICAL_CONTEXT_WORDS` -- plaintes corporelles (14 termes)
+- `IDENTITY_CONFLICT_WORDS` -- identite 2SLGBTQ+ / culturelle (13+ phrases)
+- `SOMATIZATION_EMOTIONAL_WORDS` -- co-occurrence emotionnelle avec physique (18 termes)
+- `NEGATION_PATTERNS_FR` / `NEGATION_PATTERNS_EN` -- patterns regex de negation
+
+#### Features de trajectoire (60 = 10 x 6 stats)
 
 Pour chaque feature de base, 6 statistiques de trajectoire (mean, std, slope, last, max, min).
 
-#### 2. Classifier — `cedd/classifier.py`
+#### Features d'embedding (4)
 
-Pipeline : `StandardScaler → GradientBoostingClassifier(n_estimators=200, max_depth=3)`
+Calculees avec `paraphrase-multilingual-MiniLM-L12-v2` :
+- `embedding_drift` -- derive cosinus moyenne entre messages consecutifs
+- `crisis_similarity` -- similarite cosinus du dernier message avec le centroide de crise
+- `embedding_slope` -- pente PCA->1D (derive semantique directionnelle)
+- `embedding_variance` -- distance cosinus moyenne par paires (coherence)
 
-Règles de sécurité prioritaires (override lexical) avant et après la prédiction ML. Mots-clés de crise étendus (arme, pistolet, couteau, gun, knife, shoot…) déclenchent **Rouge immédiatement** à tout moment. Pour < 6 messages utilisateur, le ML est plafonné à Orange. En cas d'override de sécurité, les barres de probabilité sont remplacées par un badge "mot de crise détecté". Les **noms lisibles des features** sont disponibles en français et en anglais, sélectionnables via le paramètre `lang`.
+#### Features de coherence (3)
 
-#### 3. Response Modulator — `cedd/response_modulator.py`
+Patterns de retrait comportemental au niveau conversation :
+- `short_response_ratio` -- fraction de messages < 5 mots (desengagement)
+- `min_topic_coherence` -- similarite cosinus min entre messages consecutifs
+- `question_response_ratio` -- fraction de questions assistant suivies d'une reponse engagee
 
-Quatre prompts système distincts, disponibles en **français et en anglais**, injectés dans le LLM en fonction du niveau d'alerte et de la langue de l'interface.
+**Total : 67 features** = 10 x 6 trajectoire + 4 embedding + 3 coherence
 
-- **Niveau 0** : assistant bienveillant, questions ouvertes
-- **Niveau 1** : validation émotionnelle prioritaire, écoute active
-- **Niveau 2** : espace sécurisé, ressources (Jeunesse J'écoute : 1-800-668-6868)
-- **Niveau 3** : protocole de crise — valider la souffrance, évaluer la sécurité, orienter
+---
 
-Hiérarchie LLM : `claude-haiku → mistral → llama3.2:1b → sans llm`
+#### 2. Classifier -- `cedd/classifier.py`
 
-#### 4. Session Tracker — `cedd/session_tracker.py`
+Pipeline : `StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)`
 
-Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `trend`, `consecutive_high_sessions` et `recommendation` sur les 7 dernières sessions.
+**Logique de securite a 6 portes :**
 
-#### 5. Interface Streamlit — `app.py`
+| Porte | Condition | Action |
+|-------|-----------|--------|
+| 1 | < 3 messages utilisateur | Retourner Vert (contexte insuffisant) + verification mots-cles |
+| 2 | Mot-cle de crise detecte | Forcer Rouge (confiance 0.90) |
+| 3 | Prediction ML | Executer GradientBoosting sur vecteur 67D |
+| 4 | Confiance ML < 0.45 | Defaut a Jaune (principe de precaution) |
+| 5 | < 6 messages utilisateur | Plafonner ML a Orange max |
+| 6 | ML < minimum securite | Appliquer plancher de securite |
 
-Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tête : bascule entre 🇫🇷 Français et 🇬🇧 English. L'interface complète, les prompts système et les réponses LLM basculent vers la langue choisie.
+Mots-cles de crise etendus (arme, pistolet, couteau, gun, knife, shoot...) declenchent **Rouge immediatement** a tout moment. En cas d'override de securite, les barres de probabilite sont remplacees par un badge "mot de crise detecte".
+
+Les **noms lisibles des features** sont disponibles en francais et en anglais (30+ entrees), selectionnables via le parametre `lang`.
+
+#### 3. Response Modulator -- `cedd/response_modulator.py`
+
+Quatre prompts systeme distincts, disponibles en **francais et en anglais**, injectes dans le LLM selon le niveau d'alerte.
+
+Hierarchie LLM : `claude-haiku -> mistral -> llama3.2:1b -> sans llm`
+
+#### 4. Session Tracker -- `cedd/session_tracker.py`
+
+Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `trend`, `consecutive_high_sessions` et `recommendation` sur les 7 dernieres sessions.
+
+#### 5. Interface Streamlit -- `app.py`
+
+Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour basculer entre Francais et English.
 
 ---
 
 ### Support bilingue
 
-| Couche                  | Anglais                              | Français                              |
+| Couche                  | Anglais                              | Francais                              |
 |-------------------------|--------------------------------------|---------------------------------------|
-| Interface web           | Complète (bouton dans l'en-tête)     | Complète (langue par défaut)          |
-| Prompts système LLM     | 4 niveaux                            | 4 niveaux                             |
+| Interface web           | Complete (bouton dans l'en-tete)     | Complete (langue par defaut)          |
+| Prompts systeme LLM     | 4 niveaux                            | 4 niveaux                             |
 | Analyse lexicale        | Mots EN dans les lexiques            | Mots FR dans les lexiques             |
-| Noms des features       | Via paramètre `lang="en"`            | Via paramètre `lang="fr"`             |
-| Données synthétiques    | Drapeau `--lang en`                  | Drapeau `--lang fr` (défaut)          |
-| Simulation d'historique | Drapeau `--lang en`                  | Drapeau `--lang fr` (défaut)          |
+| Noms des features       | Via parametre `lang="en"`            | Via parametre `lang="fr"`             |
+| Donnees d'entrainement  | 160 conversations EN                 | 160 conversations FR                  |
+| Tests adversariaux      | 6 EN + mixtes                        | 7 FR + mixtes                         |
 
 ---
 
-### Données synthétiques
+### Donnees synthetiques
 
-**`data/synthetic_conversations.json`** — 24 conversations initiales (6 par classe) en français québécois authentique.
-
-#### Génération de données supplémentaires (FR et EN)
+**`data/synthetic_conversations.json`** -- 320 conversations equilibrees bilingues (40 par classe x 4 classes x 2 langues).
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 80 conversations en français (20 par classe)
+# 80 conversations en francais (20 par classe)
 python generate_synthetic_data.py --lang fr --count 20
 
 # 80 conversations en anglais (20 par classe)
@@ -578,26 +711,25 @@ python generate_synthetic_data.py --lang en --count 20
 ### Installation
 
 ```bash
-# 1. Cloner le dépôt
+# 1. Cloner le depot
 git clone <url-du-repo>
 cd cedd-hackathon
 
-# 2. Creer a Python env.
-cedd-hackathon$ python3 -m venv venv
-cedd-hackathon$ source venv/bin/activate
-(venv) /cedd-hackathon$
+# 2. Creer un environnement Python
+python3 -m venv venv
+source venv/bin/activate
 
-# 3. Installer les dépendances
-(venv) /cedd-hackathon$ pip install streamlit plotly scikit-learn numpy joblib requests anthropic
+# 3. Installer les dependances
+pip install -r requirements.txt
 
-# 4. (Optionnel) Configurer la clé API Claude
+# 4. (Optionnel) Configurer la cle API Claude
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 5. (Optional) Installation Ollama models
+# 5. (Optionnel) Installer les modeles Ollama
 ollama pull mistral
 ollama pull llama3.2:1b
 
-# 6. Entraîner le modèle
+# 6. Entrainer le modele
 python train.py
 
 # 7. Lancer l'interface
@@ -605,43 +737,50 @@ streamlit run app.py
 ```
 
 ```powershell
-For Windows OS only See file setup-cedd-for-win.ps1
+# Windows OS uniquement : voir setup-cedd-for-win.ps1
 ```
+
 ---
 
 ### Utilisation
 
 ```bash
-# Entraîner le classifieur
+# Entrainer le classifieur
 python train.py
 
 # Lancer l'interface web bilingue
 streamlit run app.py
 
-# Simuler l'historique pour la démo (français)
+# Simuler l'historique pour la demo
 python simulate_history.py --lang fr
-
-# Simuler l'historique pour la démo (anglais)
 python simulate_history.py --lang en
 
-# Générer des données synthétiques supplémentaires
+# Generer des donnees synthetiques supplementaires
 python generate_synthetic_data.py --lang fr --count 20
 python generate_synthetic_data.py --lang en --count 20
+
+# Lancer les tests adversariaux
+python tests/adversarial_suite.py --verbose
 ```
 
-Ouvre `http://localhost:8501`. Utiliser le bouton de langue (🇫🇷 / 🇬🇧) dans l'en-tête pour basculer. Cliquer sur **Réinitialiser / Reset** pour démarrer une nouvelle session de surveillance.
+Ouvre `http://localhost:8501`. Utiliser le bouton de langue dans l'en-tete pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
 
 ---
 
-### Métriques
+### Metriques
 
-| Métrique                  | Valeur                 |
-|---------------------------|------------------------|
-| Train accuracy            | 100% (overfitting attendu) |
-| CV accuracy (k=4)         | 66.7% ± 26.4%          |
-| Nombre de features        | 42 (7 × 6 stats)       |
-| Top feature               | `word_count_std`       |
-| 2e feature                | `negative_score_mean`  |
+Resultats sur le dataset de 320 conversations equilibrees bilingues :
+
+| Metrique                  | Valeur                         |
+|---------------------------|--------------------------------|
+| CV accuracy (k=4)         | **92.5% +/- 1.5%**            |
+| Train accuracy            | 100% (overfitting attendu)     |
+| Nombre de features        | **67** (10x6 + 4 emb + 3 coh) |
+| Conversations             | **320** (40/classe x FR + EN)  |
+| Top feature               | `word_count_slope` (0.391)     |
+| 2e feature                | `word_count_max` (0.246)       |
+| Tests adversariaux        | **13/13 reussis**              |
+| Crises manquees           | **0**                          |
 
 ---
 
@@ -649,98 +788,92 @@ Ouvre `http://localhost:8501`. Utiliser le bouton de langue (🇫🇷 / 🇬🇧
 
 ```
 cedd-hackathon/
-├── app.py                          # Interface Streamlit bilingue
-├── train.py                        # Script d'entraînement (sortie bilingue)
-├── generate_synthetic_data.py      # Génération FR + EN via Claude API
-├── simulate_history.py             # Simulation d'historique FR + EN
-│
-├── cedd/
-│   ├── __init__.py
-│   ├── feature_extractor.py        # Extraction lexicale bilingue + trajectoire
-│   ├── classifier.py               # CEDDClassifier (GradientBoosting + règles)
-│   ├── response_modulator.py       # Prompts adaptatifs FR + EN + appels LLM
-│   └── session_tracker.py          # Suivi inter-sessions SQLite
-│
-├── tests/                          # Suite de tests adversariaux
-│   ├── adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
-│   ├── test_cases_adversarial.json # 10 cas de test adversariaux (FR + EN)
-│   └── results/
-│       └── baseline_v1.json        # Référence : 7/10 réussis, 0 crise manquée
-│
-├── data/
-│   ├── synthetic_conversations.json  # Dataset FR (+EN générable)
-│   └── cedd_sessions.db             # Base SQLite (créée automatiquement)
-│
-└── models/
-    └── cedd_model.joblib            # Modèle entraîné (créé par train.py)
++-- app.py                          # Interface Streamlit bilingue
++-- train.py                        # Entrainement : chargement -> CV -> fit -> sauvegarde
++-- generate_synthetic_data.py      # Generation via Claude API (FR + EN)
++-- simulate_history.py             # Simulation d'historique FR + EN
++-- annotate_data.py                # Outil d'annotation qualite (Claude)
++-- requirements.txt                # Dependances Python
+|
++-- cedd/                           # Package Python principal
+|   +-- __init__.py
+|   +-- feature_extractor.py        # 10 features/msg + embeddings + coherence -> 67D
+|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 6 portes securite)
+|   +-- response_modulator.py       # Prompts adaptatifs FR + EN + chaine LLM
+|   +-- session_tracker.py          # Suivi longitudinal inter-sessions SQLite
+|
++-- tests/                          # Suite de tests adversariaux (Track 1)
+|   +-- adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
+|   +-- test_cases_adversarial.json # 13 cas de test adversariaux (FR + EN)
+|   +-- results/                    # Historique des resultats
+|
++-- data/
+|   +-- synthetic_conversations.json  # 320 conversations etiquetees (FR + EN)
+|   +-- cedd_sessions.db              # Base SQLite (creee automatiquement)
+|
++-- models/
+|   +-- cedd_model.joblib            # Modele entraine (cree par train.py)
+|
++-- demo/
+    +-- demo_scenario.md             # Scenario FR : Felix, CEGEP
+    +-- demo_scenario_en.md          # Scenario EN : Alex, universite
 ```
 
 ---
 
 ### Tests adversariaux
 
-Le répertoire `tests/` fournit une suite de tests systématiques pour valider la robustesse de CEDD face à des cas réels difficiles.
+Le repertoire `tests/` fournit une suite de tests systematiques pour valider la robustesse de CEDD face a des cas reels difficiles.
 
-#### Catégories de tests
+#### Categories de tests (13 tests)
 
-| Catégorie | Description | Nb |
+| Categorie | Description | Nb |
 |---|---|---|
-| `false_positive_physical` | Plaintes physiques qui NE doivent PAS déclencher d'alerte (mal au dos, nausées) | 2 |
-| `sarcasm` | Langage sarcastique masquant une détresse réelle | 1 |
-| `negation` | Négation d'états positifs (`"je ne me sens pas bien"`) | 1 |
-| `code_switching` | Alternance français/anglais (franglais québécois) | 1 |
-| `quebecois_slang` | Expressions québécoises (`"chu pu capable"`, `"en criss"`) | 1 |
-| `gradual_drift_no_keywords` | Détérioration émotionnelle lente sans mots-clés de crise | 1 |
-| `direct_crisis` | Langage de crise explicite — **doit toujours être Rouge** | 1 |
-| `hidden_intent` | Idéation suicidaire indirecte présentée comme hypothétique | 1 |
-| `manipulation_downplay` | Détresse suivie de minimisation — ne doit PAS redescendre à Vert | 1 |
-
-#### Exécuter la suite
-
-```bash
-# Lancer tous les tests
-python tests/adversarial_suite.py
-
-# Sortie détaillée (probabilités + top features par test)
-python tests/adversarial_suite.py --verbose
-
-# Filtrer par catégorie
-python tests/adversarial_suite.py --category sarcasm
-
-# Exporter les résultats en JSON pour suivi
-python tests/adversarial_suite.py --export tests/results/run_001.json
-```
+| `false_positive_physical` | Plaintes physiques qui NE doivent PAS declencher d'alerte | 2 |
+| `sarcasm` | Langage sarcastique masquant une detresse reelle | 1 |
+| `negation` | Negation d'etats positifs (`"je ne me sens pas bien"`) | 1 |
+| `code_switching` | Alternance francais/anglais (franglais quebecois) | 1 |
+| `quebecois_slang` | Expressions quebecoises (`"chu pu capable"`, `"en criss"`) | 1 |
+| `gradual_drift_no_keywords` | Deterioration emotionnelle lente sans mots-cles de crise | 1 |
+| `direct_crisis` | Langage de crise explicite -- **doit toujours etre Rouge** | 1 |
+| `hidden_intent` | Ideation suicidaire indirecte presentee comme hypothetique | 1 |
+| `manipulation_downplay` | Detresse suivie de minimisation -- ne doit PAS redescendre a Vert | 1 |
+| `somatization` | Douleur physique + declin emotionnel (detresse somatisee) | 1 |
+| `identity_conflict` | Crise identitaire 2SLGBTQ+ et rejet familial (EN + FR) | 2 |
 
 #### Codes de sortie
 
 | Code | Signification |
 |---|---|
-| `0` | Tous les tests réussis |
-| `1` | Certains tests échoués (non critique) |
-| `2` | **Crise manquée** — crise prédite comme Vert/Jaune (régression de sécurité) |
+| `0` | Tous les tests reussis |
+| `1` | Certains tests echoues (non critique) |
+| `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
-> **Référence (v1) :** 7/10 réussis · 0 crise manquée — voir `tests/results/baseline_v1.json`
+> **Actuel (v6) :** 13/13 reussis, 0 crise manquee -- voir `tests/results/post_features_456.json`
 
 ---
 
-### Limites connues et pistes d'amélioration
+### Limites connues et pistes d'amelioration
 
-| Limite                                                              | Piste d'amélioration                                             |
+| Limite                                                              | Piste d'amelioration                                             |
 |---------------------------------------------------------------------|------------------------------------------------------------------|
-| Dataset de 24 conversations — overfitting élevé                    | Générer 100+ conversations par classe                            |
-| ML peu fiable pour les conversations courtes (< 6 messages)        | ML plafonné à Orange pour < 6 messages ; mots-clés de crise déclenchent Rouge immédiatement |
-| Un seul `user_id` "demo_user" dans l'interface de démo             | Ajouter un système d'authentification léger                      |
-| Modèle ML entraîné uniquement sur données françaises               | Réentraîner sur un dataset FR+EN combiné                         |
-| Aucune validation clinique des seuils                              | Collaboration avec professionnels en santé mentale               |
-| LLM non fine-tuné pour le contexte de crise                        | Fine-tuning sur conversations d'intervenants certifiés           |
+| ML peu fiable pour conversations courtes (< 6 messages)            | ML plafonne a Orange; mots-cles de crise declenchent Rouge       |
+| Aucune validation clinique des seuils                              | Collaboration avec professionnels en sante mentale               |
+| Detection identitaire basee sur des phrases, pas le contexte       | Fine-tuner les embeddings sur un corpus detresse identitaire     |
+| Pas de detection de silence/retrait (frequence des messages)       | Suivre le delai inter-messages comme signal de crise             |
+| Ratio 320 echantillons / 67 features (4.8:1) sous l'ideal 10:1    | Generer plus de donnees ou reduire les features via PCA          |
+| LLM non fine-tune pour le contexte de crise                       | Fine-tuning sur conversations d'intervenants certifies           |
+| Pas de transfert chaleureux vers un intervenant humain             | Implementer l'architecture de warm handoff en 5 etapes           |
 
 ---
 
 ### Ressources d'urgence
 
-> Ces ressources sont intégrées dans les prompts de niveau Orange et Rouge.
+> Ces ressources sont integrees dans les prompts de niveau Orange et Rouge.
 
-- **Jeunesse J'écoute** : 1-800-668-6868 (24h/24, gratuit, confidentiel) — texto : 686868
-- **Kids Help Phone** : 1-800-668-6868
+- **Jeunesse J'ecoute / Kids Help Phone** : 1-800-668-6868 (24h/24, gratuit, confidentiel) -- texto : 686868
+- **Ligne de crise suicide** : 9-8-8 (988.ca)
+- **Multi-Ecoute** : 514-378-3430 (multiecoute.org)
+- **Tracom** : 514-483-3033 (tracom.ca)
 - **Urgences / Emergency** : 911
-- **Médecin de famille / school counselling service**
+- **Medecin de famille / service de consultation scolaire**

@@ -5,6 +5,7 @@ Loads synthetic conversations, extracts features, trains the classifier.
 Charge les conversations synthétiques, extrait les features, entraîne le classifieur.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -44,7 +45,9 @@ def load_and_extract(data_path: str):
         # Extract per-message features, then aggregate into trajectory
         # Extraire les features message par message, puis agréger
         msg_features  = extract_features(messages)
-        traj_features = extract_trajectory_features(msg_features)
+        user_texts    = [m["content"] for m in messages if m["role"] == "user"]
+        traj_features = extract_trajectory_features(msg_features, user_texts=user_texts,
+                                                     messages=messages)
 
         X_list.append(traj_features)
         y_list.append(label)
@@ -69,13 +72,27 @@ def print_separator(char="=", length=60):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Train the CEDD classifier. / Entraîner le classifieur CEDD."
+    )
+    parser.add_argument(
+        "--data", "-d",
+        type=str,
+        default=DATA_PATH,
+        help="Path to training data JSON. / Chemin vers les données d'entraînement JSON. "
+             f"Default: {DATA_PATH}",
+    )
+    args = parser.parse_args()
+    data_path = args.data
+
     print_separator()
     print("  CEDD — Classifier Training / Entraînement du classifieur")
     print_separator()
 
     # 1. Load data and extract features / Charger les données et extraire les features
-    print("\n[1/4] Loading data & extracting features / Chargement et extraction...")
-    X, y = load_and_extract(DATA_PATH)
+    print(f"\n[1/4] Loading data & extracting features / Chargement et extraction...")
+    print(f"  Data source / Source : {data_path}")
+    X, y = load_and_extract(data_path)
 
     # 2. Stratified cross-validation / Validation croisée stratifiée
     print("\n[2/4] Stratified cross-validation (k=4)...")
