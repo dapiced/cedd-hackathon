@@ -41,6 +41,22 @@ _FEATURE_DISPLAY_NAMES_FR = {
     "word_count_last":        "Longueur dernier message",
     "punctuation_ratio_last": "Ponctuation faible",
     "length_delta_slope":     "Variation longueur",
+    "negation_score_mean":    "Négation d'état positif",
+    "negation_score_last":    "Négations récentes",
+    "negation_score_slope":   "Tendance hausse négation",
+    "embedding_drift":        "Dérive sémantique entre messages",
+    "crisis_similarity":      "Similarité avec langage de crise",
+    "embedding_slope":        "Tendance sémantique directionnelle",
+    "embedding_variance":     "Incohérence conversationnelle",
+    "identity_conflict_score_mean":  "Conflit identitaire moyen",
+    "identity_conflict_score_last":  "Conflit identitaire récent",
+    "identity_conflict_score_slope": "Tendance conflit identitaire",
+    "somatization_score_mean":       "Somatisation moyenne",
+    "somatization_score_last":       "Somatisation récente",
+    "somatization_score_slope":      "Tendance somatisation",
+    "short_response_ratio":          "Ratio réponses courtes",
+    "min_topic_coherence":           "Cohérence thématique minimale",
+    "question_response_ratio":       "Ratio réponse aux questions",
 }
 
 # English / Anglais
@@ -57,6 +73,22 @@ _FEATURE_DISPLAY_NAMES_EN = {
     "word_count_last":        "Last message length",
     "punctuation_ratio_last": "Low punctuation",
     "length_delta_slope":     "Length variation trend",
+    "negation_score_mean":    "Negated positive states",
+    "negation_score_last":    "Recent negated positive states",
+    "negation_score_slope":   "Rising negation trend",
+    "embedding_drift":        "Semantic drift between messages",
+    "crisis_similarity":      "Similarity to crisis language",
+    "embedding_slope":        "Directional semantic trend",
+    "embedding_variance":     "Conversational incoherence",
+    "identity_conflict_score_mean":  "Average identity conflict",
+    "identity_conflict_score_last":  "Recent identity conflict",
+    "identity_conflict_score_slope": "Rising identity conflict trend",
+    "somatization_score_mean":       "Average somatization",
+    "somatization_score_last":       "Recent somatization",
+    "somatization_score_slope":      "Somatization trend",
+    "short_response_ratio":          "Short response ratio",
+    "min_topic_coherence":           "Minimum topic coherence",
+    "question_response_ratio":       "Question response ratio",
 }
 
 _FEATURE_DISPLAY_NAMES = {
@@ -92,7 +124,9 @@ class CEDDClassifier:
         Convertit une liste de messages en vecteur de features de trajectoire.
         """
         msg_features = extract_features(messages)
-        traj_features = extract_trajectory_features(msg_features)
+        user_texts = [m["content"] for m in messages if m["role"] == "user"]
+        traj_features = extract_trajectory_features(msg_features, user_texts=user_texts,
+                                                     messages=messages)
         return traj_features
 
     def fit(self, X: np.ndarray, y: np.ndarray):

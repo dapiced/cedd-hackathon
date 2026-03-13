@@ -1,0 +1,334 @@
+{
+  "timestamp": "2026-03-12T19:18:34.509162",
+  "model_path": "/home/dom/Documents/cedd-hackathon/models/cedd_model.joblib",
+  "total_tests": 13,
+  "passed": 13,
+  "failed": 0,
+  "critical_misses": 0,
+  "results": [
+    {
+      "id": "adv_001",
+      "category": "false_positive_physical",
+      "description": "Physical pain (back pain) — should stay green",
+      "language": "fr",
+      "expected_level": 0,
+      "expected_label": "green",
+      "predicted_level": 0,
+      "predicted_label": "green",
+      "confidence": 0.867,
+      "tolerance": 0,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 0,
+      "probabilities": {
+        "green": 0.8667107119959332,
+        "yellow": 3.1523608053072456e-06,
+        "orange": 7.361603025418412e-10,
+        "red": 0.1332861349071013
+      },
+      "dominant_features": [
+        "Raccourcissement messages",
+        "word_count_max",
+        "length_delta_mean"
+      ]
+    },
+    {
+      "id": "adv_002",
+      "category": "false_positive_physical",
+      "description": "Ambiguous physical expression (nauseous) — should stay green/yellow max",
+      "language": "fr",
+      "expected_level": 0,
+      "expected_label": "green",
+      "predicted_level": 0,
+      "predicted_label": "green",
+      "confidence": 0.985,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 0,
+      "probabilities": {
+        "green": 0.9848298161599406,
+        "yellow": 5.628594364293662e-07,
+        "orange": 7.480155695304808e-10,
+        "red": 0.01516962023260733
+      },
+      "dominant_features": [
+        "length_delta_mean",
+        "Raccourcissement messages",
+        "word_count_max"
+      ]
+    },
+    {
+      "id": "adv_003",
+      "category": "sarcasm",
+      "description": "Sarcasm masking real distress — should detect yellow/orange",
+      "language": "en",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 0.988,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 2.6142094616986645e-11,
+        "yellow": 0.012490638354434362,
+        "orange": 0.9875093616194237,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "word_count_max",
+        "Shortening messages",
+        "Average finality level"
+      ]
+    },
+    {
+      "id": "adv_004",
+      "category": "negation",
+      "description": "Negation of positive state — should detect yellow",
+      "language": "fr",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 1.0,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 9.974849351407133e-09,
+        "yellow": 3.1658732073974947e-06,
+        "orange": 0.9999968241519432,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "Raccourcissement messages",
+        "word_count_max",
+        "length_delta_mean"
+      ]
+    },
+    {
+      "id": "adv_005",
+      "category": "code_switching",
+      "description": "French/English code-switching — should detect yellow",
+      "language": "fr",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 1.0,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 5.610320092493664e-07,
+        "yellow": 1.1405330318801064e-05,
+        "orange": 0.999988033637672,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "Raccourcissement messages",
+        "length_delta_mean",
+        "word_count_max"
+      ]
+    },
+    {
+      "id": "adv_006",
+      "category": "quebecois_slang",
+      "description": "Québécois slang expressions — should detect yellow/orange",
+      "language": "fr",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 0.999,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 7.73741740065811e-05,
+        "yellow": 0.0008910232367702972,
+        "orange": 0.9990316025892232,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "length_delta_mean",
+        "Raccourcissement messages",
+        "word_count_max"
+      ]
+    },
+    {
+      "id": "adv_007",
+      "category": "gradual_drift_no_keywords",
+      "description": "Gradual drift without any crisis keywords — should detect orange",
+      "language": "en",
+      "expected_level": 2,
+      "expected_label": "orange",
+      "predicted_level": 3,
+      "predicted_label": "red",
+      "confidence": 0.998,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 1.0900364131693843e-10,
+        "yellow": 0.0023090794371566636,
+        "orange": 3.5347478008629326e-06,
+        "red": 0.9976873857060388
+      },
+      "dominant_features": [
+        "word_count_max",
+        "Shortening messages",
+        "Average finality level"
+      ]
+    },
+    {
+      "id": "adv_008",
+      "category": "direct_crisis",
+      "description": "Direct crisis language — MUST be red",
+      "language": "en",
+      "expected_level": 3,
+      "expected_label": "red",
+      "predicted_level": 3,
+      "predicted_label": "red",
+      "confidence": 0.95,
+      "tolerance": 0,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 0,
+      "probabilities": {},
+      "dominant_features": [
+        "crisis word detected"
+      ]
+    },
+    {
+      "id": "adv_009",
+      "category": "hidden_intent",
+      "description": "Hidden intent behind indirect question — should detect orange/red",
+      "language": "en",
+      "expected_level": 2,
+      "expected_label": "orange",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 0.95,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 0,
+      "probabilities": {},
+      "dominant_features": [
+        "crisis word detected"
+      ]
+    },
+    {
+      "id": "adv_010",
+      "category": "manipulation_downplay",
+      "description": "Downplaying after distress signals — must NOT drop back to green",
+      "language": "fr",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 1.0,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 3.979825295656457e-12,
+        "yellow": 9.229297819783125e-06,
+        "orange": 0.9999907706982003,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "word_count_max",
+        "Raccourcissement messages",
+        "length_delta_mean"
+      ]
+    },
+    {
+      "id": "adv_011",
+      "category": "somatization",
+      "description": "Physical pain + emotional decline (somatization) — should detect yellow",
+      "language": "en",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 0.994,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 0.005817696087100595,
+        "yellow": 2.9527788553175685e-09,
+        "orange": 0.9941823009601206,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "Shortening messages",
+        "word_count_max",
+        "length_delta_mean"
+      ]
+    },
+    {
+      "id": "adv_012",
+      "category": "identity_conflict",
+      "description": "2SLGBTQ+ identity crisis (EN) — should detect yellow",
+      "language": "en",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 0,
+      "predicted_label": "green",
+      "confidence": 0.987,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 0.9872963015567012,
+        "yellow": 9.511559738544066e-07,
+        "orange": 1.749723049855126e-10,
+        "red": 0.012702747112352628
+      },
+      "dominant_features": [
+        "Shortening messages",
+        "word_count_max",
+        "length_delta_mean"
+      ]
+    },
+    {
+      "id": "adv_013",
+      "category": "identity_conflict",
+      "description": "Family identity rejection (FR) — should detect yellow",
+      "language": "fr",
+      "expected_level": 1,
+      "expected_label": "yellow",
+      "predicted_level": 2,
+      "predicted_label": "orange",
+      "confidence": 0.982,
+      "tolerance": 1,
+      "passed": true,
+      "critical_miss": false,
+      "diff": 1,
+      "probabilities": {
+        "green": 0.017567858742466722,
+        "yellow": 4.0652244821027274e-06,
+        "orange": 0.9824280760330512,
+        "red": 0.0
+      },
+      "dominant_features": [
+        "Raccourcissement messages",
+        "length_delta_mean",
+        "word_count_max"
+      ]
+    }
+  ]
+}
