@@ -474,6 +474,17 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
 | ✅ **Feature importance visualization** | DONE | Collapsible Plotly horizontal bar chart in dashboard showing top 5 features by composite score (model importance × scaled value). 6 color categories (crisis, negative, structural, hope, identity, behavioral). Bilingual labels. Visible at Yellow+ including safety overrides. | UX |
 | ✅ **Multi-user demo profiles** | DONE | 5 selectable profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal trajectories. Profile selector dropdown in header. `simulate_history.py` generates 4 unique 7-session histories (stable green, gradual improvement, fluctuating, escalating). Guest starts fresh for judges. | UX |
+| ✅ **Welcome card** | DONE | Branded HTML card on empty chat: brain emoji, bilingual title/description, CTA. Uses theme colors for light/dark. Replaces plain gray "Start the conversation..." text. | UX |
+| ✅ **Team branding** | DONE | Subtitle updated from "POC" to "Team 404HarmNotFound" / "Équipe 404HarmNotFound" in both languages. | UX |
+| ✅ **Chat timestamps** | DONE | HH:MM timestamp below each message bubble. Right-aligned for user, left-aligned for assistant. Muted styling. | UX |
+| ✅ **LLM source badge** | DONE | Small coloured badge on each assistant bubble showing which LLM generated the response (emoji + display name from `LLM_SOURCE_INDICATOR`/`LLM_DISPLAY_NAMES`). | UX |
+| ✅ **Alert level badge** | DONE | Coloured alert dot on each assistant message showing the CEDD classification at that exchange (uses `LEVEL_COLORS`, `LEVEL_EMOJIS`, `LEVEL_LABELS`). | UX |
+| ✅ **Demo autopilot** | DONE | "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario (9 messages). Judges sit back and watch the drift unfold live. Stop button to cancel. Natural pacing via LLM response time. | UX |
+| ✅ **About CEDD panel** | DONE | Collapsible "About" panel explaining what CEDD does, how it works, and what the dashboard shows. Bilingual. Toggled via ℹ️ button. | UX |
+| ✅ **Export transcript** | DONE | Download button exports conversation + alert history as JSON file. Includes messages, timestamps, LLM sources, alert levels, dominant features, session metadata. | UX |
+| ✅ **Alert transition animation** | DONE | CSS-animated toast notification when alert level increases. Shows new level emoji + label. 3s fade-in/out animation. Fires once per transition via session state pop. | UX |
+| ✅ **Side-by-side compare mode** | DONE | "🔀 Compare" toggle splits chat into two columns: left = raw LLM (no system prompt), right = LLM with CEDD adaptive instructions. Same user input, two API calls. Shows the value of CEDD's prompt modulation on crisis messages. Demo autopilot disabled in compare mode (too slow with 2× API calls). `system_prompt_override` parameter added to `get_llm_response()`. | UX |
+| ✅ **Feature radar chart** | DONE | Plotly `Scatterpolar` showing 10 per-message features (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization) normalized 0-1. Latest message in alert-level color, Msg 1 as green ghost overlay (after 3+ messages). Collapsible expander in dashboard. Bilingual axis labels. Zero extra compute — uses already-computed `extract_features()` values. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -606,4 +617,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*
+*Last updated: March 13, 2026 — UI polish + compare mode + radar: welcome card, team branding, timestamps, badges, demo, about, export, toast, compare, feature radar*

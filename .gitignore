@@ -3,8 +3,6 @@ venv/
 __pycache__/
 *.pyc
 *.pyo
-data/cedd_sessions.db
-data/ddec_sessions.db
 .env
 .claude/*
 !.claude/commands/
