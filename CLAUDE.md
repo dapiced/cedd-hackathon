@@ -59,7 +59,7 @@ cedd-hackathon/
 │   └── session_tracker.py          # Cross-session longitudinal risk tracking (SQLite)
 │
 ├── data/
-│   ├── synthetic_conversations.json  # 320 labeled training conversations (40/class × FR+EN)
+│   ├── synthetic_conversations.json  # 480 labeled training conversations (60/class × FR+EN)
 │   ├── annotated_conversations.json  # Quality-annotated conversations (Claude-scored)
 │   ├── filtered_conversations.json   # Post-annotation filtered subset
 │   └── cedd_sessions.db             # SQLite database (auto-created at runtime)
@@ -192,17 +192,17 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 ### Training (`train.py`)
 
-- Loads 320 synthetic conversations from `data/synthetic_conversations.json`
-- Extracts 67 trajectory features per conversation → X (320 × 67), y (320 labels)
-- Cross-validation: `StratifiedKFold(n_splits=4)` → **~92.5% accuracy ± 1.5%**
-- Train accuracy: ~100% (expected overfitting on 320 samples with 200 trees)
-- Top features: `word_count_slope` (0.391), `word_count_max` (0.246), `length_delta_mean` (0.103), `finality_score_mean` (0.103)
+- Loads 480 synthetic conversations from `data/synthetic_conversations.json`
+- Extracts 67 trajectory features per conversation → X (480 × 67), y (480 labels)
+- Cross-validation: `StratifiedKFold(n_splits=4)` → **~91.7% accuracy ± 4.4%**
+- Train accuracy: ~100% (expected overfitting on 480 samples with 200 trees)
+- Top features: `word_count_slope` (0.367), `word_count_max` (0.249), `length_delta_mean` (0.126), `finality_score_mean` (0.119)
 - Saves trained model to `models/cedd_model.joblib`
 
 ### Data Generation (`generate_synthetic_data.py`)
 
 - Uses Claude Haiku API to generate realistic youth conversations
-- 40 conversations per class × 4 classes × 2 languages (FR + EN) = 320 total
+- 60 conversations per class × 4 classes × 2 languages (FR + EN) = 480 total
 - Each conversation: 12 user messages + 12 assistant messages
 - Fully bilingual: authentic Québécois French + Canadian English
 - **All data is synthetic — no real PII allowed** (hackathon rule)
@@ -213,15 +213,16 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 | Metric | Value |
 |--------|-------|
-| Cross-validated accuracy (k=4) | **~92.5% ± 1.5%** |
+| Cross-validated accuracy (k=4) | **~91.7% ± 4.4%** |
 | Train accuracy | ~100% (expected overfitting) |
 | Feature count | **67** (10 × 6 stats + 4 embedding + 3 coherence) |
 | Per-message features | **10** (word_count, punctuation, question, negative, finality, hope, length_delta, negation, identity_conflict, somatization) |
-| Training conversations | **320 (40/class × FR + EN)** |
-| Top feature | `word_count_slope` (importance: 0.391) |
-| 2nd feature | `word_count_max` (0.246) |
-| 3rd feature | `length_delta_mean` (0.103) |
-| 4th feature | `finality_score_mean` (0.103) |
+| Training conversations | **480 (60/class × FR + EN)** |
+| Sample:feature ratio | **7.2:1** (improved from 4.8:1) |
+| Top feature | `word_count_slope` (importance: 0.367) |
+| 2nd feature | `word_count_max` (0.249) |
+| 3rd feature | `length_delta_mean` (0.126) |
+| 4th feature | `finality_score_mean` (0.119) |
 | Adversarial tests | **13/13 passing · 0 critical misses** |
 | Languages | French + English (fully bilingual training data) |
 
@@ -229,7 +230,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 > - **Baseline (March 10):** 66.7% ± 26.4% on 24 convos, 42 features (7×6), 7/10 adversarial
 > - **Data expansion:** 91.2% ± 1.5% on 320 convos, 48 features (8×6), 9/10 adversarial
 > - **+Negation +Embeddings:** 92.2% ± 1.8%, 52 features, 9/10 adversarial
-> - **+Identity +Somatization +Coherence (current):** 92.5% ± 1.5%, 67 features, 13/13 adversarial
+> - **+Identity +Somatization +Coherence:** 92.5% ± 1.5%, 67 features, 13/13 adversarial
+> - **Data expansion to 480 (current):** 91.7% ± 4.4%, 67 features, 13/13 adversarial
 
 ---
 
@@ -242,7 +244,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
 - **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
-- **Sample-to-feature ratio below ideal** — 320 samples / 67 features = 4.8:1 ratio (ideal is 10:1)
+- **Sample-to-feature ratio improving** — 480 samples / 67 features = 7.2:1 ratio (ideal is 10:1, up from 4.8:1)
 
 ---
 
@@ -417,7 +419,7 @@ Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across 
 
 ---
 
-## Warm Handoff Architecture (Planned)
+## Warm Handoff Architecture (Implemented)
 
 The warm handoff replaces the industry standard "cold" referral (display a phone number, end conversation) with a **5-step accompanied transition**:
 
@@ -452,7 +454,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | Improvement | Status | Result | Axis |
 |---|---|---|---|
 | ✅ **Adversarial test suite** | DONE | 13/13 passing, 0 critical misses | Stress-Testing |
-| ✅ **English training data** | DONE | 160 EN + 160 FR = 320 balanced bilingual | Data Augmentation |
+| ✅ **English training data** | DONE | 240 EN + 240 FR = 480 balanced bilingual | Data Augmentation |
 | ✅ **Sentence embeddings** | DONE | 4 embedding features (`paraphrase-multilingual-MiniLM-L12-v2`): drift, crisis similarity, slope, variance | Logic Hardening |
 | ✅ **Claude quality annotator** | DONE | Insight-only — filtering hurt accuracy, kept as analysis tool (`annotate_data.py`) | Data Augmentation |
 | ✅ **Negation handling** | DONE | `negation_score` feature (#7): regex patterns for FR/EN negation structures | Logic Hardening |
@@ -552,7 +554,7 @@ streamlit run app.py
 9. **Run the adversarial suite after any ML or classifier change.** Exit code `2` = critical miss = safety regression. See `tests/adversarial_suite.py`.
 10. **Red recall is the most important metric.** Missing a crisis (false negative on Red) is the worst possible outcome. Optimize accordingly.
 11. **Cultural sensitivity matters.** See "Canadian Multicultural Context" section. Detection that only works for Western English speakers is not acceptable for this hackathon.
-12. **The warm handoff is a design goal, not yet implemented.** See "Warm Handoff Architecture" section. Don't implement it without team discussion.
+12. **The warm handoff is implemented.** 5-step flow in `response_modulator.py`, tracked in `session_tracker.py`, with UI progress indicator in `app.py`. See "Warm Handoff Architecture" section.
 
 ---
 

@@ -202,7 +202,12 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 - **Level 0**: Warm supportive assistant, open questions, positive register
 - **Level 1**: Emotional validation priority, one question at a time, active listening
 - **Level 2**: Safe space, resources mentioned naturally (Kids Help Phone: 1-800-668-6868)
-- **Level 3**: Crisis protocol -- validate suffering, assess safety, refer to 911/immediate resources
+- **Level 3**: Crisis protocol with **5-step warm handoff**:
+  1. Empathetic validation (no resources yet)
+  2. Permission-based transition ("Would it be okay if I connected you with someone?")
+  3. Resource presentation (KHP 1-800-668-6868, text 686868, 9-8-8, 911)
+  4. Encouragement to connect (normalize hesitation, suggest text-first)
+  5. Continued presence ("I'm still here if you want to keep talking")
 
 **LLM hierarchy with automatic fallback:**
 ```
@@ -225,6 +230,13 @@ claude-haiku (Anthropic API) -> mistral (local Ollama) -> llama3.2:1b (local Oll
 **Schema:**
 - `sessions`: one row per chat session
 - `alert_events`: one record per analysed message
+- `handoff_events`: warm handoff step transitions (step, alert_level)
+- `last_activity`: per-user last message timestamp for withdrawal detection
+
+**Silence/withdrawal detection:**
+- Tracks `last_activity` per user with `had_closing` flag
+- `check_withdrawal_risk()` flags users returning after >24h without closing
+- Surfaces welcome-back banner and withdrawal badge in the dashboard
 
 **Longitudinal risk analysis** over the last 7 sessions:
 - `risk_score`: weighted average of max levels (recent = higher weight), normalised to [0, 1]
@@ -262,14 +274,14 @@ Two-column interface with real-time updates after each message.
 | Lexical analysis       | EN words in all lexicons       | FR words in all lexicons        |
 | Feature display names  | Via `lang="en"` parameter      | Via `lang="fr"` parameter       |
 | Synthetic data         | `--lang en` flag               | `--lang fr` (default)           |
-| Training data          | 160 EN conversations           | 160 FR conversations            |
+| Training data          | 240 EN conversations           | 240 FR conversations            |
 | Adversarial tests      | 6 EN + mixed                   | 7 FR + mixed                    |
 
 ---
 
 ### Synthetic Dataset
 
-**`data/synthetic_conversations.json`** -- 320 balanced bilingual conversations (40 per class x 4 classes x 2 languages).
+**`data/synthetic_conversations.json`** -- 480 balanced bilingual conversations (60 per class x 4 classes x 2 languages).
 
 Each conversation contains ~12 user + 12 assistant messages, generated via `generate_synthetic_data.py` using Claude Haiku in authentic Canadian French and English.
 
@@ -357,18 +369,19 @@ Opens at `http://localhost:8501`. Use the language toggle in the header to switc
 
 ### Metrics
 
-Results on the 320-conversation balanced bilingual dataset:
+Results on the 480-conversation balanced bilingual dataset:
 
 | Metric                    | Value                         |
 |---------------------------|-------------------------------|
-| CV accuracy (k=4)         | **92.5% +/- 1.5%**           |
+| CV accuracy (k=4)         | **91.7% +/- 4.4%**           |
 | Train accuracy            | 100% (expected overfitting)   |
 | Number of features        | **67** (10x6 + 4 emb + 3 coh)|
-| Training conversations    | **320** (40/class x FR + EN)  |
-| Top feature               | `word_count_slope` (0.391)    |
-| 2nd feature               | `word_count_max` (0.246)      |
-| 3rd feature               | `length_delta_mean` (0.103)   |
-| 4th feature               | `finality_score_mean` (0.103) |
+| Training conversations    | **480** (60/class x FR + EN)  |
+| Sample:feature ratio      | **7.2:1** (improved from 4.8) |
+| Top feature               | `word_count_slope` (0.367)    |
+| 2nd feature               | `word_count_max` (0.249)      |
+| 3rd feature               | `length_delta_mean` (0.126)   |
+| 4th feature               | `finality_score_mean` (0.119) |
 | Adversarial tests         | **13/13 passing**             |
 | Critical misses           | **0**                         |
 | Languages                 | French + English (bilingual)  |
@@ -381,7 +394,8 @@ Results on the 320-conversation balanced bilingual dataset:
 | March 12 | Data expansion (320 bilingual convos) | ~91.2% +/- 1.5% | 9/10 |
 | March 12 | Crisis keyword expansion | ~91.2% +/- 1.5% | 10/10 |
 | March 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
-| March 12 | +Identity + Somatization + Coherence (67 features) | **92.5% +/- 1.5%** | **13/13** |
+| March 12 | +Identity + Somatization + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
+| March 12 | Data expansion to 480 convos (60/class) | **91.7% +/- 4.4%** | **13/13** |
 
 ---
 
@@ -411,10 +425,11 @@ cedd-hackathon/
 |       +-- post_data_expansion.json# 320 convos: 9/10 passed
 |       +-- post_keyword_fix.json   # Crisis keywords: 10/10 passed
 |       +-- post_negation_embeddings.json  # +Negation +Embeddings
-|       +-- post_features_456.json  # Current: 13/13 passed, 0 critical misses
+|       +-- post_features_456.json  # 67 features: 13/13 passed, 0 critical misses
+|       +-- post_480_convos.json   # Current: 480 convos, 13/13 passed
 |
 +-- data/
-|   +-- synthetic_conversations.json  # 320 labeled conversations (balanced FR + EN)
+|   +-- synthetic_conversations.json  # 480 labeled conversations (balanced FR + EN)
 |   +-- annotated_conversations.json  # Quality-annotated subset
 |   +-- filtered_conversations.json   # Post-annotation filtered
 |   +-- cedd_sessions.db              # SQLite database (auto-created)
@@ -473,7 +488,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | `1` | Some tests failed (non-critical) |
 | `2` | **Critical miss** -- crisis predicted as Green/Yellow (safety regression, blocks merge) |
 
-> **Current (v6):** 13/13 passed, 0 critical misses -- see `tests/results/post_features_456.json`
+> **Current (v7):** 13/13 passed, 0 critical misses -- see `tests/results/post_480_convos.json`
 > **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
 
 ---
@@ -486,11 +501,9 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
 | Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
 | Identity conflict detection is phrase-based, not contextual         | Fine-tune embeddings on identity-distress corpus                    |
-| No silence/withdrawal detection (message frequency)                 | Track inter-message timing as a crisis signal                       |
+| Withdrawal detection is threshold-based (>24h), not intra-session   | Track intra-session message timing and progressive disengagement    |
 | Somatization relies on word co-occurrence, not clinical reasoning   | Add validated somatization scales as complementary signal            |
-| 320 samples / 67 features ratio (4.8:1) below ideal 10:1           | Generate more synthetic data or reduce features via PCA             |
-| LLM not fine-tuned for crisis contexts                             | Fine-tune on certified counsellor conversations                     |
-| No warm handoff to human responder                                 | Implement 5-step warm handoff architecture                          |
+| LLM not fine-tuned for crisis contexts                              | Fine-tune on certified counsellor conversations                     |
 
 ---
 
@@ -665,13 +678,20 @@ Les **noms lisibles des features** sont disponibles en francais et en anglais (3
 
 #### 3. Response Modulator -- `cedd/response_modulator.py`
 
-Quatre prompts systeme distincts, disponibles en **francais et en anglais**, injectes dans le LLM selon le niveau d'alerte.
+Quatre niveaux de prompts systeme distincts, disponibles en **francais et en anglais**. Le niveau Rouge utilise un **transfert accompagne en 5 etapes** :
+1. Validation empathique (pas de ressources encore)
+2. Transition accompagnee (demande de permission)
+3. Presentation des ressources (JJE, 9-8-8, 911)
+4. Encouragement a se connecter
+5. Presence continue
 
 Hierarchie LLM : `claude-haiku -> mistral -> llama3.2:1b -> sans llm`
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 
 Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `trend`, `consecutive_high_sessions` et `recommendation` sur les 7 dernieres sessions.
+
+**Detection d'abandon/retrait :** suit le `last_activity` par utilisateur. Si un utilisateur revient apres >24h sans avoir ferme sa session, une banniere de bienvenue et un badge d'abandon s'affichent.
 
 #### 5. Interface Streamlit -- `app.py`
 
@@ -694,7 +714,7 @@ Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour ba
 
 ### Donnees synthetiques
 
-**`data/synthetic_conversations.json`** -- 320 conversations equilibrees bilingues (40 par classe x 4 classes x 2 langues).
+**`data/synthetic_conversations.json`** -- 480 conversations equilibrees bilingues (60 par classe x 4 classes x 2 langues).
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
@@ -769,16 +789,17 @@ Ouvre `http://localhost:8501`. Utiliser le bouton de langue dans l'en-tete pour 
 
 ### Metriques
 
-Resultats sur le dataset de 320 conversations equilibrees bilingues :
+Resultats sur le dataset de 480 conversations equilibrees bilingues :
 
 | Metrique                  | Valeur                         |
 |---------------------------|--------------------------------|
-| CV accuracy (k=4)         | **92.5% +/- 1.5%**            |
+| CV accuracy (k=4)         | **91.7% +/- 4.4%**            |
 | Train accuracy            | 100% (overfitting attendu)     |
 | Nombre de features        | **67** (10x6 + 4 emb + 3 coh) |
-| Conversations             | **320** (40/classe x FR + EN)  |
-| Top feature               | `word_count_slope` (0.391)     |
-| 2e feature                | `word_count_max` (0.246)       |
+| Conversations             | **480** (60/classe x FR + EN)  |
+| Ratio echantillons:features | **7.2:1** (ameliore de 4.8)  |
+| Top feature               | `word_count_slope` (0.367)     |
+| 2e feature                | `word_count_max` (0.249)       |
 | Tests adversariaux        | **13/13 reussis**              |
 | Crises manquees           | **0**                          |
 
@@ -808,7 +829,7 @@ cedd-hackathon/
 |   +-- results/                    # Historique des resultats
 |
 +-- data/
-|   +-- synthetic_conversations.json  # 320 conversations etiquetees (FR + EN)
+|   +-- synthetic_conversations.json  # 480 conversations etiquetees (FR + EN)
 |   +-- cedd_sessions.db              # Base SQLite (creee automatiquement)
 |
 +-- models/
@@ -849,7 +870,7 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `1` | Certains tests echoues (non critique) |
 | `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
-> **Actuel (v6) :** 13/13 reussis, 0 crise manquee -- voir `tests/results/post_features_456.json`
+> **Actuel (v7) :** 13/13 reussis, 0 crise manquee -- voir `tests/results/post_480_convos.json`
 
 ---
 
@@ -860,10 +881,8 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | ML peu fiable pour conversations courtes (< 6 messages)            | ML plafonne a Orange; mots-cles de crise declenchent Rouge       |
 | Aucune validation clinique des seuils                              | Collaboration avec professionnels en sante mentale               |
 | Detection identitaire basee sur des phrases, pas le contexte       | Fine-tuner les embeddings sur un corpus detresse identitaire     |
-| Pas de detection de silence/retrait (frequence des messages)       | Suivre le delai inter-messages comme signal de crise             |
-| Ratio 320 echantillons / 67 features (4.8:1) sous l'ideal 10:1    | Generer plus de donnees ou reduire les features via PCA          |
+| Detection d'abandon basee sur seuil (>24h), pas intra-session     | Suivre le delai intra-session et le desengagement progressif     |
 | LLM non fine-tune pour le contexte de crise                       | Fine-tuning sur conversations d'intervenants certifies           |
-| Pas de transfert chaleureux vers un intervenant humain             | Implementer l'architecture de warm handoff en 5 etapes           |
 
 ---
 
