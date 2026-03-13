@@ -380,7 +380,7 @@ def get_llm_response(
                     ]
 
                     gemini_model = genai.GenerativeModel(
-                        "gemini-2.0-flash",
+                        "gemini-2.5-flash",
                         system_instruction=system_prompt,
                         safety_settings=safety_settings,
                     )
