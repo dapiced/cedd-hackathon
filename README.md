@@ -213,14 +213,14 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **LLM hierarchy with automatic fallback:**
 ```
-claude-haiku (Anthropic API) -> mistral (local Ollama) -> llama3.2:1b (local Ollama) -> static text
+groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
 ```
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
+| `groq`             | `GROQ_API_KEY`      | Orange    |
+| `gemini-flash`     | `GEMINI_API_KEY`    | Blue      |
 | `claude-haiku`     | `ANTHROPIC_API_KEY` | Purple    |
-| `mistral`          | Local Ollama        | Blue      |
-| `llama3.2:1b`      | Local Ollama        | White     |
 | `static fallback`  | None                | Warning   |
 
 ---
@@ -251,6 +251,8 @@ claude-haiku (Anthropic API) -> mistral (local Ollama) -> llama3.2:1b (local Oll
 #### 5. Streamlit Interface -- `app.py`
 
 Two-column interface with real-time updates after each message.
+
+**Profile selector** in the header: 5 demo profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal histories. Switching profiles ends the current session and loads the selected user's history.
 
 **Language toggle** in the header: switch between English and Francais at any time. The UI, system prompts, and LLM responses all switch to the selected language.
 
@@ -328,7 +330,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 
 **Prerequisites:**
 - Python 3.9+
-- (Optional) Ollama for local LLMs
+- At least one LLM API key (Groq, Gemini, or Anthropic)
 
 ```bash
 # 1. Clone the repository
@@ -342,17 +344,15 @@ source venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. (Optional) Configure Claude API key
-export ANTHROPIC_API_KEY="sk-ant-..."
+# 4. Configure LLM API keys (at least one required for live chat)
+export GROQ_API_KEY="gsk_..."          # Primary: Llama 3.3 70B (fastest)
+export GEMINI_API_KEY="AI..."          # Secondary: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiary: Claude Haiku + data generation
 
-# 5. (Optional) Install Ollama models
-ollama pull mistral
-ollama pull llama3.2:1b
-
-# 6. Train the model
+# 5. Train the model
 python train.py
 
-# 7. Launch the interface
+# 6. Launch the interface
 streamlit run app.py
 ```
 ```powershell
@@ -370,7 +370,7 @@ python train.py
 # Launch the bilingual web interface
 streamlit run app.py
 
-# Simulate session history for demo
+# Simulate session history for demo (4 user profiles x 7 sessions)
 python simulate_history.py --lang fr   # French
 python simulate_history.py --lang en   # English
 
@@ -386,7 +386,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 python tests/adversarial_suite.py --verbose
 ```
 
-Opens at `http://localhost:8501`. Use the language toggle in the header to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
+Opens at `http://localhost:8501`. Use the **profile selector** in the header to switch between demo users (Shuchita, Priyanka, Amanda, Dominic, Guest). Use the language toggle to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
 
 ---
 
@@ -430,7 +430,7 @@ cedd-hackathon/
 +-- app.py                          # Bilingual Streamlit interface
 +-- train.py                        # Training: load -> cross-validate -> fit -> save
 +-- generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
-+-- simulate_history.py             # Demo history simulation (FR + EN)
++-- simulate_history.py             # Demo history simulation per user profile (FR + EN)
 +-- annotate_data.py                # Quality annotation tool (Claude-based)
 +-- requirements.txt                # Python dependencies
 |
@@ -529,7 +529,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 |---------------------------------------------------------------------|---------------------------------------------------------------------|
 | ML unreliable for short conversations (< 6 messages)               | ML capped at Orange for < 6 messages; crisis keywords trigger Red instantly |
 | No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
-| Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
+| No real authentication (demo profiles only)                        | Add lightweight authentication system                               |
 | Identity conflict detection is phrase-based, not contextual         | Fine-tune embeddings on identity-distress corpus                    |
 | Withdrawal detection is threshold-based (>24h), not intra-session   | Track intra-session message timing and progressive disengagement    |
 | Somatization relies on word co-occurrence, not clinical reasoning   | Add validated somatization scales as complementary signal            |
@@ -611,8 +611,8 @@ La detection repose sur une approche hybride :
              | niveau 0-3 + confiance + features dominantes
              v
 +------------------------+        +--------------------------+
-|  Response Modulator    |------->|  LLM Claude / Mistral /  |
-|  (prompt adaptatif)    |        |  Llama / sans llm        |
+|  Response Modulator    |------->|  LLM Groq / Gemini /     |
+|  (prompt adaptatif)    |        |  Claude / sans llm       |
 |  Prompt FR ou EN       |        +--------------------------+
 +------------------------+
              |
@@ -717,7 +717,7 @@ Quatre niveaux de prompts systeme distincts, disponibles en **francais et en ang
 4. Encouragement a se connecter
 5. Presence continue
 
-Hierarchie LLM : `claude-haiku -> mistral -> llama3.2:1b -> sans llm`
+Hierarchie LLM : `groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 
@@ -727,7 +727,7 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 #### 5. Interface Streamlit -- `app.py`
 
-Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour basculer entre Francais et English.
+Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
 
 Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
@@ -778,17 +778,15 @@ source venv/bin/activate
 # 3. Installer les dependances
 pip install -r requirements.txt
 
-# 4. (Optionnel) Configurer la cle API Claude
-export ANTHROPIC_API_KEY="sk-ant-..."
+# 4. Configurer les cles API LLM (au moins une requise pour le chat)
+export GROQ_API_KEY="gsk_..."          # Primaire : Llama 3.3 70B (le plus rapide)
+export GEMINI_API_KEY="AI..."          # Secondaire : Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiaire : Claude Haiku + generation de donnees
 
-# 5. (Optionnel) Installer les modeles Ollama
-ollama pull mistral
-ollama pull llama3.2:1b
-
-# 6. Entrainer le modele
+# 5. Entrainer le modele
 python train.py
 
-# 7. Lancer l'interface
+# 6. Lancer l'interface
 streamlit run app.py
 ```
 
@@ -807,7 +805,7 @@ python train.py
 # Lancer l'interface web bilingue
 streamlit run app.py
 
-# Simuler l'historique pour la demo
+# Simuler l'historique pour la demo (4 profils x 7 sessions)
 python simulate_history.py --lang fr
 python simulate_history.py --lang en
 
@@ -823,7 +821,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 python tests/adversarial_suite.py --verbose
 ```
 
-Ouvre `http://localhost:8501`. Utiliser le bouton de langue dans l'en-tete pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
+Ouvre `http://localhost:8501`. Utiliser le **selecteur de profil** dans l'en-tete pour choisir un utilisateur demo (Shuchita, Priyanka, Amanda, Dominic, Guest). Utiliser le bouton de langue pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
 
 ---
 
@@ -866,7 +864,7 @@ cedd-hackathon/
 +-- app.py                          # Interface Streamlit bilingue
 +-- train.py                        # Entrainement : chargement -> CV -> fit -> sauvegarde
 +-- generate_synthetic_data.py      # Generation via Claude API (FR + EN)
-+-- simulate_history.py             # Simulation d'historique FR + EN
++-- simulate_history.py             # Simulation d'historique par profil utilisateur (FR + EN)
 +-- annotate_data.py                # Outil d'annotation qualite (Claude)
 +-- requirements.txt                # Dependances Python
 |
