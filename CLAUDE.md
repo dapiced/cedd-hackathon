@@ -479,6 +479,10 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Chat timestamps** | DONE | HH:MM timestamp below each message bubble. Right-aligned for user, left-aligned for assistant. Muted styling. | UX |
 | ✅ **LLM source badge** | DONE | Small coloured badge on each assistant bubble showing which LLM generated the response (emoji + display name from `LLM_SOURCE_INDICATOR`/`LLM_DISPLAY_NAMES`). | UX |
 | ✅ **Alert level badge** | DONE | Coloured alert dot on each assistant message showing the CEDD classification at that exchange (uses `LEVEL_COLORS`, `LEVEL_EMOJIS`, `LEVEL_LABELS`). | UX |
+| ✅ **Demo autopilot** | DONE | "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario (9 messages). Judges sit back and watch the drift unfold live. Stop button to cancel. Natural pacing via LLM response time. | UX |
+| ✅ **About CEDD panel** | DONE | Collapsible "About" panel explaining what CEDD does, how it works, and what the dashboard shows. Bilingual. Toggled via ℹ️ button. | UX |
+| ✅ **Export transcript** | DONE | Download button exports conversation + alert history as JSON file. Includes messages, timestamps, LLM sources, alert levels, dominant features, session metadata. | UX |
+| ✅ **Alert transition animation** | DONE | CSS-animated toast notification when alert level increases. Shows new level emoji + label. 3s fade-in/out animation. Fires once per transition via session state pop. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -611,4 +615,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM source badges, alert level badges*
+*Last updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export transcript, alert toast*

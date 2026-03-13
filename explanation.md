@@ -393,6 +393,10 @@ def load_tracker(): ...
 - **Timestamps:** Each message shows `HH:MM` in small muted text — right-aligned for user bubbles, left-aligned for assistant bubbles.
 - **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🟠 Groq Llama 3.3 70B") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
 - **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
+- **Demo autopilot:** "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario — 9 messages showing Green → Yellow → Orange drift. The LLM response time provides natural pacing between messages. Judges can sit back and watch the full drift unfold live. A "Stop" button cancels mid-demo.
+- **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 6 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
+- **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
+- **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 
 ### Core Loop (what happens when you send a message)
 
@@ -660,4 +664,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM source badges, alert level badges*
+*Updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export transcript, alert toast*
