@@ -484,6 +484,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Export transcript** | DONE | Download button exports conversation + alert history as JSON file. Includes messages, timestamps, LLM sources, alert levels, dominant features, session metadata. | UX |
 | ✅ **Alert transition animation** | DONE | CSS-animated toast notification when alert level increases. Shows new level emoji + label. 3s fade-in/out animation. Fires once per transition via session state pop. | UX |
 | ✅ **Side-by-side compare mode** | DONE | "🔀 Compare" toggle splits chat into two columns: left = raw LLM (no system prompt), right = LLM with CEDD adaptive instructions. Same user input, two API calls. Shows the value of CEDD's prompt modulation on crisis messages. Demo autopilot disabled in compare mode (too slow with 2× API calls). `system_prompt_override` parameter added to `get_llm_response()`. | UX |
+| ✅ **Feature radar chart** | DONE | Plotly `Scatterpolar` showing 10 per-message features (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization) normalized 0-1. Latest message in alert-level color, Msg 1 as green ghost overlay (after 3+ messages). Collapsible expander in dashboard. Bilingual axis labels. Zero extra compute — uses already-computed `extract_features()` values. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -616,4 +617,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — UI polish + compare mode: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export, alert toast, side-by-side compare*
+*Last updated: March 13, 2026 — UI polish + compare mode + radar: welcome card, team branding, timestamps, badges, demo, about, export, toast, compare, feature radar*

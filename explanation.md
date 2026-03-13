@@ -400,6 +400,7 @@ def load_tracker(): ...
 - **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
 - **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 - **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
+- **Feature radar chart:** Plotly `go.Scatterpolar` in a collapsible expander showing the 10 per-message features for the latest user message, normalized to 0-1. Each axis = one base feature (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization). The polygon is colored by alert level. After 3+ messages, a green ghost overlay of Msg 1 shows the "healthy baseline" for comparison — judges see the shape distort as drift happens. Zero extra compute: calls `extract_features()` which is pure word counting (no ML, no embeddings). Bilingual axis labels via `_RADAR_NAMES`.
 
 ### Core Loop (what happens when you send a message)
 
@@ -421,6 +422,7 @@ Light and dark themes via CSS injection. `THEMES` dictionary defines colors for 
 - **Feature importance chart:** Horizontal bar chart (`go.Bar`, orientation="h") in a collapsible expander. Shows top 5 features by composite score (model importance × scaled value). Bars are colour-coded by 6 categories: red (crisis/finality), orange (negative/negation), blue (structural), green (hope), purple (identity/cultural), teal (behavioral/coherence). Visible at Yellow+ including safety overrides. Bilingual title ("Signaux détectés" / "Detected signals")
 - **Alert history chart:** Line chart (`go.Scatter`) showing alert per message
 - **Longitudinal bar chart:** Bar chart (`go.Bar`) showing max alert per completed session
+- **Feature radar:** Spider chart (`go.Scatterpolar`) showing 10 per-message features normalized 0-1. Latest message colored by alert level + Msg 1 green ghost overlay. Axes: Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization
 
 ### Chat-Level Metadata (stored in message dicts)
 
@@ -667,4 +669,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — UI polish + compare mode: welcome card, team branding, timestamps, LLM/alert badges, demo, about, export, toast, side-by-side compare*
+*Updated: March 13, 2026 — UI polish + compare mode + radar: welcome card, branding, timestamps, badges, demo, about, export, toast, compare, feature radar*

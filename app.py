@@ -15,6 +15,7 @@ import plotly.graph_objects as go
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cedd.classifier import CEDDClassifier, LEVEL_LABELS
+from cedd.feature_extractor import extract_features
 from cedd.response_modulator import (
     get_llm_response,
     get_level_description,
@@ -346,6 +347,7 @@ STRINGS = {
         "withdrawal_badge":   "Retour après absence",
         "feature_chart_title": "🔍 Signaux détectés",
         "feature_chart_note":  "Score composite = importance du modèle × valeur normalisée. Les barres montrent ce qui influence le plus le niveau d'alerte actuel.",
+        "radar_title":         "🕸️ Radar des features",
         "profile_label":       "Profil",
         "demo_btn":            "▶️ Démo",
         "demo_stop_btn":       "⏹️ Arrêter",
@@ -416,6 +418,7 @@ STRINGS = {
         "withdrawal_badge":   "Returned after absence",
         "feature_chart_title": "🔍 Detected signals",
         "feature_chart_note":  "Composite score = model importance × scaled value. Bars show what drives the current alert level most.",
+        "radar_title":         "🕸️ Feature radar",
         "profile_label":       "Profile",
         "demo_btn":            "▶️ Demo",
         "demo_stop_btn":       "⏹️ Stop",
@@ -946,6 +949,121 @@ def render_feature_chart(feature_scores: list, S: dict, theme: str = "light"):
     st.caption(S["feature_chart_note"])
 
 
+# ─── Radar chart for per-message features / Graphique radar des features par message ──
+
+# Feature names for radar axes / Noms des features pour les axes du radar
+_RADAR_NAMES = {
+    "fr": [
+        "Longueur", "Ponctuation", "Questions", "Négatif", "Finalité",
+        "Espoir", "Δ Longueur", "Négation", "Conflit id.", "Somatisation",
+    ],
+    "en": [
+        "Length", "Punctuation", "Questions", "Negative", "Finality",
+        "Hope", "Δ Length", "Negation", "Identity", "Somatization",
+    ],
+}
+
+
+def render_radar_chart(messages: list, S: dict, theme: str = "light", lang: str = "en"):
+    """Radar chart of the 10 per-message features for the latest message."""
+    if not messages or not any(m["role"] == "user" for m in messages):
+        return
+
+    features_matrix = extract_features(messages)  # (n_user_msgs, 10)
+    if features_matrix.shape[0] < 1:
+        return
+
+    names = _RADAR_NAMES.get(lang, _RADAR_NAMES["en"])
+    font_color = "#000000" if theme == "light" else "#ffffff"
+    grid_color = "rgba(155,181,204,0.25)" if theme == "light" else "rgba(45,55,72,0.25)"
+
+    # Normalize features to 0-1 range for display / Normaliser les features entre 0 et 1
+    latest = features_matrix[-1].copy()
+
+    # Per-feature normalization with sensible max values
+    # Normalisation par feature avec des valeurs max raisonnables
+    max_vals = [
+        80.0,   # word_count — typical max ~80 words
+        0.15,   # punctuation_ratio — typical max ~0.15
+        1.0,    # question_presence — binary 0/1
+        0.5,    # negative_score — ratio, rarely above 0.5
+        0.3,    # finality_score — ratio, rarely above 0.3
+        0.5,    # hope_score — ratio, rarely above 0.5
+        1.0,    # length_delta — relative, clamp to [-1, 1]
+        0.3,    # negation_score — ratio
+        0.3,    # identity_conflict — ratio
+        0.3,    # somatization — ratio
+    ]
+    normalized = []
+    for i, val in enumerate(latest):
+        if i == 6:  # length_delta can be negative — use absolute
+            normalized.append(min(abs(val) / max_vals[i], 1.0))
+        else:
+            normalized.append(min(val / max_vals[i], 1.0) if max_vals[i] > 0 else 0.0)
+
+    # Close the polygon / Fermer le polygone
+    plot_vals = normalized + [normalized[0]]
+    plot_names = names + [names[0]]
+
+    fig = go.Figure()
+
+    # Show first message as ghost overlay if we have 3+ messages
+    # Afficher le premier message en overlay fantôme si 3+ messages
+    if features_matrix.shape[0] >= 3:
+        first = features_matrix[0].copy()
+        first_norm = []
+        for i, val in enumerate(first):
+            if i == 6:
+                first_norm.append(min(abs(val) / max_vals[i], 1.0))
+            else:
+                first_norm.append(min(val / max_vals[i], 1.0) if max_vals[i] > 0 else 0.0)
+        first_plot = first_norm + [first_norm[0]]
+        fig.add_trace(go.Scatterpolar(
+            r=first_plot, theta=plot_names,
+            fill="toself",
+            fillcolor="rgba(46, 204, 113, 0.08)",
+            line=dict(color="rgba(46, 204, 113, 0.3)", width=1),
+            name="Msg 1",
+        ))
+
+    # Latest message — convert hex color to rgba for Plotly Scatterpolar
+    level = st.session_state.current_alert.get("level", 0)
+    color = LEVEL_COLORS[level]
+    # Convert hex #rrggbb to rgba(r,g,b,a)
+    r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+    fig.add_trace(go.Scatterpolar(
+        r=plot_vals, theta=plot_names,
+        fill="toself",
+        fillcolor=f"rgba({r},{g},{b},0.13)",
+        line=dict(color=color, width=2),
+        name=f"Msg {features_matrix.shape[0]}",
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True, range=[0, 1],
+                showticklabels=False,
+                gridcolor=grid_color,
+                linecolor=grid_color,
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=9, color=font_color),
+                gridcolor=grid_color,
+                linecolor=grid_color,
+            ),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        showlegend=True,
+        legend=dict(font=dict(size=9, color=font_color), orientation="h", y=-0.1),
+        height=250,
+        margin=dict(t=20, b=30, l=30, r=30),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=font_color),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 # ─── Main application / Application principale ──────────────────────────────────
 def main():
     init_state()
@@ -1297,6 +1415,12 @@ def main():
         if level >= 1 and feature_scores:
             with st.expander(S["feature_chart_title"]):
                 render_feature_chart(feature_scores, S, theme)
+
+        # Radar chart (visible when at least 1 user message exists)
+        # Graphique radar (visible dès qu'il y a au moins 1 message utilisateur)
+        if st.session_state.messages:
+            with st.expander(S["radar_title"]):
+                render_radar_chart(st.session_state.messages, S, theme, lang)
 
         st.divider()
 
