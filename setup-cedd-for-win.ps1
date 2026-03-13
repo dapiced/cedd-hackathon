@@ -350,7 +350,9 @@ if (Test-Path $reqFile) {
         "numpy",
         "joblib",
         "requests",
-        "anthropic"
+        "anthropic",
+        "matplotlib",
+        "sentence-transformers"
     )
     foreach ($pkg in $packages) {
         Write-Host "  Installing $pkg..." -ForegroundColor Gray
@@ -366,7 +368,7 @@ Write-Ok "All dependencies installed."
 
 # Show package summary
 Write-Host "`nInstalled packages:" -ForegroundColor Gray
-python -m pip list --format=columns | Select-String -Pattern "streamlit|plotly|scikit|numpy|joblib|requests|anthropic"
+python -m pip list --format=columns | Select-String -Pattern "streamlit|plotly|scikit|numpy|joblib|requests|anthropic|matplotlib|sentence-transformers"
 
 # ============================================================================
 # STEP 5: Configure the Anthropic API key (optional)
