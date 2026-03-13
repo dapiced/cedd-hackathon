@@ -75,7 +75,8 @@ cedd-hackathon/
 │       ├── post_data_expansion.json # After 320-convo retrain: 9/10 passed
 │       ├── post_keyword_fix.json    # After crisis keyword expansion: 10/10 passed
 │       ├── post_negation_embeddings.json  # After negation + embeddings: 9/10
-│       └── post_features_456.json   # Current: 13/13 passed, 0 critical misses
+│       ├── post_features_456.json   # 67 features: 13/13 passed, 0 critical misses
+│       └── post_480_convos.json     # Current (480 convos): 13/13 passed, 0 critical misses
 │
 ├── demo/                            # Demo scenarios for team presentation (March 16)
 │   ├── demo_scenario.md             # FR — Félix, CÉGEP, Green→Yellow→Orange (9 msgs)
@@ -91,7 +92,7 @@ cedd-hackathon/
 ```
 PHASE 1: TRAINING (offline, run once)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-generate_synthetic_data.py  →  data/synthetic_conversations.json (320 convos)
+generate_synthetic_data.py  →  data/synthetic_conversations.json (480 convos)
                                          ↓
                               train.py  (cross-validate → fit → save)
                                          ↓
@@ -256,7 +257,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ```bash
 # 1. Verify training still works
 python train.py
-# 2. Check accuracy didn't drop (baseline: 92.5% ± 1.5%)
+# 2. Check accuracy didn't drop (baseline: 91.7% ± 4.4%)
 # 3. Check top features still make clinical sense
 # 4. Run the app and test with a sample conversation
 streamlit run app.py
@@ -290,7 +291,7 @@ python train.py
 ```bash
 # 1. Regenerate data
 python generate_synthetic_data.py
-# 2. Verify balanced distribution: 30 per class × 4 classes
+# 2. Verify balanced distribution: 60 per class × 4 classes
 # 3. Retrain and compare accuracy to baseline
 python train.py
 # 4. Check for data leakage: no test conversations in training set
@@ -328,7 +329,7 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 `quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`,
 `somatization`, `identity_conflict`
 
-**Current:** 13/13 passed · 0 critical misses (`tests/results/post_features_456.json`)
+**Current:** 13/13 passed · 0 critical misses (`tests/results/post_480_convos.json`)
 **Original baseline:** 7/10 (`tests/results/baseline_v1.json`) — kept for historical comparison.
 
 **Critical rule:** Exit code `2` means a crisis was predicted as Green or Yellow — this is a **safety regression** and blocks any merge.
@@ -391,7 +392,7 @@ Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across 
 - Canadian-specific crisis resources (Kids Help Phone) → CEDD does
 - French-language crisis detection → CEDD does
 - Subtle/coded distress detection → CEDD's trajectory analysis does
-- Warm handoff to human responder → CEDD's roadmap
+- Warm handoff to human responder → CEDD does (5-step flow implemented)
 - Cross-session memory → CEDD does
 
 ---
@@ -444,10 +445,10 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 
 | When | What | Why |
 |---|---|---|
-| **March 16-23** (first half) | Final polish, warm handoff, presentation prep | UX differentiation |
+| **March 16-23** (first half) | Final polish, presentation prep | UX differentiation |
 | **March 22 evening** (deadline) | Final metrics comparison + report + submission | Show before/after improvement honestly |
 
-**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 92.5% accuracy. From 7 features to 67. From lexical counting to multilingual embeddings + coherence analysis. Here's how we got there."*
+**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 91.7% accuracy. From 7 features to 67. From lexical counting to multilingual embeddings + coherence analysis. Here's how we got there."*
 
 ### ✅ Completed Improvements
 

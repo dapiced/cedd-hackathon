@@ -800,8 +800,21 @@ Resultats sur le dataset de 480 conversations equilibrees bilingues :
 | Ratio echantillons:features | **7.2:1** (ameliore de 4.8)  |
 | Top feature               | `word_count_slope` (0.367)     |
 | 2e feature                | `word_count_max` (0.249)       |
+| 3e feature                | `length_delta_mean` (0.126)    |
+| 4e feature                | `finality_score_mean` (0.119)  |
 | Tests adversariaux        | **13/13 reussis**              |
 | Crises manquees           | **0**                          |
+
+#### Historique des metriques
+
+| Date | Evenement | CV Accuracy | Adversarial |
+|------|-----------|-------------|-------------|
+| Mars 10 | Baseline (24 convos FR, 42 features) | 66.7% +/- 26.4% | 7/10 |
+| Mars 12 | Expansion donnees (320 convos bilingues) | ~91.2% +/- 1.5% | 9/10 |
+| Mars 12 | Expansion mots-cles de crise | ~91.2% +/- 1.5% | 10/10 |
+| Mars 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
+| Mars 12 | +Identite + Somatisation + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
+| Mars 12 | Expansion donnees a 480 convos (60/classe) | **91.7% +/- 4.4%** | **13/13** |
 
 ---
 
