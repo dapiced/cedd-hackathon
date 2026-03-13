@@ -359,7 +359,7 @@ Flags users who return after >24h without clicking Reset:
 Reset = close session + archive to DB + start fresh (all data kept)
 Delete = CEDD never deletes data (clinical safety requires full audit trail)
 
-Currently only `demo_user` exists in the DB. The architecture supports multi-user — all methods take `user_id` as parameter.
+The app supports **5 demo profiles** (Shuchita, Priyanka, Amanda, Dominic, Guest), each with a distinct longitudinal trajectory. `simulate_history.py` generates 7 sessions per user with different patterns (stable green, gradual improvement, fluctuating, escalating). Guest starts with no history for judges to try fresh. All methods take `user_id` as parameter — the architecture is ready for real multi-user deployment.
 
 ---
 
@@ -383,6 +383,7 @@ def load_tracker(): ...
 
 ### Layout
 
+- **Header row** — Title, profile selector (5 demo users), language toggle, theme toggle, reset button
 - `col_chat (60%)` — Chat bubbles + input form
 - `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
 
@@ -640,4 +641,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — LLM fallback chain updated: Groq (Llama 3.3 70B) → Gemini 2.5 Flash → Claude Haiku → static*
+*Updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*

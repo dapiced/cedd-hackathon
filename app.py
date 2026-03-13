@@ -202,6 +202,7 @@ LLM_DISPLAY_NAMES = {
     "claude-haiku": "Claude Haiku",
 }
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
+DEMO_USERS = ["Shuchita", "Priyanka", "Amanda", "Dominic", "Guest"]
 
 # ─── Bilingual UI strings / Chaînes d'interface bilingues ─────────────────────
 STRINGS = {
@@ -257,6 +258,7 @@ STRINGS = {
         "withdrawal_badge":   "Retour après absence",
         "feature_chart_title": "🔍 Signaux détectés",
         "feature_chart_note":  "Score composite = importance du modèle × valeur normalisée. Les barres montrent ce qui influence le plus le niveau d'alerte actuel.",
+        "profile_label":       "Profil",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -308,6 +310,7 @@ STRINGS = {
         "withdrawal_badge":   "Returned after absence",
         "feature_chart_title": "🔍 Detected signals",
         "feature_chart_note":  "Composite score = model importance × scaled value. Bars show what drives the current alert level most.",
+        "profile_label":       "Profile",
     },
 }
 
@@ -411,7 +414,7 @@ def init_state():
         "selected_llm":    "groq",
         "last_llm_source": None,
         "input_key":       0,
-        "user_id":         "demo_user",
+        "user_id":         "Guest",
         "session_id":      None,
         "lang":            "en",   # default language / langue par défaut
         "theme":           "light",
@@ -758,10 +761,33 @@ def main():
         st.session_state.session_id = tracker.start_session(st.session_state.user_id)
 
     # ── Header ─────────────────────────────────────────────────────────────────
-    col_title, col_lang, col_theme, col_reset = st.columns([4, 1, 1, 1])
+    col_title, col_profile, col_lang, col_theme, col_reset = st.columns([3, 1.5, 1, 1, 1])
     with col_title:
         st.markdown(f"# {S['app_title']}")
         st.caption(S["app_subtitle"])
+
+    with col_profile:
+        st.markdown("<br>", unsafe_allow_html=True)
+        current_idx = DEMO_USERS.index(st.session_state.user_id) if st.session_state.user_id in DEMO_USERS else len(DEMO_USERS) - 1
+        selected_user = st.selectbox(
+            S["profile_label"],
+            DEMO_USERS,
+            index=current_idx,
+            key="profile_selector",
+            label_visibility="collapsed",
+        )
+        if selected_user != st.session_state.user_id:
+            # End current session before switching / Clôturer la session avant de changer
+            max_lvl = max((h["level"] for h in st.session_state.alert_history), default=0)
+            n_user = sum(1 for m in st.session_state.messages if m["role"] == "user")
+            tracker.end_session(
+                st.session_state.user_id, st.session_state.session_id,
+                max_lvl, n_user,
+            )
+            reset_conversation()
+            st.session_state.user_id = selected_user
+            st.session_state.session_id = None
+            st.rerun()
 
     with col_lang:
         st.markdown("<br>", unsafe_allow_html=True)

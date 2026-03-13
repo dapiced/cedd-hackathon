@@ -48,7 +48,7 @@ cedd-hackathon/
 ├── app.py                          # Bilingual Streamlit web interface (FR/EN)
 ├── train.py                        # Training script: load → cross-validate → fit → save
 ├── generate_synthetic_data.py      # Generates training data via Claude Haiku API (FR+EN)
-├── simulate_history.py             # Populates demo session history for the UI
+├── simulate_history.py             # Populates demo session history per user profile (4 trajectories)
 ├── requirements.txt                # Python dependencies
 │
 ├── cedd/                           # Main Python package (the "brain")
@@ -247,7 +247,6 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Lexical features complemented by embeddings** — sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`) catch synonyms and paraphrases, but sarcasm and periphrases like "je pèse sur tout le monde" remain challenging
 - **ML unreliable for short conversations** (< 6 messages) → capped at Orange
 - **No clinical validation** — thresholds are not validated by mental health professionals
-- **Single demo user** in the Streamlit UI (`demo_user`)
 - **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
 - **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
@@ -474,6 +473,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
 | ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
 | ✅ **Feature importance visualization** | DONE | Collapsible Plotly horizontal bar chart in dashboard showing top 5 features by composite score (model importance × scaled value). 6 color categories (crisis, negative, structural, hope, identity, behavioral). Bilingual labels. Visible at Yellow+ including safety overrides. | UX |
+| ✅ **Multi-user demo profiles** | DONE | 5 selectable profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal trajectories. Profile selector dropdown in header. `simulate_history.py` generates 4 unique 7-session histories (stable green, gradual improvement, fluctuating, escalating). Guest starts fresh for judges. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -514,8 +514,8 @@ python generate_synthetic_data.py
 # Train the model
 python train.py
 
-# Populate demo history (optional)
-python simulate_history.py
+# Populate demo history for all profiles (optional)
+python simulate_history.py          # 4 user profiles × 7 sessions each
 
 # Configure LLM API keys (at least one required for live chat)
 export GROQ_API_KEY=your_key        # Primary LLM: Llama 3.3 70B (fastest)
@@ -606,4 +606,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — LLM hierarchy updated to Groq → Gemini → Claude → static*
+*Last updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*

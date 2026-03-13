@@ -23,19 +23,51 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cedd.session_tracker import SessionTracker, DEFAULT_DB_PATH
 
-USER_ID = "demo_user"
-
-# Session plan: (max_level, [alert_levels], start_hour, n_messages)
-# Plan des sessions : (niveau_max, [niveaux_alertes], heure_début, nb_messages)
-SESSIONS_PLAN = [
-    (0, [0, 0, 0, 0, 0], 20, 5),  # Day 1 / Jour 1 — Green stable / Vert stable
-    (1, [0, 0, 1, 1, 0], 21, 5),  # Day 2 / Jour 2 — Yellow occasional / Jaune ponctuel
-    (1, [0, 1, 1, 1, 1], 20, 5),  # Day 3 / Jour 3 — Yellow persistent / Jaune persistant
-    (2, [1, 1, 2, 2, 1], 22, 5),  # Day 4 / Jour 4 — Orange detected / Orange détecté
-    (2, [1, 2, 2, 2, 2], 21, 6),  # Day 5 / Jour 5 — Orange dominant
-    (3, [2, 2, 3, 3, 2], 23, 6),  # Day 6 / Jour 6 — Red detected / Rouge détecté
-    (3, [2, 3, 3, 3, 3], 22, 7),  # Day 7 / Jour 7 — Red dominant / Rouge dominant
-]
+# Per-user session plans: user_name → list of (max_level, [alert_levels], start_hour, n_messages)
+# Plans par utilisateur : nom → liste de (niveau_max, [niveaux_alertes], heure_début, nb_messages)
+USERS_PLANS = {
+    "Shuchita": [
+        # Stable green — healthy user, occasional yellow / Vert stable — utilisatrice en bonne santé
+        (0, [0, 0, 0, 0, 0], 18, 5),
+        (0, [0, 0, 0, 0, 0], 19, 5),
+        (0, [0, 0, 0, 0, 0], 20, 5),
+        (1, [0, 0, 1, 0, 0], 18, 5),
+        (0, [0, 0, 0, 0, 0], 21, 5),
+        (0, [0, 0, 0, 0, 0], 19, 5),
+        (0, [0, 0, 0, 0, 0], 20, 5),
+    ],
+    "Priyanka": [
+        # Gradual improvement — started rough, getting better / Amélioration graduelle
+        (2, [1, 2, 2, 1, 1], 20, 5),
+        (2, [1, 1, 2, 1, 1], 21, 5),
+        (1, [1, 1, 1, 1, 0], 19, 5),
+        (1, [0, 1, 1, 0, 0], 20, 5),
+        (0, [0, 0, 0, 1, 0], 18, 5),
+        (0, [0, 0, 0, 0, 0], 19, 5),
+        (0, [0, 0, 0, 0, 0], 20, 5),
+    ],
+    "Amanda": [
+        # Fluctuating — up and down, no clear trend / Fluctuant — sans tendance nette
+        (0, [0, 0, 0, 0, 0], 19, 5),
+        (1, [0, 1, 1, 0, 0], 20, 5),
+        (2, [1, 1, 2, 2, 1], 21, 5),
+        (1, [1, 1, 0, 0, 0], 19, 5),
+        (0, [0, 0, 0, 0, 0], 18, 5),
+        (1, [0, 0, 1, 1, 0], 20, 5),
+        (0, [0, 0, 0, 0, 0], 21, 5),
+    ],
+    "Dominic": [
+        # Escalating — classic drift toward crisis (best for demo) / Escalade classique
+        (0, [0, 0, 0, 0, 0], 20, 5),
+        (0, [0, 0, 0, 0, 0], 21, 5),
+        (1, [0, 0, 1, 1, 0], 20, 5),
+        (1, [0, 1, 1, 1, 1], 22, 5),
+        (2, [1, 1, 2, 2, 1], 21, 6),
+        (2, [1, 2, 2, 2, 2], 23, 6),
+        (3, [2, 3, 3, 3, 3], 22, 7),
+    ],
+    # Guest: no history generated / Invité : aucun historique généré
+}
 
 # Sample messages by level — bilingual / Messages d'exemple par niveau — bilingues
 SAMPLE_MESSAGES = {
@@ -116,83 +148,83 @@ def main():
     messages_by_level = SAMPLE_MESSAGES[lang]
     label_by_level    = LABEL[lang]
 
-    # Clear previous demo_user history / Effacer l'historique précédent de demo_user
+    # Clear previous history for all demo users / Effacer l'historique de tous les utilisateurs démo
+    all_users = list(USERS_PLANS.keys()) + ["Guest", "demo_user"]
     conn   = sqlite3.connect(DEFAULT_DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM alert_events WHERE user_id = 'demo_user'")
-    cursor.execute("DELETE FROM sessions WHERE user_id = 'demo_user'")
+    for uid in all_users:
+        cursor.execute("DELETE FROM alert_events WHERE user_id = ?", (uid,))
+        cursor.execute("DELETE FROM sessions WHERE user_id = ?", (uid,))
     conn.commit()
     conn.close()
-    print("  Previous history cleared. / Historique précédent effacé.")
+    print("  Previous history cleared for all profiles. / Historique effacé pour tous les profils.")
 
     # Init tracker (creates DB if needed) / Initialiser le tracker
     tracker = SessionTracker(db_path=DEFAULT_DB_PATH)
 
     print("=" * 62)
     print("  CEDD — Session history simulation / Simulation d'historique")
-    print(f"  7 sessions / 7 days  [{lang.upper()}]")
+    print(f"  {len(USERS_PLANS)} users × 7 sessions  [{lang.upper()}]")
     print("=" * 62)
-    print(f"  User / Utilisateur : {USER_ID}")
-    print(f"  DB / Base SQLite   : {DEFAULT_DB_PATH}")
+    print(f"  DB / Base SQLite : {DEFAULT_DB_PATH}")
     print()
 
-    base_date          = datetime.now() - timedelta(days=7)
-    inserted_sessions  = []
+    base_date = datetime.now() - timedelta(days=7)
 
-    for day_idx, (max_level, alert_levels, hour, n_msgs) in enumerate(SESSIONS_PLAN):
-        session_date = (base_date + timedelta(days=day_idx)).replace(
-            hour=hour,
-            minute=random.randint(0, 30),
-            second=0,
-            microsecond=0,
-        )
-        session_id = str(uuid.uuid4())
-        ended_at   = session_date + timedelta(minutes=random.randint(20, 55))
+    for user_id, sessions_plan in USERS_PLANS.items():
+        print(f"  ── {user_id} {'─' * (50 - len(user_id))}")
 
-        # Insert session with simulated timestamps / Insérer la session avec timestamps simulés
-        with sqlite3.connect(DEFAULT_DB_PATH) as conn:
-            conn.execute(
-                """INSERT INTO sessions
-                   (user_id, session_id, started_at, ended_at,
-                    max_alert_level, message_count)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (
-                    USER_ID, session_id,
-                    session_date.isoformat(), ended_at.isoformat(),
-                    max_level, n_msgs,
-                ),
+        for day_idx, (max_level, alert_levels, hour, n_msgs) in enumerate(sessions_plan):
+            session_date = (base_date + timedelta(days=day_idx)).replace(
+                hour=hour,
+                minute=random.randint(0, 30),
+                second=0,
+                microsecond=0,
             )
-            for i, lvl in enumerate(alert_levels):
-                msg_time = session_date + timedelta(minutes=i * random.randint(3, 8))
+            session_id = str(uuid.uuid4())
+            ended_at   = session_date + timedelta(minutes=random.randint(20, 55))
+
+            # Insert session with simulated timestamps / Insérer la session avec timestamps simulés
+            with sqlite3.connect(DEFAULT_DB_PATH) as conn:
                 conn.execute(
-                    """INSERT INTO alert_events
-                       (user_id, session_id, timestamp,
-                        alert_level, confidence, trigger_message)
+                    """INSERT INTO sessions
+                       (user_id, session_id, started_at, ended_at,
+                        max_alert_level, message_count)
                        VALUES (?, ?, ?, ?, ?, ?)""",
                     (
-                        USER_ID, session_id,
-                        msg_time.isoformat(),
-                        lvl,
-                        round(random.uniform(0.52, 0.95), 2),
-                        random.choice(messages_by_level[lvl]),
+                        user_id, session_id,
+                        session_date.isoformat(), ended_at.isoformat(),
+                        max_level, n_msgs,
                     ),
                 )
-            conn.commit()
+                for i, lvl in enumerate(alert_levels):
+                    msg_time = session_date + timedelta(minutes=i * random.randint(3, 8))
+                    conn.execute(
+                        """INSERT INTO alert_events
+                           (user_id, session_id, timestamp,
+                            alert_level, confidence, trigger_message)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (
+                            user_id, session_id,
+                            msg_time.isoformat(),
+                            lvl,
+                            round(random.uniform(0.52, 0.95), 2),
+                            random.choice(messages_by_level[lvl]),
+                        ),
+                    )
+                conn.commit()
 
-        inserted_sessions.append((session_date, max_level, n_msgs, session_id))
-        print(
-            f"  Day/Jour {day_idx + 1}  [{session_date.strftime('%Y-%m-%d %Hh%M')}]  "
-            f"{EMOJI[max_level]} {label_by_level[max_level]} — {n_msgs} msgs"
-            f"  (id: {session_id[:8]}…)"
-        )
+            print(
+                f"    Day/Jour {day_idx + 1}  [{session_date.strftime('%Y-%m-%d %Hh%M')}]  "
+                f"{EMOJI[max_level]} {label_by_level[max_level]} — {n_msgs} msgs"
+                f"  (id: {session_id[:8]}…)"
+            )
 
-    print()
+        print()
+
     print("-" * 62)
     print("  LONGITUDINAL ANALYSIS / ANALYSE LONGITUDINALE")
     print("-" * 62)
-
-    risk    = tracker.get_longitudinal_risk(USER_ID)
-    history = tracker.get_user_history(USER_ID)
 
     trend_labels = {
         "fr": {
@@ -227,18 +259,24 @@ def main():
     }
     L = labels[lang]
 
-    print(f"  {L['sessions']:30s}: {risk['sessions_analyzed']}")
-    print(f"  {L['risk_score']:30s}: {risk['risk_score']:.1%}")
-    print(f"  {L['trend']:30s}: {trend_labels[lang][risk['trend']]}")
-    print(f"  {L['consec']:30s}: {risk['consecutive_high_sessions']}")
-    print(f"  {L['rec']:30s}: ⚠️  {risk['recommendation']}")
-    print()
-    print(f"  {L['max_by_sess']} :")
-    for s in history:
-        lvl      = s["max_alert_level"]
-        date_str = s["started_at"][:16].replace("T", " ")
-        bar      = "█" * (lvl + 1)
-        print(f"    {date_str}   {EMOJI[lvl]} level/niveau {lvl}  {bar:<4}  ({s['message_count']} msgs)")
+    # Show analysis for each user / Afficher l'analyse pour chaque utilisateur
+    for user_id in USERS_PLANS:
+        risk    = tracker.get_longitudinal_risk(user_id)
+        history = tracker.get_user_history(user_id)
+
+        print(f"\n  ── {user_id} {'─' * (50 - len(user_id))}")
+        print(f"  {L['sessions']:30s}: {risk['sessions_analyzed']}")
+        print(f"  {L['risk_score']:30s}: {risk['risk_score']:.1%}")
+        print(f"  {L['trend']:30s}: {trend_labels[lang][risk['trend']]}")
+        print(f"  {L['consec']:30s}: {risk['consecutive_high_sessions']}")
+        print(f"  {L['rec']:30s}: ⚠️  {risk['recommendation']}")
+        print()
+        print(f"  {L['max_by_sess']} :")
+        for s in history:
+            lvl      = s["max_alert_level"]
+            date_str = s["started_at"][:16].replace("T", " ")
+            bar      = "█" * (lvl + 1)
+            print(f"    {date_str}   {EMOJI[lvl]} level/niveau {lvl}  {bar:<4}  ({s['message_count']} msgs)")
 
     print()
     if lang == "fr":

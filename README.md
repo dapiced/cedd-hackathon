@@ -252,6 +252,8 @@ groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> stati
 
 Two-column interface with real-time updates after each message.
 
+**Profile selector** in the header: 5 demo profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal histories. Switching profiles ends the current session and loads the selected user's history.
+
 **Language toggle** in the header: switch between English and Francais at any time. The UI, system prompts, and LLM responses all switch to the selected language.
 
 | Component                  | Description                                                                |
@@ -368,7 +370,7 @@ python train.py
 # Launch the bilingual web interface
 streamlit run app.py
 
-# Simulate session history for demo
+# Simulate session history for demo (4 user profiles x 7 sessions)
 python simulate_history.py --lang fr   # French
 python simulate_history.py --lang en   # English
 
@@ -384,7 +386,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 python tests/adversarial_suite.py --verbose
 ```
 
-Opens at `http://localhost:8501`. Use the language toggle in the header to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
+Opens at `http://localhost:8501`. Use the **profile selector** in the header to switch between demo users (Shuchita, Priyanka, Amanda, Dominic, Guest). Use the language toggle to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
 
 ---
 
@@ -428,7 +430,7 @@ cedd-hackathon/
 +-- app.py                          # Bilingual Streamlit interface
 +-- train.py                        # Training: load -> cross-validate -> fit -> save
 +-- generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
-+-- simulate_history.py             # Demo history simulation (FR + EN)
++-- simulate_history.py             # Demo history simulation per user profile (FR + EN)
 +-- annotate_data.py                # Quality annotation tool (Claude-based)
 +-- requirements.txt                # Python dependencies
 |
@@ -527,7 +529,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 |---------------------------------------------------------------------|---------------------------------------------------------------------|
 | ML unreliable for short conversations (< 6 messages)               | ML capped at Orange for < 6 messages; crisis keywords trigger Red instantly |
 | No clinical validation of thresholds                               | Collaborate with mental health professionals                        |
-| Single `demo_user` ID in demo interface                            | Add lightweight authentication system                               |
+| No real authentication (demo profiles only)                        | Add lightweight authentication system                               |
 | Identity conflict detection is phrase-based, not contextual         | Fine-tune embeddings on identity-distress corpus                    |
 | Withdrawal detection is threshold-based (>24h), not intra-session   | Track intra-session message timing and progressive disengagement    |
 | Somatization relies on word co-occurrence, not clinical reasoning   | Add validated somatization scales as complementary signal            |
@@ -725,7 +727,7 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 #### 5. Interface Streamlit -- `app.py`
 
-Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour basculer entre Francais et English.
+Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
 
 Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
@@ -803,7 +805,7 @@ python train.py
 # Lancer l'interface web bilingue
 streamlit run app.py
 
-# Simuler l'historique pour la demo
+# Simuler l'historique pour la demo (4 profils x 7 sessions)
 python simulate_history.py --lang fr
 python simulate_history.py --lang en
 
@@ -819,7 +821,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 python tests/adversarial_suite.py --verbose
 ```
 
-Ouvre `http://localhost:8501`. Utiliser le bouton de langue dans l'en-tete pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
+Ouvre `http://localhost:8501`. Utiliser le **selecteur de profil** dans l'en-tete pour choisir un utilisateur demo (Shuchita, Priyanka, Amanda, Dominic, Guest). Utiliser le bouton de langue pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
 
 ---
 
@@ -862,7 +864,7 @@ cedd-hackathon/
 +-- app.py                          # Interface Streamlit bilingue
 +-- train.py                        # Entrainement : chargement -> CV -> fit -> sauvegarde
 +-- generate_synthetic_data.py      # Generation via Claude API (FR + EN)
-+-- simulate_history.py             # Simulation d'historique FR + EN
++-- simulate_history.py             # Simulation d'historique par profil utilisateur (FR + EN)
 +-- annotate_data.py                # Outil d'annotation qualite (Claude)
 +-- requirements.txt                # Dependances Python
 |
