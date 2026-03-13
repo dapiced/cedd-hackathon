@@ -323,16 +323,16 @@ def get_llm_response(
     Generate an LLM response using the adapted system prompt.
 
     If force_model is provided, only that model is tried (no automatic fallback).
-    Otherwise, the hierarchy is: gemini-flash → claude-haiku → static fallback.
+    Otherwise, the hierarchy is: groq → gemini-flash → claude-haiku → static fallback.
 
     Génère une réponse LLM avec le prompt système adapté au niveau d'alerte.
     Si force_model est fourni, seul ce modèle est essayé (pas de fallback automatique).
-    Sinon, hiérarchie : gemini-flash → claude-haiku → fallback-statique.
+    Sinon, hiérarchie : groq → gemini-flash → claude-haiku → fallback-statique.
 
     Args:
         messages:     list of {"role": "user"|"assistant", "content": str}
         alert_level:  CEDD alert level (0-3)
-        force_model:  "gemini-flash" | "claude-haiku" | "fallback-statique" | None
+        force_model:  "groq" | "gemini-flash" | "claude-haiku" | "fallback-statique" | None
         lang:         interface language ("fr" or "en"), controls system prompt language
         handoff_step: warm handoff step (0 = none, 1-5 = active)
 
@@ -355,13 +355,29 @@ def get_llm_response(
 
     # Model priority order / Ordre de priorité des modèles
     models_to_try = (
-        [force_model] if force_model in ("gemini-flash", "claude-haiku")
-        else ["gemini-flash", "claude-haiku"]
+        [force_model] if force_model in ("groq", "gemini-flash", "claude-haiku")
+        else ["groq", "gemini-flash", "claude-haiku"]
     )
 
     for model in models_to_try:
 
-        if model == "gemini-flash":
+        if model == "groq":
+            api_key = os.environ.get("GROQ_API_KEY")
+            if api_key:
+                try:
+                    from groq import Groq
+                    client = Groq(api_key=api_key)
+                    groq_messages = [{"role": "system", "content": system_prompt}] + clean_messages
+                    response = client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=groq_messages,
+                        max_tokens=300,
+                    )
+                    return {"content": response.choices[0].message.content, "source": "groq"}
+                except Exception as e:
+                    print(f"Groq API failed: {e}")
+
+        elif model == "gemini-flash":
             api_key = os.environ.get("GEMINI_API_KEY")
             if api_key:
                 try:
