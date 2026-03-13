@@ -242,6 +242,8 @@ File: `cedd/classifier.py`, method `get_alert_level()` (line 178)
 
 When a safety override happens (Gate 6 raised level above ML), probabilities are returned as empty `{}` and the UI shows "safety rule override" instead of probability bars.
 
+**Feature importance output:** `get_alert_level()` also returns `feature_scores` — the top 5 features ranked by **composite score** = `model_importance × |scaled_value|`. Each entry contains: display name (bilingual), raw feature name, and numeric score. This is returned for both normal ML predictions and safety overrides, so the dashboard can always show what the model considers most relevant — even when keywords forced the level.
+
 ---
 
 ## Step 9: Training Pipeline
@@ -399,6 +401,7 @@ Light and dark themes via CSS injection. `THEMES` dictionary defines colors for 
 ### Visualizations (Plotly)
 
 - **Alert gauge:** Circular speedometer (`go.Indicator`) with Green/Yellow/Orange/Red bands
+- **Feature importance chart:** Horizontal bar chart (`go.Bar`, orientation="h") in a collapsible expander. Shows top 5 features by composite score (model importance × scaled value). Bars are colour-coded by 6 categories: red (crisis/finality), orange (negative/negation), blue (structural), green (hope), purple (identity/cultural), teal (behavioral/coherence). Visible at Yellow+ including safety overrides. Bilingual title ("Signaux détectés" / "Detected signals")
 - **Alert history chart:** Line chart (`go.Scatter`) showing alert per message
 - **Longitudinal bar chart:** Bar chart (`go.Bar`) showing max alert per completed session
 
@@ -549,6 +552,7 @@ User types: "nothing matters anymore"
     │ Display assistant response  │
     │ Update gauge → RED          │
     │ Show "crisis word detected" │
+    │ Show feature importance     │
     │ Show handoff step 1/5       │
     │ Update history chart        │
     └─────────────────────────────┘
@@ -633,4 +637,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — Adversarial data augmentation (480→600 convos, 30/30 adversarial tests)*
+*Updated: March 13, 2026 — Feature importance visualization added to dashboard*

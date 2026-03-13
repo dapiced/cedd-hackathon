@@ -171,6 +171,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 **Design philosophy:** Asymmetric errors — false positives (over-alerting) are always preferable to false negatives (missing a crisis).
 
+**Feature importance output:** `get_alert_level()` returns `feature_scores` — a list of top 5 features by composite score (model importance × absolute scaled value), each with display name, raw name, and score. Available for both normal ML predictions and safety overrides.
+
 ### Alert Levels
 
 | Level | Color | Description | LLM Behavior |
@@ -377,7 +379,7 @@ EmoAgent is the closest academic reference. Key differences:
 | | CEDD | EmoAgent |
 |---|---|---|
 | Detection | Lexical + Embeddings + GradientBoosting (67 features, ~0ms, $0) | Multi-agent GPT-4o (slow, expensive) |
-| Explainability | Full (feature weights visible, 30+ named features in FR+EN) | Black box |
+| Explainability | Full (feature importance chart, 30+ named features in FR+EN, composite scores visible) | Black box |
 | Bilingual | FR + EN native (lexicons, embeddings, coherence) | English only |
 | Cross-session | SQLite longitudinal tracking | Per-conversation only |
 | Clinical tools | 4-level alert system + 6-gate safety logic | PHQ-9, PDI, PANSS (validated) |
@@ -454,7 +456,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | **March 16-23** (first half) | Final polish, presentation prep | UX differentiation |
 | **March 22 evening** (deadline) | Final metrics comparison + report + submission | Show before/after improvement honestly |
 
-**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 90.5% accuracy (±1.5% stable). From 7 features to 67. From 24 convos to 600. From 7/10 adversarial to 30/30. Here's how we got there."*
+**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 90.5% accuracy (±1.5% stable). From 7 features to 67. From 24 convos to 600. From 7/10 adversarial to 30/30. Feature importance visualization for full explainability. Here's how we got there."*
 
 ### ✅ Completed Improvements
 
@@ -471,6 +473,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Warm handoff prompt flow** | DONE | 5-step guided crisis transition: validation → permission → resources → encouragement → continued presence. Step-specific bilingual prompts, handoff progress UI, SQLite logging | UX |
 | ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
 | ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
+| ✅ **Feature importance visualization** | DONE | Collapsible Plotly horizontal bar chart in dashboard showing top 5 features by composite score (model importance × scaled value). 6 color categories (crisis, negative, structural, hope, identity, behavioral). Bilingual labels. Visible at Yellow+ including safety overrides. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -595,4 +598,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — Adversarial data augmentation (480→600 convos, 30/30 adversarial tests)*
+*Last updated: March 13, 2026 — Feature importance visualization added to dashboard*

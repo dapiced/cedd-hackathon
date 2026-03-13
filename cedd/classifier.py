@@ -376,11 +376,17 @@ class CEDDClassifier:
 
         top_indices = np.argsort(composite)[::-1][:5]
         dominant_features = []
+        feature_scores = []
         for idx in top_indices:
             if idx < len(self.feature_names):
                 fname = self.feature_names[idx]
                 display = display_names.get(fname, fname)
                 dominant_features.append(display)
+                feature_scores.append({
+                    "name": display,
+                    "raw_name": fname,
+                    "score": float(composite[idx]),
+                })
 
         if safety_override:
             label_feat = "crisis word detected" if lang == "en" else "mot de crise détecté"
@@ -390,6 +396,7 @@ class CEDDClassifier:
                 "confidence": 0.95,
                 "probabilities": {},
                 "dominant_features": [label_feat],
+                "feature_scores": feature_scores,
             }
 
         return {
@@ -400,6 +407,7 @@ class CEDDClassifier:
                 LEVEL_LABELS[i]: float(probas[i]) for i in range(4)
             },
             "dominant_features": dominant_features[:3],
+            "feature_scores": feature_scores,
         }
 
     def save(self, path: str):

@@ -193,6 +193,8 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **Feature display names** are available in both French and English (30+ entries), selectable via the `lang` parameter.
 
+**Feature importance output**: `get_alert_level()` returns `feature_scores` — top 5 features by composite score (`model_importance × |scaled_value|`), each with display name, raw name, and score. Available for both ML predictions and safety overrides, displayed as a horizontal bar chart in the dashboard.
+
 ---
 
 #### 3. Response Modulator -- `cedd/response_modulator.py`
@@ -257,6 +259,7 @@ Two-column interface with real-time updates after each message.
 | **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
 | **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
 | **Active signals**         | Dominant features displayed as colour-coded pills                          |
+| **Feature importance**     | Collapsible Plotly horizontal bar chart: top 5 features by composite score (model importance × scaled value), 6 colour categories. Visible at Yellow+ including safety overrides |
 | **Level history**          | Plotly line chart: alert level history for the current session             |
 | **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
 | **LLM selector**           | 4 buttons to choose/force the conversational model                         |
@@ -703,6 +706,8 @@ Mots-cles de crise etendus (arme, pistolet, couteau, gun, knife, shoot...) decle
 
 Les **noms lisibles des features** sont disponibles en francais et en anglais (30+ entrees), selectionnables via le parametre `lang`.
 
+**Sortie d'importance des features** : `get_alert_level()` retourne `feature_scores` — top 5 features par score composite (`importance_modele × |valeur_normalisee|`), chacune avec nom affichable, nom brut et score. Disponible pour les predictions ML et les overrides de securite, affiche en barres horizontales dans le dashboard.
+
 #### 3. Response Modulator -- `cedd/response_modulator.py`
 
 Quatre niveaux de prompts systeme distincts, disponibles en **francais et en anglais**. Le niveau Rouge utilise un **transfert accompagne en 5 etapes** :
@@ -723,6 +728,8 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 #### 5. Interface Streamlit -- `app.py`
 
 Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour basculer entre Francais et English.
+
+Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
 ---
 
