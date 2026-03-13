@@ -6,6 +6,7 @@ Interface de démonstration bilingue : chat + dashboard de surveillance en temps
 
 import os
 import sys
+from datetime import datetime
 import streamlit as st
 import plotly.graph_objects as go
 
@@ -232,11 +233,14 @@ STRINGS = {
         "lang_btn":            "🇬🇧 English",
         "page_title":          "CEDD - Détection de dérive émotionnelle",
         "app_title":           "🧠 CEDD — Détection de dérive émotionnelle conversationnelle",
-        "app_subtitle":        "Hackathon Mila · Sécurité IA en santé mentale des jeunes · POC",
+        "app_subtitle":        "Hackathon Mila · Sécurité IA en santé mentale des jeunes · Équipe 404HarmNotFound",
         "theme_btn":           "🌙 Sombre",
         "reset_btn":           "🔄 Réinitialiser",
         "chat_header":         "### 💬 Conversation",
         "chat_empty":          "Commence la conversation...",
+        "welcome_title":       "Bienvenue sur CEDD",
+        "welcome_text":        "Un système de sécurité en temps réel qui surveille la trajectoire émotionnelle de ta conversation — pas juste un message, mais l'évolution complète.",
+        "welcome_cta":         "Écris ton premier message ci-dessous ⬇️",
         "input_placeholder":   "Écris ton message ici et appuie sur Entrée",
         "send_btn":            "Envoyer ➤",
         "dashboard_header":    "### 📊 Dashboard CEDD",
@@ -286,11 +290,14 @@ STRINGS = {
         "lang_btn":            "🇫🇷 Français",
         "page_title":          "CEDD - Conversational Emotional Drift Detection",
         "app_title":           "🧠 CEDD — Conversational Emotional Drift Detection",
-        "app_subtitle":        "Mila Hackathon · AI Safety in Youth Mental Health · POC",
+        "app_subtitle":        "Mila Hackathon · AI Safety in Youth Mental Health · Team 404HarmNotFound",
         "theme_btn":           "🌙 Dark",
         "reset_btn":           "🔄 Reset",
         "chat_header":         "### 💬 Conversation",
         "chat_empty":          "Start the conversation...",
+        "welcome_title":       "Welcome to CEDD",
+        "welcome_text":        "A real-time safety layer that monitors the emotional trajectory of your conversation — not just one message, but the full evolution.",
+        "welcome_cta":         "Type your first message below ⬇️",
         "input_placeholder":   "Type your message here and press Enter",
         "send_btn":            "Send ➤",
         "dashboard_header":    "### 📊 CEDD Dashboard",
@@ -382,6 +389,33 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 12px;
     }
+    .chat-time-user {
+        font-size: 0.68rem;
+        opacity: 0.5;
+        text-align: right;
+        margin: -2px 0 4px 0;
+        clear: both;
+    }
+    .chat-time-assistant {
+        font-size: 0.68rem;
+        opacity: 0.5;
+        text-align: left;
+        margin: -2px 0 4px 0;
+        clear: both;
+    }
+    .llm-badge {
+        font-size: 0.68rem;
+        opacity: 0.7;
+        display: block;
+        margin-top: 2px;
+    }
+    .alert-dot {
+        font-size: 0.68rem;
+        display: inline-block;
+        clear: both;
+        float: left;
+        margin: 2px 0 6px 0;
+    }
     .clearfix::after { content: ""; display: table; clear: both; }
     .alert-badge {
         padding: 6px 16px;
@@ -462,13 +496,23 @@ def reset_conversation():
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
 
-def render_chat(S: dict):
+def render_chat(S: dict, theme: str = "light"):
     """Display chat bubbles. / Affiche les bulles de conversation."""
+    t = THEMES[theme]
     msgs_html = '<div class="chat-container"><div class="clearfix">'
     if not st.session_state.messages:
         msgs_html += (
-            f'<p style="color:#aaa;text-align:center;margin-top:40px;">'
-            f'{S["chat_empty"]}</p>'
+            f'<div style="text-align:center;margin:30px 16px;">'
+            f'<div style="background:{t["bg_card"]};border:1px solid {t["border"]};'
+            f'border-radius:14px;padding:24px 20px;display:inline-block;max-width:380px;">'
+            f'<div style="font-size:2rem;margin-bottom:6px;">🧠</div>'
+            f'<div style="font-size:1.1rem;font-weight:700;color:{t["text_main"]};margin-bottom:8px;">'
+            f'{S["welcome_title"]}</div>'
+            f'<div style="font-size:0.88rem;color:{t["text_main"]};opacity:0.85;margin-bottom:12px;">'
+            f'{S["welcome_text"]}</div>'
+            f'<div style="font-size:0.8rem;color:{t["text_muted"]};opacity:0.7;">'
+            f'{S["welcome_cta"]}</div>'
+            f'</div></div>'
         )
     else:
         for msg in st.session_state.messages:
@@ -479,8 +523,37 @@ def render_chat(S: dict):
                 .replace(">", "&gt;")
                 .replace("\n", "<br>")
             )
-            css_class = "chat-bubble-user" if role == "user" else "chat-bubble-assistant"
-            msgs_html += f'<div class="{css_class}">{content}</div>'
+            ts = msg.get("timestamp", "")
+            if role == "user":
+                msgs_html += f'<div class="chat-bubble-user">{content}</div>'
+                if ts:
+                    msgs_html += f'<div class="chat-time-user" style="color:{t["text_muted"]};">{ts}</div>'
+            else:
+                # Assistant bubble + optional LLM badge
+                bubble = content
+                source = msg.get("source")
+                if source and source in LLM_SOURCE_INDICATOR:
+                    src_emoji, src_color = LLM_SOURCE_INDICATOR[source]
+                    src_name = LLM_DISPLAY_NAMES.get(source, source)
+                    bubble += f'<span class="llm-badge" style="color:{src_color};">{src_emoji} {src_name}</span>'
+                msgs_html += f'<div class="chat-bubble-assistant">{bubble}</div>'
+                # Timestamp + alert dot row
+                meta_parts = []
+                alert_lvl = msg.get("alert_level")
+                if alert_lvl is not None:
+                    a_color = LEVEL_COLORS[alert_lvl]
+                    a_emoji = LEVEL_EMOJIS[alert_lvl]
+                    a_label = LEVEL_LABELS[alert_lvl]
+                    meta_parts.append(
+                        f'<span class="alert-dot" style="color:{a_color};">{a_emoji} {a_label.capitalize()}</span>'
+                    )
+                if ts:
+                    meta_parts.append(f'<span style="opacity:0.5;">{ts}</span>')
+                if meta_parts:
+                    msgs_html += (
+                        f'<div class="chat-time-assistant" style="color:{t["text_muted"]};">'
+                        f'{" &nbsp;·&nbsp; ".join(meta_parts)}</div>'
+                    )
     msgs_html += '</div></div>'
     st.markdown(msgs_html, unsafe_allow_html=True)
 
@@ -853,7 +926,7 @@ def main():
         if st.session_state.withdrawal_detected and not st.session_state.messages:
             st.info(S["withdrawal_banner"])
 
-        render_chat(S)
+        render_chat(S, theme)
 
         # Input form / Zone de saisie
         with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
@@ -868,7 +941,8 @@ def main():
             user_msg = user_input.strip()
 
             # Add user message / Ajouter le message utilisateur
-            st.session_state.messages.append({"role": "user", "content": user_msg})
+            now = datetime.now().strftime("%H:%M")
+            st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
 
             # Analyse with CEDD before generating the LLM response
             # Analyser avec CEDD avant de générer la réponse
@@ -922,9 +996,13 @@ def main():
             st.session_state.last_llm_source = result["source"]
 
             if result["content"]:
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": result["content"]}
-                )
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": result["content"],
+                    "timestamp": datetime.now().strftime("%H:%M"),
+                    "source": result["source"],
+                    "alert_level": alert["level"],
+                })
 
             st.rerun()
 

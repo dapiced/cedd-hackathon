@@ -474,6 +474,11 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
 | ✅ **Feature importance visualization** | DONE | Collapsible Plotly horizontal bar chart in dashboard showing top 5 features by composite score (model importance × scaled value). 6 color categories (crisis, negative, structural, hope, identity, behavioral). Bilingual labels. Visible at Yellow+ including safety overrides. | UX |
 | ✅ **Multi-user demo profiles** | DONE | 5 selectable profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal trajectories. Profile selector dropdown in header. `simulate_history.py` generates 4 unique 7-session histories (stable green, gradual improvement, fluctuating, escalating). Guest starts fresh for judges. | UX |
+| ✅ **Welcome card** | DONE | Branded HTML card on empty chat: brain emoji, bilingual title/description, CTA. Uses theme colors for light/dark. Replaces plain gray "Start the conversation..." text. | UX |
+| ✅ **Team branding** | DONE | Subtitle updated from "POC" to "Team 404HarmNotFound" / "Équipe 404HarmNotFound" in both languages. | UX |
+| ✅ **Chat timestamps** | DONE | HH:MM timestamp below each message bubble. Right-aligned for user, left-aligned for assistant. Muted styling. | UX |
+| ✅ **LLM source badge** | DONE | Small coloured badge on each assistant bubble showing which LLM generated the response (emoji + display name from `LLM_SOURCE_INDICATOR`/`LLM_DISPLAY_NAMES`). | UX |
+| ✅ **Alert level badge** | DONE | Coloured alert dot on each assistant message showing the CEDD classification at that exchange (uses `LEVEL_COLORS`, `LEVEL_EMOJIS`, `LEVEL_LABELS`). | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -606,4 +611,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*
+*Last updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM source badges, alert level badges*

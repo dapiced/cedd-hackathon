@@ -383,18 +383,25 @@ def load_tracker(): ...
 
 ### Layout
 
-- **Header row** — Title, profile selector (5 demo users), language toggle, theme toggle, reset button
-- `col_chat (60%)` — Chat bubbles + input form
+- **Header row** — Title + subtitle ("Team 404HarmNotFound"), profile selector (5 demo users), language toggle, theme toggle, reset button
+- `col_chat (60%)` — Welcome card (empty state) or chat bubbles with timestamps, LLM source badges, and alert level badges + input form
 - `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
+
+### Chat UX Details
+
+- **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, and a call-to-action. Styled with theme colors (works in both light and dark mode).
+- **Timestamps:** Each message shows `HH:MM` in small muted text — right-aligned for user bubbles, left-aligned for assistant bubbles.
+- **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🟠 Groq Llama 3.3 70B") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
+- **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
 
 ### Core Loop (what happens when you send a message)
 
-1. User types message → append to `st.session_state.messages`
+1. User types message → append to `st.session_state.messages` (with `timestamp`)
 2. `clf.get_alert_level(messages)` → 67 features → 6 gates → alert level
 3. Store alert in `session_state` + log to SQLite
 4. If Red: advance warm handoff step (1→2→3→4→5)
 5. `get_llm_response()` → pick system prompt → call LLM → get response
-6. Append assistant response to messages
+6. Append assistant response to messages (with `timestamp`, `source`, `alert_level`)
 7. `st.rerun()` → UI rebuilds with everything updated
 
 ### Themes
@@ -407,6 +414,18 @@ Light and dark themes via CSS injection. `THEMES` dictionary defines colors for 
 - **Feature importance chart:** Horizontal bar chart (`go.Bar`, orientation="h") in a collapsible expander. Shows top 5 features by composite score (model importance × scaled value). Bars are colour-coded by 6 categories: red (crisis/finality), orange (negative/negation), blue (structural), green (hope), purple (identity/cultural), teal (behavioral/coherence). Visible at Yellow+ including safety overrides. Bilingual title ("Signaux détectés" / "Detected signals")
 - **Alert history chart:** Line chart (`go.Scatter`) showing alert per message
 - **Longitudinal bar chart:** Bar chart (`go.Bar`) showing max alert per completed session
+
+### Chat-Level Metadata (stored in message dicts)
+
+Each message dict in `st.session_state.messages` carries optional metadata beyond `role` and `content`:
+
+| Key | Added to | Value |
+|-----|----------|-------|
+| `timestamp` | User + Assistant | `HH:MM` string from `datetime.now()` |
+| `source` | Assistant only | LLM source key (e.g. `"groq"`, `"gemini-flash"`) |
+| `alert_level` | Assistant only | Integer 0-3 — CEDD alert level at that exchange |
+
+These are rendered inline in `render_chat()` as timestamps, LLM badges, and alert dots. Messages from before these changes (e.g. loaded from session history) gracefully degrade via `.get()` checks.
 
 ---
 
@@ -641,4 +660,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*
+*Updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM source badges, alert level badges*
