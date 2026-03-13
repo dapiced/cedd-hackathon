@@ -48,7 +48,7 @@ cedd-hackathon/
 ├── app.py                          # Bilingual Streamlit web interface (FR/EN)
 ├── train.py                        # Training script: load → cross-validate → fit → save
 ├── generate_synthetic_data.py      # Generates training data via Claude Haiku API (FR+EN)
-├── simulate_history.py             # Populates demo session history for the UI
+├── simulate_history.py             # Populates demo session history per user profile (4 trajectories)
 ├── requirements.txt                # Python dependencies
 │
 ├── cedd/                           # Main Python package (the "brain")
@@ -185,7 +185,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ### Response Modulator (`cedd/response_modulator.py`)
 
 - Swaps LLM system prompt based on alert level (4 distinct prompts, FR and EN)
-- LLM fallback chain: Claude API → Ollama (local) → static emergency text
+- LLM fallback chain: Groq API → Gemini API → Claude API → static emergency text
 - Orange/Red prompts include Kids Help Phone resources
 
 ### Session Tracker (`cedd/session_tracker.py`)
@@ -247,7 +247,6 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Lexical features complemented by embeddings** — sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`) catch synonyms and paraphrases, but sarcasm and periphrases like "je pèse sur tout le monde" remain challenging
 - **ML unreliable for short conversations** (< 6 messages) → capped at Orange
 - **No clinical validation** — thresholds are not validated by mental health professionals
-- **Single demo user** in the Streamlit UI (`demo_user`)
 - **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
 - **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
@@ -291,7 +290,7 @@ python train.py
 #    - 1-800-668-6868
 #    - Text 686868
 #    - 911 for immediate danger
-# 3. Test LLM fallback chain: Claude → Ollama → static text
+# 3. Test LLM fallback chain: Groq → Gemini → Claude → static text
 ```
 
 ### After modifying `generate_synthetic_data.py` or training data:
@@ -474,6 +473,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
 | ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
 | ✅ **Feature importance visualization** | DONE | Collapsible Plotly horizontal bar chart in dashboard showing top 5 features by composite score (model importance × scaled value). 6 color categories (crisis, negative, structural, hope, identity, behavioral). Bilingual labels. Visible at Yellow+ including safety overrides. | UX |
+| ✅ **Multi-user demo profiles** | DONE | 5 selectable profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal trajectories. Profile selector dropdown in header. `simulate_history.py` generates 4 unique 7-session histories (stable green, gradual improvement, fluctuating, escalating). Guest starts fresh for judges. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -514,16 +514,22 @@ python generate_synthetic_data.py
 # Train the model
 python train.py
 
-# Populate demo history (optional)
-python simulate_history.py
+# Populate demo history for all profiles (optional)
+python simulate_history.py          # 4 user profiles × 7 sessions each
+
+# Configure LLM API keys (at least one required for live chat)
+export GROQ_API_KEY=your_key        # Primary LLM: Llama 3.3 70B (fastest)
+export GEMINI_API_KEY=your_key      # Secondary LLM: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY=your_key   # Tertiary LLM: Claude Haiku + data generation
 
 # Run the app
 streamlit run app.py
 ```
 
 **Environment variables:**
-- `ANTHROPIC_API_KEY` — required for Claude API calls (data generation + live chat)
-- Ollama must be running locally for the Ollama fallback path
+- `GROQ_API_KEY` — Groq API (primary LLM: Llama 3.3 70B Versatile, fastest inference)
+- `GEMINI_API_KEY` — Google Gemini API (secondary LLM: Gemini 2.5 Flash)
+- `ANTHROPIC_API_KEY` — Claude API (tertiary LLM: Claude Haiku + required for data generation)
 
 ---
 
@@ -532,7 +538,9 @@ streamlit run app.py
 - `streamlit` — web interface
 - `scikit-learn` — ML pipeline (GradientBoosting, StandardScaler, cross-validation)
 - `numpy` — numerical operations
-- `anthropic` — Claude API client
+- `groq` — Groq API client (primary LLM: Llama 3.3 70B Versatile)
+- `google-generativeai` — Google Gemini API client (secondary LLM: Gemini 2.5 Flash)
+- `anthropic` — Claude API client (tertiary LLM: Claude Haiku)
 - `joblib` — model serialization
 - `sqlite3` — session tracking (Python stdlib)
 - `sentence-transformers` — multilingual sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`)
@@ -546,7 +554,7 @@ streamlit run app.py
 - **Print output**: bilingual during training
 - **Variable names**: English
 - **Lexicons**: bilingual dictionaries in `feature_extractor.py`
-- **Error handling**: LLM fallback chain (Claude → Ollama → static text)
+- **Error handling**: LLM fallback chain (Groq → Gemini → Claude → static text)
 - **Git workflow**: Feature branches, PRs reviewed by at least one teammate, main branch protected
 - **No secrets in code**: API keys via environment variables only
 
@@ -598,4 +606,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — Feature importance visualization added to dashboard*
+*Last updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*

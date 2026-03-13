@@ -290,16 +290,18 @@ All prompts are hardcoded strings — never AI-generated (safety-critical).
 ### LLM Fallback Chain
 
 ```
-1. claude-haiku  (Anthropic API, cloud)
+1. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
        ↓ fails?
-2. mistral       (Ollama, local)
+2. gemini-flash   (Google Gemini API, Gemini 2.5 Flash)
        ↓ fails?
-3. llama3.2:1b   (Ollama, local, smaller)
+3. claude-haiku   (Anthropic API, Claude Haiku)
        ↓ fails?
 4. fallback-statique  (hardcoded text, always works)
 ```
 
 Even the static fallback is level-aware — a Red fallback includes KHP phone number and 911. CEDD **never fails silently**.
+
+**Environment variables:** Each model requires its own API key: `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
 
 ---
 
@@ -357,7 +359,7 @@ Flags users who return after >24h without clicking Reset:
 Reset = close session + archive to DB + start fresh (all data kept)
 Delete = CEDD never deletes data (clinical safety requires full audit trail)
 
-Currently only `demo_user` exists in the DB. The architecture supports multi-user — all methods take `user_id` as parameter.
+The app supports **5 demo profiles** (Shuchita, Priyanka, Amanda, Dominic, Guest), each with a distinct longitudinal trajectory. `simulate_history.py` generates 7 sessions per user with different patterns (stable green, gradual improvement, fluctuating, escalating). Guest starts with no history for judges to try fresh. All methods take `user_id` as parameter — the architecture is ready for real multi-user deployment.
 
 ---
 
@@ -381,6 +383,7 @@ def load_tracker(): ...
 
 ### Layout
 
+- **Header row** — Title, profile selector (5 demo users), language toggle, theme toggle, reset button
 - `col_chat (60%)` — Chat bubbles + input form
 - `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
 
@@ -537,7 +540,8 @@ User types: "nothing matters anymore"
     │ Level 3 + handoff step 1   │
     │ → Empathetic validation    │
     │   system prompt            │
-    │ → claude-haiku API call    │
+    │ → LLM API call (Groq /    │
+    │   Gemini / Claude)        │
     │ = "I hear you, what you're │
     │   feeling is real..."      │
     └────────────┬───────────────┘
@@ -637,4 +641,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — Feature importance visualization added to dashboard*
+*Updated: March 13, 2026 — Multi-user demo profiles added (5 selectable profiles with distinct longitudinal histories)*
