@@ -250,6 +250,8 @@ STRINGS = {
         "handoff_step_label": "Étape {step}/5 : <b>{desc}</b>",
         "withdrawal_banner":  "Bon retour. Ça fait un moment — comment tu te sens ?",
         "withdrawal_badge":   "Retour après absence",
+        "feature_chart_title": "🔍 Signaux détectés",
+        "feature_chart_note":  "Score composite = importance du modèle × valeur normalisée. Les barres montrent ce qui influence le plus le niveau d'alerte actuel.",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -299,6 +301,8 @@ STRINGS = {
         "handoff_step_label": "Step {step}/5: <b>{desc}</b>",
         "withdrawal_banner":  "Welcome back. It's been a while — how are you feeling?",
         "withdrawal_badge":   "Returned after absence",
+        "feature_chart_title": "🔍 Detected signals",
+        "feature_chart_note":  "Composite score = model importance × scaled value. Bars show what drives the current alert level most.",
     },
 }
 
@@ -660,6 +664,63 @@ def render_dominant_features(features: list, S: dict):
     st.markdown(pills_html, unsafe_allow_html=True)
 
 
+# ─── Feature importance chart / Graphique d'importance des signaux ────────────
+
+# Maps raw feature name prefixes to category colors
+# Mappe les préfixes de noms bruts aux couleurs de catégorie
+def _feature_color(raw_name: str) -> str:
+    if raw_name.startswith("finality_score") or raw_name == "crisis_similarity":
+        return "#e74c3c"   # red — crisis/finality
+    if raw_name.startswith("negative_score") or raw_name.startswith("negation_score"):
+        return "#e67e22"   # orange — negative/negation
+    if raw_name.startswith("hope_score"):
+        return "#27ae60"   # green — hope
+    if raw_name.startswith("identity_conflict") or raw_name.startswith("somatization"):
+        return "#9b59b6"   # purple — identity/cultural
+    if raw_name.startswith(("short_response", "min_topic", "question_response",
+                            "embedding_drift", "embedding_slope", "embedding_variance")):
+        return "#1abc9c"   # teal — behavioral/coherence
+    return "#3498db"       # blue — structural (word_count, punctuation, length_delta)
+
+
+def render_feature_chart(feature_scores: list, S: dict, theme: str = "light"):
+    """Horizontal bar chart of top feature scores. / Barres horizontales des scores de signaux."""
+    if not feature_scores:
+        return
+
+    names  = [fs["name"] for fs in reversed(feature_scores)]
+    scores = [fs["score"] for fs in reversed(feature_scores)]
+    colors = [_feature_color(fs["raw_name"]) for fs in reversed(feature_scores)]
+
+    font_color = "#000000" if theme == "light" else "#ffffff"
+
+    fig = go.Figure(go.Bar(
+        x=scores,
+        y=names,
+        orientation="h",
+        marker_color=colors,
+        hovertemplate="%{y}: %{x:.3f}<extra></extra>",
+    ))
+    fig.update_layout(
+        height=max(120, 40 * len(names)),
+        margin=dict(t=5, b=5, l=5, r=5),
+        xaxis=dict(
+            showticklabels=False,
+            showgrid=False,
+            zeroline=False,
+        ),
+        yaxis=dict(
+            tickfont=dict(size=11, color=font_color),
+            automargin=True,
+        ),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=font_color),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.caption(S["feature_chart_note"])
+
+
 # ─── Main application / Application principale ──────────────────────────────────
 def main():
     init_state()
@@ -830,6 +891,13 @@ def main():
                 unsafe_allow_html=True,
             )
         render_dominant_features(alert.get("dominant_features", []), S)
+
+        # Feature importance chart (Yellow+ only, not on safety override)
+        # Graphique d'importance des signaux (Jaune+ seulement, pas sur override)
+        feature_scores = alert.get("feature_scores", [])
+        if level >= 1 and feature_scores:
+            with st.expander(S["feature_chart_title"]):
+                render_feature_chart(feature_scores, S, theme)
 
         st.divider()
 
