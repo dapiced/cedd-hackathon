@@ -199,6 +199,16 @@ def get_theme_css(theme: str) -> str:
     [data-baseweb="select"] svg {{
         fill: {t['text_main']} !important;
     }}
+    [data-baseweb="popover"] {{
+        background-color: {t['bg_card']} !important;
+    }}
+    [data-baseweb="popover"] li {{
+        background-color: {t['bg_card']} !important;
+        color: {t['text_main']} !important;
+    }}
+    [data-baseweb="popover"] li:hover {{
+        background-color: {t['bg_input']} !important;
+    }}
 </style>
 """
 
