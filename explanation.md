@@ -303,6 +303,8 @@ Even the static fallback is level-aware — a Red fallback includes KHP phone nu
 
 **Environment variables:** Each model requires its own API key: `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
 
+**`system_prompt_override` parameter:** `get_llm_response()` accepts an optional `system_prompt_override` string. When provided, it replaces the CEDD-adapted system prompt entirely. Used by compare mode to send an empty prompt (`""`) for the "Without CEDD" side, showing the raw LLM response with no safety instructions.
+
 ---
 
 ## Step 11: Warm Handoff
@@ -397,6 +399,7 @@ def load_tracker(): ...
 - **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 6 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
 - **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
 - **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
+- **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
 
 ### Core Loop (what happens when you send a message)
 
@@ -664,4 +667,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export transcript, alert toast*
+*Updated: March 13, 2026 — UI polish + compare mode: welcome card, team branding, timestamps, LLM/alert badges, demo, about, export, toast, side-by-side compare*

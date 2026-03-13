@@ -356,6 +356,12 @@ STRINGS = {
         "about_title":         "À propos de CEDD",
         "export_btn":          "📥 Exporter",
         "alert_toast_up":      "⚠️ Niveau d'alerte augmenté : {emoji} {label}",
+        "compare_btn":         "🔀 Comparer",
+        "compare_btn_off":     "🔀 Mode normal",
+        "compare_left_header": "### 💬 Sans CEDD",
+        "compare_left_sub":    "LLM brut — aucune instruction de sécurité",
+        "compare_right_header":"### 🧠 Avec CEDD",
+        "compare_right_sub":   "LLM guidé par les instructions CEDD adaptatives",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -420,6 +426,12 @@ STRINGS = {
         "about_title":         "About CEDD",
         "export_btn":          "📥 Export",
         "alert_toast_up":      "⚠️ Alert level increased: {emoji} {label}",
+        "compare_btn":         "🔀 Compare",
+        "compare_btn_off":     "🔀 Single mode",
+        "compare_left_header": "### 💬 Without CEDD",
+        "compare_left_sub":    "Raw LLM — no safety instructions",
+        "compare_right_header":"### 🧠 With CEDD",
+        "compare_right_sub":   "LLM guided by CEDD adaptive instructions",
     },
 }
 
@@ -578,6 +590,8 @@ def init_state():
         "withdrawal_detected": False,  # True if user returned after extended absence
         "demo_running":   False,    # True while demo autopilot is active
         "demo_step":      0,        # Current demo message index (0-8)
+        "compare_mode":   False,    # True = side-by-side compare mode
+        "compare_messages": [],     # "Without CEDD" message list (left side)
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -596,15 +610,19 @@ def reset_conversation():
     st.session_state.withdrawal_detected = False
     st.session_state.demo_running = False
     st.session_state.demo_step = 0
+    st.session_state.compare_mode = False
+    st.session_state.compare_messages = []
 
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
 
-def render_chat(S: dict, theme: str = "light"):
+def render_chat(S: dict, theme: str = "light", messages: list = None):
     """Display chat bubbles. / Affiche les bulles de conversation."""
     t = THEMES[theme]
+    if messages is None:
+        messages = st.session_state.messages
     msgs_html = '<div class="chat-container"><div class="clearfix">'
-    if not st.session_state.messages:
+    if not messages:
         msgs_html += (
             f'<div style="text-align:center;margin:30px 16px;">'
             f'<div style="background:{t["bg_card"]};border:1px solid {t["border"]};'
@@ -619,7 +637,7 @@ def render_chat(S: dict, theme: str = "light"):
             f'</div></div>'
         )
     else:
-        for msg in st.session_state.messages:
+        for msg in messages:
             role = msg["role"]
             content = (
                 msg["content"]
@@ -1040,10 +1058,12 @@ def main():
     with col_chat:
         st.markdown(S["chat_header"])
 
-        # Action buttons row: Demo, About, Export / Boutons d'action
-        btn_cols = st.columns([1, 1, 1, 3])
+        # Action buttons row: Demo, About, Export, Compare / Boutons d'action
+        btn_cols = st.columns([1, 1, 1, 1, 2])
         with btn_cols[0]:
-            if st.session_state.demo_running:
+            if st.session_state.compare_mode:
+                st.button(S["demo_btn"], use_container_width=True, disabled=True)
+            elif st.session_state.demo_running:
                 if st.button(S["demo_stop_btn"], use_container_width=True):
                     st.session_state.demo_running = False
                     st.session_state.demo_step = 0
@@ -1085,6 +1105,14 @@ def main():
                     use_container_width=True,
                 )
 
+        with btn_cols[3]:
+            compare_label = S["compare_btn_off"] if st.session_state.compare_mode else S["compare_btn"]
+            if st.button(compare_label, use_container_width=True):
+                new_mode = not st.session_state.compare_mode
+                reset_conversation()
+                st.session_state.compare_mode = new_mode
+                st.rerun()
+
         # About CEDD panel / Panneau À propos de CEDD
         if st.session_state.get("show_about", False):
             with st.expander(S["about_title"], expanded=True):
@@ -1101,7 +1129,19 @@ def main():
         if st.session_state.withdrawal_detected and not st.session_state.messages:
             st.info(S["withdrawal_banner"])
 
-        render_chat(S, theme)
+        # Compare mode: show two chat columns / Mode comparaison : deux colonnes de chat
+        if st.session_state.compare_mode:
+            cmp_left, cmp_right = st.columns(2, gap="small")
+            with cmp_left:
+                st.markdown(S["compare_left_header"])
+                st.caption(S["compare_left_sub"])
+                render_chat(S, theme, messages=st.session_state.compare_messages)
+            with cmp_right:
+                st.markdown(S["compare_right_header"])
+                st.caption(S["compare_right_sub"])
+                render_chat(S, theme)
+        else:
+            render_chat(S, theme)
 
         # Input form / Zone de saisie
         with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
@@ -1130,6 +1170,10 @@ def main():
             # Add user message / Ajouter le message utilisateur
             now = datetime.now().strftime("%H:%M")
             st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+            # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
+            if st.session_state.compare_mode:
+                st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
 
             # Track previous alert level for transition animation
             # Suivre le niveau précédent pour l'animation de transition
@@ -1179,8 +1223,27 @@ def main():
             # If level drops below Red, keep handoff_step as-is (crisis may not be over)
             # Si le niveau descend sous Rouge, garder handoff_step tel quel
 
-            # Generate assistant response / Générer la réponse de l'assistant
+            # Generate assistant responses / Générer les réponses de l'assistant
             with st.spinner("..."):
+                # Compare mode: generate "without CEDD" response first (always Green prompt)
+                # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
+                if st.session_state.compare_mode:
+                    plain_result = get_llm_response(
+                        st.session_state.compare_messages,
+                        0,
+                        force_model=st.session_state.selected_llm,
+                        lang=lang,
+                        handoff_step=0,
+                        system_prompt_override="",  # No instructions — raw LLM response
+                    )
+                    if plain_result["content"]:
+                        st.session_state.compare_messages.append({
+                            "role": "assistant",
+                            "content": plain_result["content"],
+                            "timestamp": datetime.now().strftime("%H:%M"),
+                        })
+
+                # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
                 result = get_llm_response(
                     st.session_state.messages,
                     alert["level"],

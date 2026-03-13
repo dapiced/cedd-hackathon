@@ -483,6 +483,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **About CEDD panel** | DONE | Collapsible "About" panel explaining what CEDD does, how it works, and what the dashboard shows. Bilingual. Toggled via ℹ️ button. | UX |
 | ✅ **Export transcript** | DONE | Download button exports conversation + alert history as JSON file. Includes messages, timestamps, LLM sources, alert levels, dominant features, session metadata. | UX |
 | ✅ **Alert transition animation** | DONE | CSS-animated toast notification when alert level increases. Shows new level emoji + label. 3s fade-in/out animation. Fires once per transition via session state pop. | UX |
+| ✅ **Side-by-side compare mode** | DONE | "🔀 Compare" toggle splits chat into two columns: left = raw LLM (no system prompt), right = LLM with CEDD adaptive instructions. Same user input, two API calls. Shows the value of CEDD's prompt modulation on crisis messages. Demo autopilot disabled in compare mode (too slow with 2× API calls). `system_prompt_override` parameter added to `get_llm_response()`. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -615,4 +616,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — UI polish: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export transcript, alert toast*
+*Last updated: March 13, 2026 — UI polish + compare mode: welcome card, team branding, chat timestamps, LLM/alert badges, demo autopilot, about panel, export, alert toast, side-by-side compare*

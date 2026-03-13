@@ -266,6 +266,7 @@ Two-column interface with real-time updates after each message.
 | **About CEDD panel**       | Collapsible explainer: what CEDD does, how it works, what the dashboard shows. Bilingual |
 | **Export transcript**      | Download button exports conversation + alert history as JSON file                          |
 | **Alert transition toast** | CSS-animated notification when alert level increases (3s fade-in/out)                      |
+| **Compare mode**           | Side-by-side: raw LLM (no instructions) vs LLM with CEDD adaptive prompts. Toggle via 🔀 button |
 | **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
 | **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
 | **Active signals**         | Dominant features displayed as colour-coded pills                          |
@@ -737,7 +738,7 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
 
-Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
+Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
 ---
 
