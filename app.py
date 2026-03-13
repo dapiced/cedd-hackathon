@@ -191,10 +191,13 @@ def get_theme_css(theme: str) -> str:
 """
 
 LLM_SOURCE_INDICATOR = {
+    "gemini-flash":      ("💎", "#4285f4"),
     "claude-haiku":      ("🟣", "#7c3aed"),
-    "mistral":           ("🔵", "#2563eb"),
-    "llama3.2:1b":       ("⚪", "#6b7280"),
     "fallback-statique": ("⚠️", "#f59e0b"),
+}
+LLM_DISPLAY_NAMES = {
+    "gemini-flash": "Gemini 2.0 Flash",
+    "claude-haiku": "Claude Haiku",
 }
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 
@@ -403,7 +406,7 @@ def init_state():
             "level": 0, "label": "green", "confidence": 0.0,
             "dominant_features": [], "probabilities": {},
         },
-        "selected_llm":    "claude-haiku",
+        "selected_llm":    "gemini-flash",
         "last_llm_source": None,
         "input_key":       0,
         "user_id":         "demo_user",
@@ -724,6 +727,16 @@ def render_feature_chart(feature_scores: list, S: dict, theme: str = "light"):
 # ─── Main application / Application principale ──────────────────────────────────
 def main():
     init_state()
+
+    # Propagate Streamlit secrets to environment for LLM providers
+    # Propager les secrets Streamlit vers l'environnement pour les fournisseurs LLM
+    for key in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+        if key not in os.environ:
+            try:
+                os.environ[key] = st.secrets[key]
+            except (KeyError, FileNotFoundError):
+                pass
+
     clf     = load_model()
     tracker = load_tracker()
     lang    = st.session_state.lang
@@ -915,10 +928,10 @@ def main():
 
         # LLM selector / Sélecteur LLM
         st.markdown(S["llm_header"])
-        llm_cols = st.columns(4)
+        llm_cols = st.columns(3)
         for col, (src, (emoji, _)) in zip(llm_cols, LLM_SOURCE_INDICATOR.items()):
             is_selected = st.session_state.selected_llm == src
-            btn_label = S["llm_fallback"] if src == "fallback-statique" else src
+            btn_label = S["llm_fallback"] if src == "fallback-statique" else LLM_DISPLAY_NAMES.get(src, src)
             if col.button(
                 f"{emoji} {btn_label}",
                 key=f"llm_btn_{src}",

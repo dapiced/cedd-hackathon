@@ -10,7 +10,6 @@ Supporte le français (fr) et l'anglais (en).
 
 import json
 import os
-import requests
 
 # ── System prompts — French / Français ───────────────────────────────────────
 _SYSTEM_PROMPTS_FR = {
@@ -313,68 +312,6 @@ def get_level_description(alert_level: int, lang: str = "fr") -> str:
     return _LEVEL_DESCRIPTIONS.get(lang, _LEVEL_DESCRIPTIONS["fr"])[level]
 
 
-def build_ollama_request(
-    messages: list,
-    alert_level: int,
-    model: str = "llama3.2",
-    stream: bool = True,
-    lang: str = "fr",
-    handoff_step: int = 0,
-) -> dict:
-    """
-    Build a request payload for the Ollama API with the adapted system prompt.
-    Construit la requête pour l'API Ollama avec le prompt système adapté.
-
-    Args:
-        messages:     list of {"role": str, "content": str}
-        alert_level:  CEDD alert level (0-3)
-        model:        Ollama model name
-        stream:       enable response streaming
-        lang:         interface language ("fr" or "en")
-        handoff_step: warm handoff step (0 = none, 1-5 = active)
-
-    Returns:
-        dict — JSON body for POST /api/chat
-    """
-    system_prompt = get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
-
-    # Build messages for Ollama: system + conversation history
-    # Construire les messages : system + historique de conversation
-    ollama_messages = [{"role": "system", "content": system_prompt}]
-    for msg in messages:
-        if msg.get("role") in ("user", "assistant"):
-            ollama_messages.append({
-                "role": msg["role"],
-                "content": msg["content"],
-            })
-
-    return {
-        "model": model,
-        "messages": ollama_messages,
-        "stream": stream,
-        "options": {
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "num_predict": 300,
-        },
-    }
-
-
-def build_ollama_request_json(
-    messages: list,
-    alert_level: int,
-    model: str = "llama3.2",
-    stream: bool = True,
-    lang: str = "fr",
-    handoff_step: int = 0,
-) -> str:
-    """JSON-serialised version of build_ollama_request. / Version JSON sérialisée."""
-    return json.dumps(
-        build_ollama_request(messages, alert_level, model, stream, lang=lang, handoff_step=handoff_step),
-        ensure_ascii=False,
-    )
-
-
 def get_llm_response(
     messages: list,
     alert_level: int,
@@ -386,16 +323,16 @@ def get_llm_response(
     Generate an LLM response using the adapted system prompt.
 
     If force_model is provided, only that model is tried (no automatic fallback).
-    Otherwise, the hierarchy is: claude-haiku → mistral → llama3.2:1b → static fallback.
+    Otherwise, the hierarchy is: gemini-flash → claude-haiku → static fallback.
 
     Génère une réponse LLM avec le prompt système adapté au niveau d'alerte.
     Si force_model est fourni, seul ce modèle est essayé (pas de fallback automatique).
-    Sinon, hiérarchie : claude-haiku → mistral → llama3.2:1b → fallback-statique.
+    Sinon, hiérarchie : gemini-flash → claude-haiku → fallback-statique.
 
     Args:
         messages:     list of {"role": "user"|"assistant", "content": str}
         alert_level:  CEDD alert level (0-3)
-        force_model:  "claude-haiku" | "mistral" | "llama3.2:1b" | "fallback-statique" | None
+        force_model:  "gemini-flash" | "claude-haiku" | "fallback-statique" | None
         lang:         interface language ("fr" or "en"), controls system prompt language
         handoff_step: warm handoff step (0 = none, 1-5 = active)
 
@@ -414,17 +351,54 @@ def get_llm_response(
 
     # Explicit static fallback / Fallback statique explicite
     if force_model == "fallback-statique":
-        return {"content": _FALLBACK_RESPONSE.get(lang, _FALLBACK_RESPONSE["fr"])[level], "source": "fallback-statique"}
+        return {"content": fallback_msg, "source": "fallback-statique"}
 
     # Model priority order / Ordre de priorité des modèles
     models_to_try = (
-        [force_model] if force_model in ("claude-haiku", "mistral", "llama3.2:1b")
-        else ["claude-haiku", "mistral", "llama3.2:1b"]
+        [force_model] if force_model in ("gemini-flash", "claude-haiku")
+        else ["gemini-flash", "claude-haiku"]
     )
 
     for model in models_to_try:
 
-        if model == "claude-haiku":
+        if model == "gemini-flash":
+            api_key = os.environ.get("GEMINI_API_KEY")
+            if api_key:
+                try:
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key)
+
+                    # Safety filters off — this is a mental health support app that
+                    # must discuss crisis topics without being blocked.
+                    # Filtres de sécurité désactivés — appli de santé mentale qui
+                    # doit pouvoir discuter de sujets de crise sans blocage.
+                    safety_settings = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                    ]
+
+                    gemini_model = genai.GenerativeModel(
+                        "gemini-2.0-flash",
+                        system_instruction=system_prompt,
+                        safety_settings=safety_settings,
+                    )
+
+                    # Convert to Gemini format: "assistant" → "model"
+                    # Conversion au format Gemini : "assistant" → "model"
+                    gemini_history = []
+                    for msg in clean_messages[:-1]:
+                        role = "model" if msg["role"] == "assistant" else "user"
+                        gemini_history.append({"role": role, "parts": [msg["content"]]})
+
+                    chat = gemini_model.start_chat(history=gemini_history)
+                    response = chat.send_message(clean_messages[-1]["content"])
+                    return {"content": response.text, "source": "gemini-flash"}
+                except Exception as e:
+                    print(f"Gemini API failed: {e}")
+
+        elif model == "claude-haiku":
             api_key = os.environ.get("ANTHROPIC_API_KEY")
             if api_key:
                 try:
@@ -439,38 +413,6 @@ def get_llm_response(
                     return {"content": response.content[0].text, "source": "claude-haiku"}
                 except Exception as e:
                     print(f"Claude API failed: {e}")
-
-        elif model == "mistral":
-            try:
-                resp = requests.post(
-                    "http://localhost:11434/api/chat",
-                    json={
-                        "model": "mistral",
-                        "messages": [{"role": "system", "content": system_prompt}, *clean_messages],
-                        "stream": False,
-                    },
-                    timeout=60,
-                )
-                if resp.status_code == 200:
-                    return {"content": resp.json()["message"]["content"], "source": "mistral"}
-            except Exception as e:
-                print(f"Mistral failed: {e}")
-
-        elif model == "llama3.2:1b":
-            try:
-                resp = requests.post(
-                    "http://localhost:11434/api/chat",
-                    json={
-                        "model": "llama3.2:1b",
-                        "messages": [{"role": "system", "content": system_prompt}, *clean_messages],
-                        "stream": False,
-                    },
-                    timeout=120,
-                )
-                if resp.status_code == 200:
-                    return {"content": resp.json()["message"]["content"], "source": "llama3.2:1b"}
-            except Exception as e:
-                print(f"llama3.2:1b failed: {e}")
 
     # All models failed — return static fallback / Tous les modèles ont échoué
     return {"content": fallback_msg, "source": "fallback-statique"}
