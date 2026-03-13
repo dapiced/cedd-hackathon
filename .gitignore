@@ -7,4 +7,5 @@ __pycache__/
 data/cedd_sessions.db
 data/ddec_sessions.db
 .env
-.claude/
+.claude/*
+!.claude/commands/
