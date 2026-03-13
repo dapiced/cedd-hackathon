@@ -339,6 +339,9 @@ python train.py
 # 7. Launch the interface
 streamlit run app.py
 ```
+```powershell
+# Windows OS only : see setup-cedd-for-win.ps1
+```
 
 ---
 
