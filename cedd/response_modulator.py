@@ -318,6 +318,7 @@ def get_llm_response(
     force_model: str = None,
     lang: str = "fr",
     handoff_step: int = 0,
+    system_prompt_override: str = None,
 ) -> dict:
     """
     Generate an LLM response using the adapted system prompt.
@@ -335,11 +336,12 @@ def get_llm_response(
         force_model:  "groq" | "gemini-flash" | "claude-haiku" | "fallback-statique" | None
         lang:         interface language ("fr" or "en"), controls system prompt language
         handoff_step: warm handoff step (0 = none, 1-5 = active)
+        system_prompt_override: if provided, use this prompt instead of the CEDD-adapted one
 
     Returns:
         dict {"content": str, "source": str}
     """
-    system_prompt = get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
+    system_prompt = system_prompt_override or get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
     level = max(0, min(3, alert_level))
     fallback_msg = _FALLBACK_RESPONSE.get(lang, _FALLBACK_RESPONSE["fr"])[level]
 

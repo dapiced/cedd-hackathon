@@ -6,12 +6,16 @@ Interface de démonstration bilingue : chat + dashboard de surveillance en temps
 
 import os
 import sys
+import json
+import time
+from datetime import datetime
 import streamlit as st
 import plotly.graph_objects as go
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from cedd.classifier import CEDDClassifier, LEVEL_LABELS
+from cedd.feature_extractor import extract_features
 from cedd.response_modulator import (
     get_llm_response,
     get_level_description,
@@ -226,17 +230,80 @@ LLM_DISPLAY_NAMES = {
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 DEMO_USERS = ["Shuchita", "Priyanka", "Amanda", "Dominic", "Guest"]
 
+# ─── Demo autopilot scenarios / Scénarios de démo automatisés ─────────────────
+DEMO_SCENARIOS = {
+    "fr": [
+        "Salut! Ça fait longtemps que j'ai pas parlé à quelqu'un de juste... neutre, tsé? L'école recommence pis là c'est déjà intense. T'as des trucs pour gérer le stress des examens? Parce que je stresse déjà pour la session pis on est même pas rendus aux mi-sessions.",
+        "Ouais c'est ça, j'essaie de faire des listes. Ça aide un peu. Hier j'ai quand même réussi à finir mon travail de bio pis à voir mes chums le soir, faque c'était correct. Mon chum Mathieu m'a montré une technique de respiration, je sais pas si ça marche vraiment mais on a ri en la faisant haha. C'est quoi les techniques que tu recommandes en général?",
+        "Ouais, les pauses ça marche bien quand j'y pense. Le truc c'est que des fois je pense même pas à en prendre. Je suis genre scotché à mon bureau pis le temps passe. Mais bon, cette semaine ça devrait mieux aller, j'ai moins de cours jeudi-vendredi. Mathieu pis moi on pense aller au cinéma si on a le temps.",
+        "Mmh ouais. Cette semaine a été rough. J'ai pas dormi super bien, genre je me réveille à 3h du mat pis j'arrive pu à me rendormir. C'est probablement le stress. J'ai annulé le cinéma avec Mathieu, j'avais trop de trucs à faire.",
+        "C'est correct, je gère. C'est juste que des fois j'ai l'impression que tout le monde avance pis moi je tourne en rond. Mathieu il a l'air de trouver ça facile lui. Je sais pas trop. Anyway.",
+        "Honnêtement j'sais plus trop. Chez nous c'est tendu depuis quelques semaines, mes parents sont pas dans leur meilleure forme. J'essaie de pas ramener mes affaires là-dedans mais c'est difficile. J'ai l'impression d'avoir nulle part où décompresser vraiment.",
+        "Ouais je sais. C'est juste que je me sens fatigué de tout, pas juste de l'école. Comme... fatigué de tenir. Je dis ça pis ça a l'air dramatique mais c'est vraiment comme ça que je me sens ces temps-ci.",
+        "Je sais pas. Peut-être. J'ai même plus vraiment envie de sortir. Mes chums me textent pis j'réponds même pu vraiment. C'est trop.",
+        "C'est correct. De toute façon.",
+    ],
+    "en": [
+        "Hey, just wanted to talk to someone tonight. Starting university is kind of a lot, honestly? Like it's exciting but also way more intense than I expected. How do people usually handle the adjustment? I feel like everyone else already has their thing figured out.",
+        "That's actually helpful. I've been trying to go to the study sessions in my building. Made a couple of friends already — Jordan's been showing me around campus which is great. I had a rough week with assignments piling up but I got through it. Any tips for staying on top of things without burning out?",
+        "Yeah the breaks thing makes sense. I keep telling myself I'll do that but then I just end up at my desk for like five hours straight. It's fine, I'm managing. Jordan and I were supposed to hang out this weekend, looking forward to that at least.",
+        "Weekend ended up being kind of whatever. Jordan cancelled last minute, it's fine. Been tired lately, not sleeping great. I keep waking up in the middle of the night thinking about stuff. I don't know, probably just adjusting still.",
+        "I'm okay. Just feel kind of behind on everything. Like everyone else knows what they're doing and I'm still figuring out how to do laundry. It sounds dumb when I say it out loud. Whatever.",
+        "Honestly, I've just been staying in my room more. Home is kind of far so I can't just go back for the weekend. My roommate has his own friends and I don't really fit in their group. It just feels like there's nowhere to recharge, you know?",
+        "Yeah, I know. It's just exhausting. Not like tired-exhausted, more like... I don't know how to explain it. Tired of trying to seem okay I guess. I haven't really talked to anyone back home in a while either.",
+        "I don't know, maybe. I used to like being around people but now it just takes too much energy. Jordan texted me twice this week. Didn't answer. It's easier that way.",
+        "It's fine. I'll figure it out.",
+    ],
+}
+
+# ─── About CEDD content / Contenu À propos de CEDD ───────────────────────────
+ABOUT_CEDD = {
+    "fr": """**CEDD** (Conversational Emotional Drift Detection) est une couche de sécurité en temps réel pour les chatbots de santé mentale jeunesse (16-22 ans).
+
+**Comment ça fonctionne :**
+- Analyse **67 caractéristiques** par conversation (lexicales, sémantiques, comportementales)
+- Surveille la **trajectoire** émotionnelle — pas juste un message, mais l'évolution complète
+- **6 portes de sécurité** : les mots-clés de crise surpassent toujours le ML
+- **Transfert accompagné** en 5 étapes vers Jeunesse, J'écoute au niveau Rouge
+
+**Ce que vous voyez à droite :**
+- 🎯 **Jauge** : niveau d'alerte actuel (Vert → Rouge)
+- 📊 **Probabilités** : confiance du modèle par classe
+- ⚡ **Signaux** : caractéristiques dominantes qui influencent le niveau
+- 📈 **Historique** : évolution du niveau au fil des messages
+
+**Philosophie :** Les faux positifs (sur-alerter) sont toujours préférables aux faux négatifs (manquer une crise).""",
+    "en": """**CEDD** (Conversational Emotional Drift Detection) is a real-time safety layer for youth mental health chatbots (ages 16-22).
+
+**How it works:**
+- Analyzes **67 features** per conversation (lexical, semantic, behavioral)
+- Monitors the emotional **trajectory** — not just one message, but the full evolution
+- **6 safety gates**: crisis keywords always override ML predictions
+- **5-step warm handoff** to Kids Help Phone at Red level
+
+**What you see on the right:**
+- 🎯 **Gauge**: current alert level (Green → Red)
+- 📊 **Probabilities**: model confidence per class
+- ⚡ **Signals**: dominant features driving the alert level
+- 📈 **History**: alert level evolution across messages
+
+**Philosophy:** False positives (over-alerting) are always preferable to false negatives (missing a crisis).""",
+}
+
 # ─── Bilingual UI strings / Chaînes d'interface bilingues ─────────────────────
 STRINGS = {
     "fr": {
         "lang_btn":            "🇬🇧 English",
         "page_title":          "CEDD - Détection de dérive émotionnelle",
         "app_title":           "🧠 CEDD — Détection de dérive émotionnelle conversationnelle",
-        "app_subtitle":        "Hackathon Mila · Sécurité IA en santé mentale des jeunes · POC",
+        "app_subtitle":        "Hackathon Mila · Sécurité IA en santé mentale des jeunes · Équipe 404HarmNotFound",
         "theme_btn":           "🌙 Sombre",
         "reset_btn":           "🔄 Réinitialiser",
         "chat_header":         "### 💬 Conversation",
         "chat_empty":          "Commence la conversation...",
+        "welcome_title":       "Bienvenue sur CEDD",
+        "welcome_text":        "Un système de sécurité en temps réel qui surveille la trajectoire émotionnelle de ta conversation — pas juste un message, mais l'évolution complète.",
+        "welcome_cta":         "Écris ton premier message ci-dessous ⬇️",
         "input_placeholder":   "Écris ton message ici et appuie sur Entrée",
         "send_btn":            "Envoyer ➤",
         "dashboard_header":    "### 📊 Dashboard CEDD",
@@ -280,17 +347,36 @@ STRINGS = {
         "withdrawal_badge":   "Retour après absence",
         "feature_chart_title": "🔍 Signaux détectés",
         "feature_chart_note":  "Score composite = importance du modèle × valeur normalisée. Les barres montrent ce qui influence le plus le niveau d'alerte actuel.",
+        "radar_title":         "🕸️ Radar des features",
         "profile_label":       "Profil",
+        "demo_btn":            "▶️ Démo",
+        "demo_stop_btn":       "⏹️ Arrêter",
+        "demo_character_fr":   "Félix, 18 ans, CÉGEP",
+        "demo_character_en":   "Alex, 19, université",
+        "demo_running":        "Démo en cours — message {n}/9",
+        "about_btn":           "ℹ️ À propos",
+        "about_title":         "À propos de CEDD",
+        "export_btn":          "📥 Exporter",
+        "alert_toast_up":      "⚠️ Niveau d'alerte augmenté : {emoji} {label}",
+        "compare_btn":         "🔀 Comparer",
+        "compare_btn_off":     "🔀 Mode normal",
+        "compare_left_header": "### 💬 Sans CEDD",
+        "compare_left_sub":    "LLM brut — aucune instruction de sécurité",
+        "compare_right_header":"### 🧠 Avec CEDD",
+        "compare_right_sub":   "LLM guidé par les instructions CEDD adaptatives",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
         "page_title":          "CEDD - Conversational Emotional Drift Detection",
         "app_title":           "🧠 CEDD — Conversational Emotional Drift Detection",
-        "app_subtitle":        "Mila Hackathon · AI Safety in Youth Mental Health · POC",
+        "app_subtitle":        "Mila Hackathon · AI Safety in Youth Mental Health · Team 404HarmNotFound",
         "theme_btn":           "🌙 Dark",
         "reset_btn":           "🔄 Reset",
         "chat_header":         "### 💬 Conversation",
         "chat_empty":          "Start the conversation...",
+        "welcome_title":       "Welcome to CEDD",
+        "welcome_text":        "A real-time safety layer that monitors the emotional trajectory of your conversation — not just one message, but the full evolution.",
+        "welcome_cta":         "Type your first message below ⬇️",
         "input_placeholder":   "Type your message here and press Enter",
         "send_btn":            "Send ➤",
         "dashboard_header":    "### 📊 CEDD Dashboard",
@@ -332,7 +418,23 @@ STRINGS = {
         "withdrawal_badge":   "Returned after absence",
         "feature_chart_title": "🔍 Detected signals",
         "feature_chart_note":  "Composite score = model importance × scaled value. Bars show what drives the current alert level most.",
+        "radar_title":         "🕸️ Feature radar",
         "profile_label":       "Profile",
+        "demo_btn":            "▶️ Demo",
+        "demo_stop_btn":       "⏹️ Stop",
+        "demo_character_fr":   "Félix, 18, CÉGEP",
+        "demo_character_en":   "Alex, 19, university",
+        "demo_running":        "Demo running — message {n}/9",
+        "about_btn":           "ℹ️ About",
+        "about_title":         "About CEDD",
+        "export_btn":          "📥 Export",
+        "alert_toast_up":      "⚠️ Alert level increased: {emoji} {label}",
+        "compare_btn":         "🔀 Compare",
+        "compare_btn_off":     "🔀 Single mode",
+        "compare_left_header": "### 💬 Without CEDD",
+        "compare_left_sub":    "Raw LLM — no safety instructions",
+        "compare_right_header":"### 🧠 With CEDD",
+        "compare_right_sub":   "LLM guided by CEDD adaptive instructions",
     },
 }
 
@@ -382,6 +484,33 @@ st.markdown("""
         border-radius: 12px;
         margin-bottom: 12px;
     }
+    .chat-time-user {
+        font-size: 0.68rem;
+        opacity: 0.5;
+        text-align: right;
+        margin: -2px 0 4px 0;
+        clear: both;
+    }
+    .chat-time-assistant {
+        font-size: 0.68rem;
+        opacity: 0.5;
+        text-align: left;
+        margin: -2px 0 4px 0;
+        clear: both;
+    }
+    .llm-badge {
+        font-size: 0.68rem;
+        opacity: 0.7;
+        display: block;
+        margin-top: 2px;
+    }
+    .alert-dot {
+        font-size: 0.68rem;
+        display: inline-block;
+        clear: both;
+        float: left;
+        margin: 2px 0 6px 0;
+    }
     .clearfix::after { content: ""; display: table; clear: both; }
     .alert-badge {
         padding: 6px 16px;
@@ -403,6 +532,26 @@ st.markdown("""
         font-size: 0.82rem;
         display: inline-block;
         margin: 2px;
+    }
+    @keyframes alert-flash {
+        0%   { opacity: 0; transform: translateY(-10px); }
+        15%  { opacity: 1; transform: translateY(0); }
+        85%  { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-10px); }
+    }
+    .alert-toast {
+        animation: alert-flash 3s ease-in-out forwards;
+        position: fixed;
+        top: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 10px 24px;
+        border-radius: 24px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        pointer-events: none;
     }
     h1 { font-size: 1.4rem !important; }
     h3 { font-size: 1.05rem !important; margin-bottom: 0.4rem !important; }
@@ -442,6 +591,10 @@ def init_state():
         "theme":           "light",
         "handoff_step":    0,      # 0 = not in handoff, 1-5 = warm handoff steps
         "withdrawal_detected": False,  # True if user returned after extended absence
+        "demo_running":   False,    # True while demo autopilot is active
+        "demo_step":      0,        # Current demo message index (0-8)
+        "compare_mode":   False,    # True = side-by-side compare mode
+        "compare_messages": [],     # "Without CEDD" message list (left side)
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -458,20 +611,36 @@ def reset_conversation():
     st.session_state.input_key += 1
     st.session_state.handoff_step = 0
     st.session_state.withdrawal_detected = False
+    st.session_state.demo_running = False
+    st.session_state.demo_step = 0
+    st.session_state.compare_mode = False
+    st.session_state.compare_messages = []
 
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
 
-def render_chat(S: dict):
+def render_chat(S: dict, theme: str = "light", messages: list = None):
     """Display chat bubbles. / Affiche les bulles de conversation."""
+    t = THEMES[theme]
+    if messages is None:
+        messages = st.session_state.messages
     msgs_html = '<div class="chat-container"><div class="clearfix">'
-    if not st.session_state.messages:
+    if not messages:
         msgs_html += (
-            f'<p style="color:#aaa;text-align:center;margin-top:40px;">'
-            f'{S["chat_empty"]}</p>'
+            f'<div style="text-align:center;margin:30px 16px;">'
+            f'<div style="background:{t["bg_card"]};border:1px solid {t["border"]};'
+            f'border-radius:14px;padding:24px 20px;display:inline-block;max-width:380px;">'
+            f'<div style="font-size:2rem;margin-bottom:6px;">🧠</div>'
+            f'<div style="font-size:1.1rem;font-weight:700;color:{t["text_main"]};margin-bottom:8px;">'
+            f'{S["welcome_title"]}</div>'
+            f'<div style="font-size:0.88rem;color:{t["text_main"]};opacity:0.85;margin-bottom:12px;">'
+            f'{S["welcome_text"]}</div>'
+            f'<div style="font-size:0.8rem;color:{t["text_muted"]};opacity:0.7;">'
+            f'{S["welcome_cta"]}</div>'
+            f'</div></div>'
         )
     else:
-        for msg in st.session_state.messages:
+        for msg in messages:
             role = msg["role"]
             content = (
                 msg["content"]
@@ -479,8 +648,37 @@ def render_chat(S: dict):
                 .replace(">", "&gt;")
                 .replace("\n", "<br>")
             )
-            css_class = "chat-bubble-user" if role == "user" else "chat-bubble-assistant"
-            msgs_html += f'<div class="{css_class}">{content}</div>'
+            ts = msg.get("timestamp", "")
+            if role == "user":
+                msgs_html += f'<div class="chat-bubble-user">{content}</div>'
+                if ts:
+                    msgs_html += f'<div class="chat-time-user" style="color:{t["text_muted"]};">{ts}</div>'
+            else:
+                # Assistant bubble + optional LLM badge
+                bubble = content
+                source = msg.get("source")
+                if source and source in LLM_SOURCE_INDICATOR:
+                    src_emoji, src_color = LLM_SOURCE_INDICATOR[source]
+                    src_name = LLM_DISPLAY_NAMES.get(source, source)
+                    bubble += f'<span class="llm-badge" style="color:{src_color};">{src_emoji} {src_name}</span>'
+                msgs_html += f'<div class="chat-bubble-assistant">{bubble}</div>'
+                # Timestamp + alert dot row
+                meta_parts = []
+                alert_lvl = msg.get("alert_level")
+                if alert_lvl is not None:
+                    a_color = LEVEL_COLORS[alert_lvl]
+                    a_emoji = LEVEL_EMOJIS[alert_lvl]
+                    a_label = LEVEL_LABELS[alert_lvl]
+                    meta_parts.append(
+                        f'<span class="alert-dot" style="color:{a_color};">{a_emoji} {a_label.capitalize()}</span>'
+                    )
+                if ts:
+                    meta_parts.append(f'<span style="opacity:0.5;">{ts}</span>')
+                if meta_parts:
+                    msgs_html += (
+                        f'<div class="chat-time-assistant" style="color:{t["text_muted"]};">'
+                        f'{" &nbsp;·&nbsp; ".join(meta_parts)}</div>'
+                    )
     msgs_html += '</div></div>'
     st.markdown(msgs_html, unsafe_allow_html=True)
 
@@ -751,6 +949,121 @@ def render_feature_chart(feature_scores: list, S: dict, theme: str = "light"):
     st.caption(S["feature_chart_note"])
 
 
+# ─── Radar chart for per-message features / Graphique radar des features par message ──
+
+# Feature names for radar axes / Noms des features pour les axes du radar
+_RADAR_NAMES = {
+    "fr": [
+        "Longueur", "Ponctuation", "Questions", "Négatif", "Finalité",
+        "Espoir", "Δ Longueur", "Négation", "Conflit id.", "Somatisation",
+    ],
+    "en": [
+        "Length", "Punctuation", "Questions", "Negative", "Finality",
+        "Hope", "Δ Length", "Negation", "Identity", "Somatization",
+    ],
+}
+
+
+def render_radar_chart(messages: list, S: dict, theme: str = "light", lang: str = "en"):
+    """Radar chart of the 10 per-message features for the latest message."""
+    if not messages or not any(m["role"] == "user" for m in messages):
+        return
+
+    features_matrix = extract_features(messages)  # (n_user_msgs, 10)
+    if features_matrix.shape[0] < 1:
+        return
+
+    names = _RADAR_NAMES.get(lang, _RADAR_NAMES["en"])
+    font_color = "#000000" if theme == "light" else "#ffffff"
+    grid_color = "rgba(155,181,204,0.25)" if theme == "light" else "rgba(45,55,72,0.25)"
+
+    # Normalize features to 0-1 range for display / Normaliser les features entre 0 et 1
+    latest = features_matrix[-1].copy()
+
+    # Per-feature normalization with sensible max values
+    # Normalisation par feature avec des valeurs max raisonnables
+    max_vals = [
+        80.0,   # word_count — typical max ~80 words
+        0.15,   # punctuation_ratio — typical max ~0.15
+        1.0,    # question_presence — binary 0/1
+        0.5,    # negative_score — ratio, rarely above 0.5
+        0.3,    # finality_score — ratio, rarely above 0.3
+        0.5,    # hope_score — ratio, rarely above 0.5
+        1.0,    # length_delta — relative, clamp to [-1, 1]
+        0.3,    # negation_score — ratio
+        0.3,    # identity_conflict — ratio
+        0.3,    # somatization — ratio
+    ]
+    normalized = []
+    for i, val in enumerate(latest):
+        if i == 6:  # length_delta can be negative — use absolute
+            normalized.append(min(abs(val) / max_vals[i], 1.0))
+        else:
+            normalized.append(min(val / max_vals[i], 1.0) if max_vals[i] > 0 else 0.0)
+
+    # Close the polygon / Fermer le polygone
+    plot_vals = normalized + [normalized[0]]
+    plot_names = names + [names[0]]
+
+    fig = go.Figure()
+
+    # Show first message as ghost overlay if we have 3+ messages
+    # Afficher le premier message en overlay fantôme si 3+ messages
+    if features_matrix.shape[0] >= 3:
+        first = features_matrix[0].copy()
+        first_norm = []
+        for i, val in enumerate(first):
+            if i == 6:
+                first_norm.append(min(abs(val) / max_vals[i], 1.0))
+            else:
+                first_norm.append(min(val / max_vals[i], 1.0) if max_vals[i] > 0 else 0.0)
+        first_plot = first_norm + [first_norm[0]]
+        fig.add_trace(go.Scatterpolar(
+            r=first_plot, theta=plot_names,
+            fill="toself",
+            fillcolor="rgba(46, 204, 113, 0.08)",
+            line=dict(color="rgba(46, 204, 113, 0.3)", width=1),
+            name="Msg 1",
+        ))
+
+    # Latest message — convert hex color to rgba for Plotly Scatterpolar
+    level = st.session_state.current_alert.get("level", 0)
+    color = LEVEL_COLORS[level]
+    # Convert hex #rrggbb to rgba(r,g,b,a)
+    r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+    fig.add_trace(go.Scatterpolar(
+        r=plot_vals, theta=plot_names,
+        fill="toself",
+        fillcolor=f"rgba({r},{g},{b},0.13)",
+        line=dict(color=color, width=2),
+        name=f"Msg {features_matrix.shape[0]}",
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True, range=[0, 1],
+                showticklabels=False,
+                gridcolor=grid_color,
+                linecolor=grid_color,
+            ),
+            angularaxis=dict(
+                tickfont=dict(size=9, color=font_color),
+                gridcolor=grid_color,
+                linecolor=grid_color,
+            ),
+            bgcolor="rgba(0,0,0,0)",
+        ),
+        showlegend=True,
+        legend=dict(font=dict(size=9, color=font_color), orientation="h", y=-0.1),
+        height=250,
+        margin=dict(t=20, b=30, l=30, r=30),
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=font_color),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 # ─── Main application / Application principale ──────────────────────────────────
 def main():
     init_state()
@@ -771,6 +1084,20 @@ def main():
     S       = STRINGS[lang]
 
     st.markdown(get_theme_css(theme), unsafe_allow_html=True)
+
+    # Alert transition toast (rendered once, cleared after display)
+    # Toast de transition d'alerte (affiché une fois, effacé après)
+    toast_level = st.session_state.pop("_alert_toast", None)
+    if toast_level is not None:
+        t_color = LEVEL_COLORS[toast_level]
+        t_emoji = LEVEL_EMOJIS[toast_level]
+        t_label = S["level_labels"][toast_level]
+        toast_msg = S["alert_toast_up"].format(emoji=t_emoji, label=t_label)
+        st.markdown(
+            f'<div class="alert-toast" style="background:{t_color};color:#fff;">'
+            f'{toast_msg}</div>',
+            unsafe_allow_html=True,
+        )
 
     # Start a session if needed (first visit or after reset)
     # Démarrer une session si nécessaire (première visite ou après reset)
@@ -849,11 +1176,90 @@ def main():
     with col_chat:
         st.markdown(S["chat_header"])
 
+        # Action buttons row: Demo, About, Export, Compare / Boutons d'action
+        btn_cols = st.columns([1, 1, 1, 1, 2])
+        with btn_cols[0]:
+            if st.session_state.compare_mode:
+                st.button(S["demo_btn"], use_container_width=True, disabled=True)
+            elif st.session_state.demo_running:
+                if st.button(S["demo_stop_btn"], use_container_width=True):
+                    st.session_state.demo_running = False
+                    st.session_state.demo_step = 0
+                    st.rerun()
+            else:
+                if st.button(S["demo_btn"], use_container_width=True):
+                    reset_conversation()
+                    st.session_state.demo_running = True
+                    st.session_state.demo_step = 0
+                    st.rerun()
+        with btn_cols[1]:
+            if st.button(S["about_btn"], use_container_width=True):
+                st.session_state["show_about"] = not st.session_state.get("show_about", False)
+                st.rerun()
+        with btn_cols[2]:
+            if st.session_state.messages:
+                export_data = {
+                    "session_id": st.session_state.session_id,
+                    "user_id": st.session_state.user_id,
+                    "language": lang,
+                    "exported_at": datetime.now().isoformat(),
+                    "messages": st.session_state.messages,
+                    "alert_history": [
+                        {
+                            "level": a["level"],
+                            "label": a.get("label", ""),
+                            "confidence": a.get("confidence", 0),
+                            "dominant_features": a.get("dominant_features", []),
+                        }
+                        for a in st.session_state.alert_history
+                    ],
+                    "peak_alert": max((a["level"] for a in st.session_state.alert_history), default=0),
+                }
+                st.download_button(
+                    S["export_btn"],
+                    data=json.dumps(export_data, indent=2, ensure_ascii=False),
+                    file_name=f"cedd_transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+
+        with btn_cols[3]:
+            compare_label = S["compare_btn_off"] if st.session_state.compare_mode else S["compare_btn"]
+            if st.button(compare_label, use_container_width=True):
+                new_mode = not st.session_state.compare_mode
+                reset_conversation()
+                st.session_state.compare_mode = new_mode
+                st.rerun()
+
+        # About CEDD panel / Panneau À propos de CEDD
+        if st.session_state.get("show_about", False):
+            with st.expander(S["about_title"], expanded=True):
+                st.markdown(ABOUT_CEDD[lang])
+
+        # Demo running banner / Bannière de démo en cours
+        if st.session_state.demo_running:
+            scenario = DEMO_SCENARIOS[lang]
+            step = st.session_state.demo_step
+            char_key = "demo_character_fr" if lang == "fr" else "demo_character_en"
+            st.info(f"🎬 {S[char_key]} — {S['demo_running'].format(n=step + 1)}")
+
         # Withdrawal banner / Bannière de retour après absence
         if st.session_state.withdrawal_detected and not st.session_state.messages:
             st.info(S["withdrawal_banner"])
 
-        render_chat(S)
+        # Compare mode: show two chat columns / Mode comparaison : deux colonnes de chat
+        if st.session_state.compare_mode:
+            cmp_left, cmp_right = st.columns(2, gap="small")
+            with cmp_left:
+                st.markdown(S["compare_left_header"])
+                st.caption(S["compare_left_sub"])
+                render_chat(S, theme, messages=st.session_state.compare_messages)
+            with cmp_right:
+                st.markdown(S["compare_right_header"])
+                st.caption(S["compare_right_sub"])
+                render_chat(S, theme)
+        else:
+            render_chat(S, theme)
 
         # Input form / Zone de saisie
         with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
@@ -864,17 +1270,42 @@ def main():
             )
             submitted = st.form_submit_button(S["send_btn"], use_container_width=True)
 
+        # Demo autopilot: inject next message / Démo automatique : injecter le prochain message
+        if st.session_state.demo_running:
+            scenario = DEMO_SCENARIOS[lang]
+            step = st.session_state.demo_step
+            if step < len(scenario):
+                user_msg = scenario[step]
+                submitted = True
+                user_input = user_msg
+                st.session_state.demo_step += 1
+                if st.session_state.demo_step >= len(scenario):
+                    st.session_state.demo_running = False
+
         if submitted and user_input.strip():
             user_msg = user_input.strip()
 
             # Add user message / Ajouter le message utilisateur
-            st.session_state.messages.append({"role": "user", "content": user_msg})
+            now = datetime.now().strftime("%H:%M")
+            st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+            # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
+            if st.session_state.compare_mode:
+                st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+            # Track previous alert level for transition animation
+            # Suivre le niveau précédent pour l'animation de transition
+            prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
 
             # Analyse with CEDD before generating the LLM response
             # Analyser avec CEDD avant de générer la réponse
             alert = clf.get_alert_level(st.session_state.messages, lang=lang)
             st.session_state.current_alert = alert
             st.session_state.alert_history.append(alert)
+
+            # Alert transition toast / Toast de transition d'alerte
+            if alert["level"] > prev_level:
+                st.session_state["_alert_toast"] = alert["level"]
 
             # Log alert to cross-session tracker / Enregistrer dans le tracker
             tracker.log_alert(
@@ -910,8 +1341,27 @@ def main():
             # If level drops below Red, keep handoff_step as-is (crisis may not be over)
             # Si le niveau descend sous Rouge, garder handoff_step tel quel
 
-            # Generate assistant response / Générer la réponse de l'assistant
+            # Generate assistant responses / Générer les réponses de l'assistant
             with st.spinner("..."):
+                # Compare mode: generate "without CEDD" response first (always Green prompt)
+                # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
+                if st.session_state.compare_mode:
+                    plain_result = get_llm_response(
+                        st.session_state.compare_messages,
+                        0,
+                        force_model=st.session_state.selected_llm,
+                        lang=lang,
+                        handoff_step=0,
+                        system_prompt_override="",  # No instructions — raw LLM response
+                    )
+                    if plain_result["content"]:
+                        st.session_state.compare_messages.append({
+                            "role": "assistant",
+                            "content": plain_result["content"],
+                            "timestamp": datetime.now().strftime("%H:%M"),
+                        })
+
+                # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
                 result = get_llm_response(
                     st.session_state.messages,
                     alert["level"],
@@ -922,9 +1372,13 @@ def main():
             st.session_state.last_llm_source = result["source"]
 
             if result["content"]:
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": result["content"]}
-                )
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": result["content"],
+                    "timestamp": datetime.now().strftime("%H:%M"),
+                    "source": result["source"],
+                    "alert_level": alert["level"],
+                })
 
             st.rerun()
 
@@ -961,6 +1415,12 @@ def main():
         if level >= 1 and feature_scores:
             with st.expander(S["feature_chart_title"]):
                 render_feature_chart(feature_scores, S, theme)
+
+        # Radar chart (visible when at least 1 user message exists)
+        # Graphique radar (visible dès qu'il y a au moins 1 message utilisateur)
+        if st.session_state.messages:
+            with st.expander(S["radar_title"]):
+                render_radar_chart(st.session_state.messages, S, theme, lang)
 
         st.divider()
 

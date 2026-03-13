@@ -258,6 +258,16 @@ Two-column interface with real-time updates after each message.
 
 | Component                  | Description                                                                |
 |----------------------------|----------------------------------------------------------------------------|
+| **Welcome card**           | Branded card with brain emoji, title, description and CTA when chat is empty |
+| **Chat timestamps**        | HH:MM timestamp below each message bubble (right-aligned for user, left for assistant) |
+| **LLM source badge**       | Small coloured badge on each assistant bubble showing which LLM generated it (e.g. 🟠 Groq Llama 3.3 70B) |
+| **Alert level badge**      | Coloured alert dot (e.g. 🟢 Green) on each assistant message showing CEDD classification at that point |
+| **Demo autopilot**         | "Play Demo" button auto-plays the Félix/Alex scenario (9 messages). Judges watch drift unfold live |
+| **About CEDD panel**       | Collapsible explainer: what CEDD does, how it works, what the dashboard shows. Bilingual |
+| **Export transcript**      | Download button exports conversation + alert history as JSON file                          |
+| **Alert transition toast** | CSS-animated notification when alert level increases (3s fade-in/out)                      |
+| **Compare mode**           | Side-by-side: raw LLM (no instructions) vs LLM with CEDD adaptive prompts. Toggle via 🔀 button |
+| **Feature radar**          | Plotly spider chart: 10 per-message features normalized 0-1, latest msg vs Msg 1 ghost overlay   |
 | **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
 | **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
 | **Active signals**         | Dominant features displayed as colour-coded pills                          |
@@ -729,7 +739,7 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
 
-Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
+Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀), **radar des features** (graphique araignee Plotly des 10 features par message, dernier message vs Msg 1 en overlay). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
 ---
 
