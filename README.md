@@ -274,18 +274,18 @@ Two-column interface with real-time updates after each message.
 | Lexical analysis       | EN words in all lexicons       | FR words in all lexicons        |
 | Feature display names  | Via `lang="en"` parameter      | Via `lang="fr"` parameter       |
 | Synthetic data         | `--lang en` flag               | `--lang fr` (default)           |
-| Training data          | 240 EN conversations           | 240 FR conversations            |
-| Adversarial tests      | 6 EN + mixed                   | 7 FR + mixed                    |
+| Training data          | 300 EN conversations           | 300 FR conversations            |
+| Adversarial tests      | 14 EN + mixed                  | 16 FR + mixed                   |
 
 ---
 
 ### Synthetic Dataset
 
-**`data/synthetic_conversations.json`** -- 480 balanced bilingual conversations (60 per class x 4 classes x 2 languages).
+**`data/synthetic_conversations.json`** -- 600 bilingual conversations (480 standard + 120 adversarial).
 
 Each conversation contains ~12 user + 12 assistant messages, generated via `generate_synthetic_data.py` using Claude Haiku in authentic Canadian French and English.
 
-#### Generation Archetypes
+#### Standard Generation Archetypes (480 conversations)
 
 | Archetype | Characteristics                                                                                           |
 |-----------|-----------------------------------------------------------------------------------------------------------|
@@ -294,16 +294,29 @@ Each conversation contains ~12 user + 12 assistant messages, generated via `gene
 | `orange`  | Feeling of emptiness, crying, feeling like a burden, shorter messages, sense of uselessness               |
 | `red`     | Desire to disappear, total isolation, tone of finality, short intense messages, no future plans           |
 
+#### Adversarial Archetypes (120 conversations, `--adversarial` flag)
+
+| Archetype | Label | Characteristics |
+|-----------|-------|-----------------|
+| `physical_only` | Green | Pure physical complaints, zero emotional distress, some short messages |
+| `sarcasm_distress` | Yellow | Dark humour masking real isolation/fatigue, no crisis keywords |
+| `adversarial_bypass` | Yellow | Reveal-minimize-reveal pattern, active deflection |
+| `identity_distress` | Orange | 2SLGBTQ+/cultural rejection, identity-specific language |
+| `neurodivergent_flat` | Orange | Flat affect, topic jumps, concerning situations described factually |
+| `crisis_with_deflection` | Red | Crisis language followed by "I'm fine" — still Red |
+
 #### Generating Additional Data (FR and EN)
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Generate 80 French conversations (20 per class)
+# Standard archetypes (20 per class)
 python generate_synthetic_data.py --lang fr --count 20
-
-# Generate 80 English conversations (20 per class)
 python generate_synthetic_data.py --lang en --count 20
+
+# Adversarial archetypes (10 per archetype)
+python generate_synthetic_data.py --adversarial --lang fr --count 10
+python generate_synthetic_data.py --adversarial --lang en --count 10
 ```
 
 ---
@@ -362,6 +375,10 @@ python simulate_history.py --lang en   # English
 python generate_synthetic_data.py --lang fr --count 20
 python generate_synthetic_data.py --lang en --count 20
 
+# Generate adversarial training data
+python generate_synthetic_data.py --adversarial --lang fr --count 10
+python generate_synthetic_data.py --adversarial --lang en --count 10
+
 # Run adversarial tests
 python tests/adversarial_suite.py --verbose
 ```
@@ -372,20 +389,20 @@ Opens at `http://localhost:8501`. Use the language toggle in the header to switc
 
 ### Metrics
 
-Results on the 480-conversation balanced bilingual dataset:
+Results on the 600-conversation bilingual dataset (480 standard + 120 adversarial):
 
 | Metric                    | Value                         |
 |---------------------------|-------------------------------|
-| CV accuracy (k=4)         | **91.7% +/- 4.4%**           |
+| CV accuracy (k=4)         | **90.5% +/- 1.5%**           |
 | Train accuracy            | 100% (expected overfitting)   |
 | Number of features        | **67** (10x6 + 4 emb + 3 coh)|
-| Training conversations    | **480** (60/class x FR + EN)  |
-| Sample:feature ratio      | **7.2:1** (improved from 4.8) |
-| Top feature               | `word_count_slope` (0.367)    |
-| 2nd feature               | `word_count_max` (0.249)      |
-| 3rd feature               | `length_delta_mean` (0.126)   |
-| 4th feature               | `finality_score_mean` (0.119) |
-| Adversarial tests         | **13/13 passing**             |
+| Training conversations    | **600** (480 standard + 120 adversarial) |
+| Sample:feature ratio      | **9.0:1** (improved from 7.2) |
+| Top feature               | `word_count_max` (0.189)      |
+| 2nd feature               | `word_count_slope` (0.160)    |
+| 3rd feature               | `word_count_last` (0.137)     |
+| 4th feature               | `finality_score_mean` (0.097) |
+| Adversarial tests         | **30/30 passing**             |
 | Critical misses           | **0**                         |
 | Languages                 | French + English (bilingual)  |
 
@@ -398,7 +415,8 @@ Results on the 480-conversation balanced bilingual dataset:
 | March 12 | Crisis keyword expansion | ~91.2% +/- 1.5% | 10/10 |
 | March 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
 | March 12 | +Identity + Somatization + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
-| March 12 | Data expansion to 480 convos (60/class) | **91.7% +/- 4.4%** | **13/13** |
+| March 12 | Data expansion to 480 convos (60/class) | 91.7% +/- 4.4% | 13/13 |
+| March 13 | Adversarial augmentation to 600 convos (6 new archetypes) | **90.5% +/- 1.5%** | **30/30** |
 
 ---
 
@@ -422,17 +440,18 @@ cedd-hackathon/
 |
 +-- tests/                          # Adversarial test suite (Track 1)
 |   +-- adversarial_suite.py        # CLI test runner (--verbose, --category, --export)
-|   +-- test_cases_adversarial.json # 13 adversarial test cases (FR + EN)
+|   +-- test_cases_adversarial.json # 30 adversarial test cases across 16 categories (FR + EN)
 |   +-- results/
 |       +-- baseline_v1.json        # Original: 7/10 passed
 |       +-- post_data_expansion.json# 320 convos: 9/10 passed
 |       +-- post_keyword_fix.json   # Crisis keywords: 10/10 passed
 |       +-- post_negation_embeddings.json  # +Negation +Embeddings
 |       +-- post_features_456.json  # 67 features: 13/13 passed, 0 critical misses
-|       +-- post_480_convos.json   # Current: 480 convos, 13/13 passed
+|       +-- post_480_convos.json    # 480 convos: 13/13 passed
+|       +-- post_600_convos.json    # Current: 600 convos, 30/30 passed
 |
 +-- data/
-|   +-- synthetic_conversations.json  # 480 labeled conversations (balanced FR + EN)
+|   +-- synthetic_conversations.json  # 600 labeled conversations (480 standard + 120 adversarial, FR + EN)
 |   +-- annotated_conversations.json  # Quality-annotated subset
 |   +-- filtered_conversations.json   # Post-annotation filtered
 |   +-- cedd_sessions.db              # SQLite database (auto-created)
@@ -451,7 +470,7 @@ cedd-hackathon/
 
 The `tests/` directory provides a systematic red-teaming suite to validate CEDD robustness against real-world edge cases.
 
-#### Test categories (13 tests)
+#### Test categories (30 tests across 16 categories)
 
 | Category | Description | Count |
 |---|---|---|
@@ -459,13 +478,18 @@ The `tests/` directory provides a systematic red-teaming suite to validate CEDD 
 | `sarcasm` | Sarcastic language masking real distress | 1 |
 | `negation` | Negation of positive states (`"je ne me sens pas bien"`) | 1 |
 | `code_switching` | French/English mixing (Quebec franglais) | 1 |
-| `quebecois_slang` | Quebec slang (`"chu pu capable"`, `"en criss"`) | 1 |
-| `gradual_drift_no_keywords` | Slow emotional deterioration with no crisis keywords | 1 |
-| `direct_crisis` | Explicit crisis language -- **must always be Red** | 1 |
+| `quebecois_slang` | Quebec slang (`"chu pu capable"`, `"en criss"`, positive joual) | 3 |
+| `gradual_drift_no_keywords` | Slow emotional deterioration with no crisis keywords (EN + FR) | 2 |
+| `direct_crisis` | Explicit crisis language -- **must always be Red** (EN + FR) | 2 |
 | `hidden_intent` | Indirect suicidal ideation framed as hypothetical | 1 |
 | `manipulation_downplay` | Distress followed by minimisation -- must NOT drop to Green | 1 |
 | `somatization` | Physical pain + emotional decline (somatized distress) | 1 |
 | `identity_conflict` | 2SLGBTQ+ identity crisis and family rejection (EN + FR) | 2 |
+| `sudden_escalation` | Normal conversation then sudden crisis escalation | 3 |
+| `active_bypass` | Crisis language then retraction ("I was joking") | 2 |
+| `rapid_recovery_manipulation` | Deep crisis then "I feel better" -- safety floor must persist | 2 |
+| `cultural_false_positive` | "Mort de rire", "killed it", "personne" in neutral contexts | 3 |
+| `neurodivergent_pattern` | Literal/flat communication, ADHD bursts, topic jumps | 3 |
 
 #### Running the suite
 
@@ -491,7 +515,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | `1` | Some tests failed (non-critical) |
 | `2` | **Critical miss** -- crisis predicted as Green/Yellow (safety regression, blocks merge) |
 
-> **Current (v7):** 13/13 passed, 0 critical misses -- see `tests/results/post_480_convos.json`
+> **Current (v8):** 30/30 passed, 0 critical misses -- see `tests/results/post_600_convos.json`
 > **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
 
 ---
@@ -710,23 +734,25 @@ Interface bilingue en deux colonnes. **Bouton de langue** dans l'en-tete pour ba
 | Prompts systeme LLM     | 4 niveaux                            | 4 niveaux                             |
 | Analyse lexicale        | Mots EN dans les lexiques            | Mots FR dans les lexiques             |
 | Noms des features       | Via parametre `lang="en"`            | Via parametre `lang="fr"`             |
-| Donnees d'entrainement  | 160 conversations EN                 | 160 conversations FR                  |
-| Tests adversariaux      | 6 EN + mixtes                        | 7 FR + mixtes                         |
+| Donnees d'entrainement  | 300 conversations EN                 | 300 conversations FR                  |
+| Tests adversariaux      | 14 EN + mixtes                       | 16 FR + mixtes                        |
 
 ---
 
 ### Donnees synthetiques
 
-**`data/synthetic_conversations.json`** -- 480 conversations equilibrees bilingues (60 par classe x 4 classes x 2 langues).
+**`data/synthetic_conversations.json`** -- 600 conversations bilingues (480 standard + 120 adversariaux).
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 80 conversations en francais (20 par classe)
+# Archetypes standard (20 par classe)
 python generate_synthetic_data.py --lang fr --count 20
-
-# 80 conversations en anglais (20 par classe)
 python generate_synthetic_data.py --lang en --count 20
+
+# Archetypes adversariaux (10 par archetype)
+python generate_synthetic_data.py --adversarial --lang fr --count 10
+python generate_synthetic_data.py --adversarial --lang en --count 10
 ```
 
 ---
@@ -782,6 +808,10 @@ python simulate_history.py --lang en
 python generate_synthetic_data.py --lang fr --count 20
 python generate_synthetic_data.py --lang en --count 20
 
+# Generer des donnees adversariales
+python generate_synthetic_data.py --adversarial --lang fr --count 10
+python generate_synthetic_data.py --adversarial --lang en --count 10
+
 # Lancer les tests adversariaux
 python tests/adversarial_suite.py --verbose
 ```
@@ -792,20 +822,20 @@ Ouvre `http://localhost:8501`. Utiliser le bouton de langue dans l'en-tete pour 
 
 ### Metriques
 
-Resultats sur le dataset de 480 conversations equilibrees bilingues :
+Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adversariaux) :
 
 | Metrique                  | Valeur                         |
 |---------------------------|--------------------------------|
-| CV accuracy (k=4)         | **91.7% +/- 4.4%**            |
+| CV accuracy (k=4)         | **90.5% +/- 1.5%**            |
 | Train accuracy            | 100% (overfitting attendu)     |
 | Nombre de features        | **67** (10x6 + 4 emb + 3 coh) |
-| Conversations             | **480** (60/classe x FR + EN)  |
-| Ratio echantillons:features | **7.2:1** (ameliore de 4.8)  |
-| Top feature               | `word_count_slope` (0.367)     |
-| 2e feature                | `word_count_max` (0.249)       |
-| 3e feature                | `length_delta_mean` (0.126)    |
-| 4e feature                | `finality_score_mean` (0.119)  |
-| Tests adversariaux        | **13/13 reussis**              |
+| Conversations             | **600** (480 standard + 120 adversariaux) |
+| Ratio echantillons:features | **9.0:1** (ameliore de 7.2)  |
+| Top feature               | `word_count_max` (0.189)       |
+| 2e feature                | `word_count_slope` (0.160)     |
+| 3e feature                | `word_count_last` (0.137)      |
+| 4e feature                | `finality_score_mean` (0.097)  |
+| Tests adversariaux        | **30/30 reussis**              |
 | Crises manquees           | **0**                          |
 
 #### Historique des metriques
@@ -817,7 +847,8 @@ Resultats sur le dataset de 480 conversations equilibrees bilingues :
 | Mars 12 | Expansion mots-cles de crise | ~91.2% +/- 1.5% | 10/10 |
 | Mars 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
 | Mars 12 | +Identite + Somatisation + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
-| Mars 12 | Expansion donnees a 480 convos (60/classe) | **91.7% +/- 4.4%** | **13/13** |
+| Mars 12 | Expansion donnees a 480 convos (60/classe) | 91.7% +/- 4.4% | 13/13 |
+| Mars 13 | Augmentation adversariale a 600 convos (6 nouveaux archetypes) | **90.5% +/- 1.5%** | **30/30** |
 
 ---
 
@@ -841,11 +872,11 @@ cedd-hackathon/
 |
 +-- tests/                          # Suite de tests adversariaux (Track 1)
 |   +-- adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
-|   +-- test_cases_adversarial.json # 13 cas de test adversariaux (FR + EN)
+|   +-- test_cases_adversarial.json # 30 cas de test adversariaux, 16 categories (FR + EN)
 |   +-- results/                    # Historique des resultats
 |
 +-- data/
-|   +-- synthetic_conversations.json  # 480 conversations etiquetees (FR + EN)
+|   +-- synthetic_conversations.json  # 600 conversations etiquetees (480 standard + 120 adversariaux)
 |   +-- cedd_sessions.db              # Base SQLite (creee automatiquement)
 |
 +-- models/
@@ -862,7 +893,7 @@ cedd-hackathon/
 
 Le repertoire `tests/` fournit une suite de tests systematiques pour valider la robustesse de CEDD face a des cas reels difficiles.
 
-#### Categories de tests (13 tests)
+#### Categories de tests (30 tests, 16 categories)
 
 | Categorie | Description | Nb |
 |---|---|---|
@@ -870,13 +901,18 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `sarcasm` | Langage sarcastique masquant une detresse reelle | 1 |
 | `negation` | Negation d'etats positifs (`"je ne me sens pas bien"`) | 1 |
 | `code_switching` | Alternance francais/anglais (franglais quebecois) | 1 |
-| `quebecois_slang` | Expressions quebecoises (`"chu pu capable"`, `"en criss"`) | 1 |
-| `gradual_drift_no_keywords` | Deterioration emotionnelle lente sans mots-cles de crise | 1 |
-| `direct_crisis` | Langage de crise explicite -- **doit toujours etre Rouge** | 1 |
+| `quebecois_slang` | Expressions quebecoises (`"chu pu capable"`, joual positif) | 3 |
+| `gradual_drift_no_keywords` | Deterioration emotionnelle lente sans mots-cles (EN + FR) | 2 |
+| `direct_crisis` | Langage de crise explicite -- **doit toujours etre Rouge** (EN + FR) | 2 |
 | `hidden_intent` | Ideation suicidaire indirecte presentee comme hypothetique | 1 |
 | `manipulation_downplay` | Detresse suivie de minimisation -- ne doit PAS redescendre a Vert | 1 |
 | `somatization` | Douleur physique + declin emotionnel (detresse somatisee) | 1 |
 | `identity_conflict` | Crise identitaire 2SLGBTQ+ et rejet familial (EN + FR) | 2 |
+| `sudden_escalation` | Conversation normale puis escalade soudaine | 3 |
+| `active_bypass` | Langage de crise puis retractation ("c'etait une blague") | 2 |
+| `rapid_recovery_manipulation` | Crise profonde puis "ca va mieux" -- le plancher doit persister | 2 |
+| `cultural_false_positive` | "Mort de rire", "killed it", "personne" en contexte neutre | 3 |
+| `neurodivergent_pattern` | Communication litterale/plate, explosions TDAH, sauts de sujet | 3 |
 
 #### Codes de sortie
 
@@ -886,7 +922,7 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `1` | Certains tests echoues (non critique) |
 | `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
-> **Actuel (v7) :** 13/13 reussis, 0 crise manquee -- voir `tests/results/post_480_convos.json`
+> **Actuel (v8) :** 30/30 reussis, 0 crise manquee -- voir `tests/results/post_600_convos.json`
 
 ---
 

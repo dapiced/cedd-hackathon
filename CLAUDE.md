@@ -59,7 +59,7 @@ cedd-hackathon/
 │   └── session_tracker.py          # Cross-session longitudinal risk tracking (SQLite)
 │
 ├── data/
-│   ├── synthetic_conversations.json  # 480 labeled training conversations (60/class × FR+EN)
+│   ├── synthetic_conversations.json  # 600 labeled training conversations (480 standard + 120 adversarial, FR+EN)
 │   ├── annotated_conversations.json  # Quality-annotated conversations (Claude-scored)
 │   ├── filtered_conversations.json   # Post-annotation filtered subset
 │   └── cedd_sessions.db             # SQLite database (auto-created at runtime)
@@ -69,14 +69,15 @@ cedd-hackathon/
 │
 ├── tests/                           # Adversarial test suite (Track 1 — Stress-Testing)
 │   ├── adversarial_suite.py         # CLI test runner: --verbose, --category, --export
-│   ├── test_cases_adversarial.json  # 13 adversarial cases across 11 categories (FR + EN)
+│   ├── test_cases_adversarial.json  # 30 adversarial cases across 16 categories (FR + EN)
 │   └── results/
 │       ├── baseline_v1.json         # Original baseline: 7/10 passed, 0 critical misses
 │       ├── post_data_expansion.json # After 320-convo retrain: 9/10 passed
 │       ├── post_keyword_fix.json    # After crisis keyword expansion: 10/10 passed
 │       ├── post_negation_embeddings.json  # After negation + embeddings: 9/10
 │       ├── post_features_456.json   # 67 features: 13/13 passed, 0 critical misses
-│       └── post_480_convos.json     # Current (480 convos): 13/13 passed, 0 critical misses
+│       ├── post_480_convos.json     # 480 convos: 13/13 passed, 0 critical misses
+│       └── post_600_convos.json     # Current (600 convos): 30/30 passed, 0 critical misses
 │
 ├── demo/                            # Demo scenarios for team presentation (March 16)
 │   ├── demo_scenario.md             # FR — Félix, CÉGEP, Green→Yellow→Orange (9 msgs)
@@ -92,7 +93,7 @@ cedd-hackathon/
 ```
 PHASE 1: TRAINING (offline, run once)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-generate_synthetic_data.py  →  data/synthetic_conversations.json (480 convos)
+generate_synthetic_data.py  →  data/synthetic_conversations.json (600 convos)
                                          ↓
                               train.py  (cross-validate → fit → save)
                                          ↓
@@ -193,38 +194,40 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 ### Training (`train.py`)
 
-- Loads 480 synthetic conversations from `data/synthetic_conversations.json`
-- Extracts 67 trajectory features per conversation → X (480 × 67), y (480 labels)
-- Cross-validation: `StratifiedKFold(n_splits=4)` → **~91.7% accuracy ± 4.4%**
-- Train accuracy: ~100% (expected overfitting on 480 samples with 200 trees)
-- Top features: `word_count_slope` (0.367), `word_count_max` (0.249), `length_delta_mean` (0.126), `finality_score_mean` (0.119)
+- Loads 600 synthetic conversations from `data/synthetic_conversations.json`
+- Extracts 67 trajectory features per conversation → X (600 × 67), y (600 labels)
+- Cross-validation: `StratifiedKFold(n_splits=4)` → **~90.5% accuracy ± 1.5%**
+- Train accuracy: ~100% (expected overfitting on 600 samples with 200 trees)
+- Top features: `word_count_max` (0.189), `word_count_slope` (0.160), `word_count_last` (0.137), `finality_score_mean` (0.097)
 - Saves trained model to `models/cedd_model.joblib`
 
 ### Data Generation (`generate_synthetic_data.py`)
 
 - Uses Claude Haiku API to generate realistic youth conversations
-- 60 conversations per class × 4 classes × 2 languages (FR + EN) = 480 total
+- **Standard archetypes:** 60 per class × 4 classes × 2 languages = 480 conversations
+- **Adversarial archetypes** (`--adversarial` flag): 6 specialized archetypes × 10 × 2 languages = 120 conversations (physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection)
+- **Total: 600 conversations** (480 standard + 120 adversarial)
 - Each conversation: 12 user messages + 12 assistant messages
 - Fully bilingual: authentic Québécois French + Canadian English
 - **All data is synthetic — no real PII allowed** (hackathon rule)
 
 ---
 
-## Current Metrics (as of March 12, 2026)
+## Current Metrics (as of March 13, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Cross-validated accuracy (k=4) | **~91.7% ± 4.4%** |
+| Cross-validated accuracy (k=4) | **~90.5% ± 1.5%** |
 | Train accuracy | ~100% (expected overfitting) |
 | Feature count | **67** (10 × 6 stats + 4 embedding + 3 coherence) |
 | Per-message features | **10** (word_count, punctuation, question, negative, finality, hope, length_delta, negation, identity_conflict, somatization) |
-| Training conversations | **480 (60/class × FR + EN)** |
-| Sample:feature ratio | **7.2:1** (improved from 4.8:1) |
-| Top feature | `word_count_slope` (importance: 0.367) |
-| 2nd feature | `word_count_max` (0.249) |
-| 3rd feature | `length_delta_mean` (0.126) |
-| 4th feature | `finality_score_mean` (0.119) |
-| Adversarial tests | **13/13 passing · 0 critical misses** |
+| Training conversations | **600 (480 standard + 120 adversarial, FR + EN)** |
+| Sample:feature ratio | **9.0:1** (improved from 7.2:1, ideal is 10:1) |
+| Top feature | `word_count_max` (importance: 0.189) |
+| 2nd feature | `word_count_slope` (0.160) |
+| 3rd feature | `word_count_last` (0.137) |
+| 4th feature | `finality_score_mean` (0.097) |
+| Adversarial tests | **30/30 passing · 0 critical misses** |
 | Languages | French + English (fully bilingual training data) |
 
 > **Metrics history:**
@@ -232,7 +235,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 > - **Data expansion:** 91.2% ± 1.5% on 320 convos, 48 features (8×6), 9/10 adversarial
 > - **+Negation +Embeddings:** 92.2% ± 1.8%, 52 features, 9/10 adversarial
 > - **+Identity +Somatization +Coherence:** 92.5% ± 1.5%, 67 features, 13/13 adversarial
-> - **Data expansion to 480 (current):** 91.7% ± 4.4%, 67 features, 13/13 adversarial
+> - **Data expansion to 480:** 91.7% ± 4.4%, 67 features, 13/13 adversarial
+> - **Adversarial augmentation to 600 (current):** 90.5% ± 1.5%, 67 features, 30/30 adversarial (6 new archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection)
 
 ---
 
@@ -245,7 +249,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
 - **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
-- **Sample-to-feature ratio improving** — 480 samples / 67 features = 7.2:1 ratio (ideal is 10:1, up from 4.8:1)
+- **Sample-to-feature ratio improving** — 600 samples / 67 features = 9.0:1 ratio (ideal is 10:1, up from 7.2:1)
+- **Over-prediction on short/ambiguous green conversations** — physical-only, neurodivergent literal, and cultural expressions with "mort"/"killed" may trigger orange (documented as acceptable in adversarial tests with tolerance ±2)
 
 ---
 
@@ -257,7 +262,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ```bash
 # 1. Verify training still works
 python train.py
-# 2. Check accuracy didn't drop (baseline: 91.7% ± 4.4%)
+# 2. Check accuracy didn't drop (baseline: 90.5% ± 1.5%)
 # 3. Check top features still make clinical sense
 # 4. Run the app and test with a sample conversation
 streamlit run app.py
@@ -291,7 +296,7 @@ python train.py
 ```bash
 # 1. Regenerate data
 python generate_synthetic_data.py
-# 2. Verify balanced distribution: 60 per class × 4 classes
+# 2. Verify distribution (standard: 60/class × 4, adversarial: 10/archetype × 6)
 # 3. Retrain and compare accuracy to baseline
 python train.py
 # 4. Check for data leakage: no test conversations in training set
@@ -315,7 +320,7 @@ print('Smoke test PASSED')
 
 ### Adversarial Test Suite (run after any ML or classifier change):
 ```bash
-# Run all 13 adversarial cases — exit code 2 = critical miss (safety regression)
+# Run all 30 adversarial cases — exit code 2 = critical miss (safety regression)
 python tests/adversarial_suite.py
 
 # Verbose output with probabilities and top features
@@ -325,11 +330,12 @@ python tests/adversarial_suite.py --verbose
 python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).json
 ```
 
-**Test categories:** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
+**Test categories (16):** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
 `quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`,
-`somatization`, `identity_conflict`
+`somatization`, `identity_conflict`, `sudden_escalation`, `active_bypass`, `rapid_recovery_manipulation`,
+`cultural_false_positive`, `neurodivergent_pattern`
 
-**Current:** 13/13 passed · 0 critical misses (`tests/results/post_480_convos.json`)
+**Current:** 30/30 passed · 0 critical misses (`tests/results/post_600_convos.json`)
 **Original baseline:** 7/10 (`tests/results/baseline_v1.json`) — kept for historical comparison.
 
 **Critical rule:** Exit code `2` means a crisis was predicted as Green or Yellow — this is a **safety regression** and blocks any merge.
@@ -448,14 +454,14 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | **March 16-23** (first half) | Final polish, presentation prep | UX differentiation |
 | **March 22 evening** (deadline) | Final metrics comparison + report + submission | Show before/after improvement honestly |
 
-**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 91.7% accuracy. From 7 features to 67. From lexical counting to multilingual embeddings + coherence analysis. Here's how we got there."*
+**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 90.5% accuracy (±1.5% stable). From 7 features to 67. From 24 convos to 600. From 7/10 adversarial to 30/30. Here's how we got there."*
 
 ### ✅ Completed Improvements
 
 | Improvement | Status | Result | Axis |
 |---|---|---|---|
-| ✅ **Adversarial test suite** | DONE | 13/13 passing, 0 critical misses | Stress-Testing |
-| ✅ **English training data** | DONE | 240 EN + 240 FR = 480 balanced bilingual | Data Augmentation |
+| ✅ **Adversarial test suite** | DONE | 30/30 passing, 0 critical misses (16 categories) | Stress-Testing |
+| ✅ **English training data** | DONE | 300 EN + 300 FR = 600 bilingual (480 standard + 120 adversarial) | Data Augmentation |
 | ✅ **Sentence embeddings** | DONE | 4 embedding features (`paraphrase-multilingual-MiniLM-L12-v2`): drift, crisis similarity, slope, variance | Logic Hardening |
 | ✅ **Claude quality annotator** | DONE | Insight-only — filtering hurt accuracy, kept as analysis tool (`annotate_data.py`) | Data Augmentation |
 | ✅ **Negation handling** | DONE | `negation_score` feature (#7): regex patterns for FR/EN negation structures | Logic Hardening |
@@ -464,6 +470,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Conversational coherence** | DONE | 3 coherence features: `short_response_ratio`, `min_topic_coherence`, `question_response_ratio` | Logic Hardening |
 | ✅ **Warm handoff prompt flow** | DONE | 5-step guided crisis transition: validation → permission → resources → encouragement → continued presence. Step-specific bilingual prompts, handoff progress UI, SQLite logging | UX |
 | ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
+| ✅ **Adversarial data augmentation** | DONE | 120 new conversations (6 archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection). Sample:feature ratio 9.0:1. CV variance reduced from ±4.4% to ±1.5%. | Data Augmentation |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -588,4 +595,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 12, 2026 — Schedule updated (deadline moved to March 22 at 8 PM)*
+*Last updated: March 13, 2026 — Adversarial data augmentation (480→600 convos, 30/30 adversarial tests)*
