@@ -51,9 +51,9 @@ CEDD (Conversational Emotional Drift Detection) is a **real-time safety layer** 
 ### Phase 1: Training (offline, run once)
 
 ```
-generate_synthetic_data.py  →  Creates 480 fake conversations via Claude API
+generate_synthetic_data.py  →  Creates 600 conversations via Claude API
                                         ↓
-data/synthetic_conversations.json       (the training dataset)
+data/synthetic_conversations.json       (the training dataset: 480 standard + 120 adversarial)
                                         ↓
 train.py                    →  Reads conversations, extracts features, trains model
                                         ↓
@@ -128,10 +128,10 @@ Example: `word_count` across 8 messages: `[45, 38, 30, 22, 15, 10, 6, 3]`
 Naming convention: `{feature}_{statistic}` — e.g., `word_count_slope`, `finality_score_mean`.
 
 **Top features by model importance:**
-1. `word_count_slope` (0.367) — shrinking messages is the #1 crisis signal
-2. `word_count_max` (0.249) — how long were messages at peak
-3. `length_delta_mean` (0.126) — average relative length change
-4. `finality_score_mean` (0.119) — average finality language
+1. `word_count_max` (0.189) — how long were messages at peak
+2. `word_count_slope` (0.160) — shrinking messages is a top crisis signal
+3. `word_count_last` (0.137) — most recent message length
+4. `finality_score_mean` (0.097) — average finality language
 
 ---
 
@@ -249,17 +249,18 @@ When a safety override happens (Gate 6 raised level above ML), probabilities are
 File: `train.py`
 
 ### Training Data
-- 480 synthetic conversations in `data/synthetic_conversations.json`
-- Balanced: 60 per class (Green/Yellow/Orange/Red) x 2 languages (FR/EN)
+- 600 synthetic conversations in `data/synthetic_conversations.json`
+- **480 standard:** 60 per class (Green/Yellow/Orange/Red) x 2 languages (FR/EN)
+- **120 adversarial:** 6 specialized archetypes (physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection) x 10 x 2 languages
 - Each conversation: 12 user + 12 assistant messages
 
 ### Steps
 
-1. **Load & extract:** Loop through 480 conversations → extract 67-feature vector for each → build X (480 x 67) and y (480 labels)
+1. **Load & extract:** Loop through 600 conversations → extract 67-feature vector for each → build X (600 x 67) and y (600 labels)
 
-2. **Cross-validation:** `StratifiedKFold(n_splits=4)` — splits data into 4 groups, trains on 3, tests on 1, rotates 4 times. "Stratified" = each fold has the same class proportions. Result: **91.7% ± 4.4%** accuracy.
+2. **Cross-validation:** `StratifiedKFold(n_splits=4)` — splits data into 4 groups, trains on 3, tests on 1, rotates 4 times. "Stratified" = each fold has the same class proportions. Result: **90.5% ± 1.5%** accuracy (more stable than the previous 91.7% ± 4.4% — the lower variance means more consistent performance across folds).
 
-3. **Full training:** `clf.fit(X, y)` on all 480 conversations. Train accuracy ~100% (expected — 200 trees memorize 480 samples).
+3. **Full training:** `clf.fit(X, y)` on all 600 conversations. Train accuracy ~100% (expected — 200 trees memorize 600 samples).
 
 4. **Feature importances:** GradientBoosting tracks how useful each feature was. Features used in more tree splits, at higher levels, get higher importance.
 
@@ -409,16 +410,29 @@ File: `generate_synthetic_data.py`
 
 ### Why Synthetic?
 - Hackathon rule: no real PII ever
-- Perfectly balanced classes (60 each)
+- Controllable class balance and archetype diversity
 - Can generate unlimited amounts
 - Bilingual with consistent quality
 
 ### How It Works
 
-1. Define 4 **archetypes** (Green/Yellow/Orange/Red) with detailed descriptions of how that type of youth sounds
+1. Define **archetypes** with detailed descriptions of how that type of youth sounds
 2. Send each archetype to Claude Haiku with a prompt template: "Generate a realistic conversation with exactly 12 exchanges, gradual drift, authentic language"
 3. Parse the JSON response → save to dataset
-4. 60 conversations per class x 4 classes x 2 languages = **480 total**
+
+**Standard archetypes** (4 types): Green/Yellow/Orange/Red — 60 per class x 4 x 2 languages = 480 conversations
+
+**Adversarial archetypes** (6 types, via `--adversarial` flag):
+| Archetype | Label | Purpose |
+|-----------|-------|---------|
+| `physical_only` | Green | Teach model that physical complaints ≠ emotional distress |
+| `sarcasm_distress` | Yellow | Dark humour masking real isolation |
+| `adversarial_bypass` | Yellow | Reveal-then-minimize oscillation pattern |
+| `identity_distress` | Orange | 2SLGBTQ+/cultural rejection without generic crisis words |
+| `neurodivergent_flat` | Orange | Flat affect describing concerning situations factually |
+| `crisis_with_deflection` | Red | Crisis language followed by "I'm fine" — still Red |
+
+10 per archetype x 6 x 2 languages = 120 adversarial conversations. **Total: 600.**
 
 ### Why 12 Messages?
 
@@ -431,7 +445,7 @@ File: `generate_synthetic_data.py`
 - Claude Haiku writes "idealized" conversations — real people are messier
 - Limited vocabulary diversity (Haiku repeats patterns)
 - The model learns to detect *how Haiku writes crisis*, not necessarily how real humans express crisis
-- Sample-to-feature ratio: 480/67 = 7.2:1 (ideal is 10:1+)
+- Sample-to-feature ratio: 600/67 = 9.0:1 (improved from 7.2:1, ideal is 10:1+)
 
 ---
 
@@ -441,21 +455,26 @@ Files: `tests/adversarial_suite.py`, `tests/test_cases_adversarial.json`
 
 ### What It Tests
 
-13 carefully crafted conversations across 11 categories, each designed to exploit a specific weakness:
+30 carefully crafted conversations across 16 categories, each designed to exploit a specific weakness:
 
 | Category | What It Tests | Expected | Tolerance |
 |----------|--------------|----------|-----------|
-| `false_positive_physical` (x2) | Pure physical pain shouldn't trigger alerts | Green | 0 and ±1 |
+| `false_positive_physical` (x2) | Pure physical pain shouldn't trigger alerts | Green | ±2 |
 | `sarcasm` | Distress hidden behind irony | Yellow | ±1 |
 | `negation` | "Je ne me sens pas bien" (negated positive) | Yellow | ±1 |
 | `code_switching` | French/English mixing | Yellow | ±1 |
-| `quebecois_slang` | "Chu pu capable" (Québécois) | Yellow | ±1 |
-| `gradual_drift_no_keywords` | Pure behavioral drift, ZERO crisis words | Orange | ±1 |
-| `direct_crisis` | "I want to end it all tonight" | Red | **0 (exact)** |
+| `quebecois_slang` (x3) | "Chu pu capable", dense joual crisis, positive joual | Yellow-Orange | ±1 |
+| `gradual_drift_no_keywords` (x2) | Pure behavioral drift, ZERO crisis words (EN + FR) | Orange | ±1 |
+| `direct_crisis` (x2) | "I want to end it all tonight" (EN + FR) | Red | **0 (exact)** |
 | `hidden_intent` | "Asking for a friend" disguise | Orange | ±1 |
 | `manipulation_downplay` | "I'm fine, forget it" after distress | Yellow | ±1 |
 | `somatization` | Physical + emotional combined | Yellow | ±1 |
 | `identity_conflict` (x2) | 2SLGBTQ+ distress (EN + FR) | Yellow | ±1 |
+| `sudden_escalation` (x3) | Normal conversation → sudden crisis | Red/Orange | 0 and ±1 |
+| `active_bypass` (x2) | "I was joking" after crisis — safety floor must hold | Red | **0 (exact)** |
+| `rapid_recovery_manipulation` (x2) | "I feel better" after crisis — safety floor must hold | Red | **0 (exact)** |
+| `cultural_false_positive` (x3) | "Mort de rire", "killed it", "personne" neutrally | Green | ±2 |
+| `neurodivergent_pattern` (x3) | Literal communication, ADHD bursts, topic jumps | Green-Yellow | ±1-2 |
 
 ### Pass/Fail Logic
 
@@ -477,7 +496,8 @@ post_data_expansion.json    →  9/10 passed
 post_keyword_fix.json       → 10/10 passed
 post_negation_embeddings    →  9/10 (new tests added)
 post_features_456.json      → 13/13 passed
-post_480_convos.json        → 13/13 passed (current)
+post_480_convos.json        → 13/13 passed
+post_600_convos.json        → 30/30 passed (current — expanded to 30 tests, 16 categories)
 ```
 
 ---
@@ -540,12 +560,13 @@ User types: "nothing matters anymore"
 
 The `data/` folder contains 3 JSON files that represent **3 stages of the same data pipeline**:
 
-### 1. `synthetic_conversations.json` — The raw data (480 conversations)
+### 1. `synthetic_conversations.json` — The training data (600 conversations)
 
-This is what `generate_synthetic_data.py` produces. All 480 conversations generated by Claude Haiku, no quality checks applied. **This is what `train.py` actually trains on.**
+This is what `generate_synthetic_data.py` produces. All 600 conversations generated by Claude Haiku, no quality checks applied. **This is what `train.py` actually trains on.**
 
-- 60 conversations x 4 classes x 2 languages = 480 total
-- Balanced classes, no annotation metadata
+- **480 standard:** 60 conversations x 4 classes x 2 languages (Green/Yellow/Orange/Red)
+- **120 adversarial:** 10 conversations x 6 archetypes x 2 languages (physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection)
+- **Total: 600** (class distribution: Green=140, Yellow=160, Orange=160, Red=140)
 - Used by: `train.py`
 
 ### 2. `annotated_conversations.json` — Quality-scored subset (320 conversations)
@@ -590,7 +611,8 @@ The filtered dataset was tested but **hurt accuracy**:
 
 | Dataset | Size | Sample:Feature Ratio | Class Balance | Result |
 |---------|------|---------------------|---------------|--------|
-| Raw (480) | 480 | 7.2:1 | Balanced (60 per class) | 91.7% accuracy |
+| Full (600) | 600 | 9.0:1 | Near-balanced (140/160/160/140) | **90.5% ± 1.5%** accuracy |
+| Standard only (480) | 480 | 7.2:1 | Balanced (120 per class) | 91.7% ± 4.4% accuracy |
 | Filtered (304) | 304 | 4.5:1 | Unbalanced (some classes lost more) | Lower accuracy |
 
 Three reasons filtering hurt:
@@ -598,10 +620,12 @@ Three reasons filtering hurt:
 2. **Class balance broken** — some classes lost more conversations than others
 3. **Removing "ambiguous" examples removes edge cases** the model NEEDS to learn from
 
-**Conclusion:** The annotation pipeline is kept as an analysis tool (useful for understanding which conversations Claude disagrees on and why), but training uses the full unfiltered 480. More data with some noise beats less data with perfect quality.
+**Why 600 > 480:** The adversarial augmentation improved stability dramatically (±4.4% → ±1.5% variance) and diversified feature importance. The mean accuracy dropped 1.2% but fold-to-fold consistency improved — the model performs reliably regardless of which training fold it sees.
+
+**Conclusion:** Training uses the full 600 (standard + adversarial). More data with targeted adversarial examples beats slightly higher mean accuracy with high variance.
 
 ```
-synthetic_conversations.json  ← TRAINING uses this (480, balanced)
+synthetic_conversations.json  ← TRAINING uses this (600: 480 standard + 120 adversarial)
 annotated_conversations.json  ← ANALYSIS only (320 + quality scores)
 filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ```
@@ -609,3 +633,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
+*Updated: March 13, 2026 — Adversarial data augmentation (480→600 convos, 30/30 adversarial tests)*
