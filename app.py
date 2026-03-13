@@ -187,6 +187,18 @@ def get_theme_css(theme: str) -> str:
         background: {t['bg_card']} !important;
         border-color: {t['border']} !important;
     }}
+    [data-baseweb="select"] > div {{
+        background-color: {t['bg_card']} !important;
+        border-color: {t['border']} !important;
+        color: {t['text_main']} !important;
+    }}
+    [data-baseweb="select"] [data-testid="stMarkdownContainer"] p,
+    [data-baseweb="select"] span {{
+        color: {t['text_main']} !important;
+    }}
+    [data-baseweb="select"] svg {{
+        fill: {t['text_main']} !important;
+    }}
 </style>
 """
 
