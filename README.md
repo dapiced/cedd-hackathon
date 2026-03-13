@@ -213,14 +213,14 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **LLM hierarchy with automatic fallback:**
 ```
-claude-haiku (Anthropic API) -> mistral (local Ollama) -> llama3.2:1b (local Ollama) -> static text
+groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
 ```
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
+| `groq`             | `GROQ_API_KEY`      | Orange    |
+| `gemini-flash`     | `GEMINI_API_KEY`    | Blue      |
 | `claude-haiku`     | `ANTHROPIC_API_KEY` | Purple    |
-| `mistral`          | Local Ollama        | Blue      |
-| `llama3.2:1b`      | Local Ollama        | White     |
 | `static fallback`  | None                | Warning   |
 
 ---
@@ -328,7 +328,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 
 **Prerequisites:**
 - Python 3.9+
-- (Optional) Ollama for local LLMs
+- At least one LLM API key (Groq, Gemini, or Anthropic)
 
 ```bash
 # 1. Clone the repository
@@ -342,17 +342,15 @@ source venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. (Optional) Configure Claude API key
-export ANTHROPIC_API_KEY="sk-ant-..."
+# 4. Configure LLM API keys (at least one required for live chat)
+export GROQ_API_KEY="gsk_..."          # Primary: Llama 3.3 70B (fastest)
+export GEMINI_API_KEY="AI..."          # Secondary: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiary: Claude Haiku + data generation
 
-# 5. (Optional) Install Ollama models
-ollama pull mistral
-ollama pull llama3.2:1b
-
-# 6. Train the model
+# 5. Train the model
 python train.py
 
-# 7. Launch the interface
+# 6. Launch the interface
 streamlit run app.py
 ```
 ```powershell
@@ -611,8 +609,8 @@ La detection repose sur une approche hybride :
              | niveau 0-3 + confiance + features dominantes
              v
 +------------------------+        +--------------------------+
-|  Response Modulator    |------->|  LLM Claude / Mistral /  |
-|  (prompt adaptatif)    |        |  Llama / sans llm        |
+|  Response Modulator    |------->|  LLM Groq / Gemini /     |
+|  (prompt adaptatif)    |        |  Claude / sans llm       |
 |  Prompt FR ou EN       |        +--------------------------+
 +------------------------+
              |
@@ -717,7 +715,7 @@ Quatre niveaux de prompts systeme distincts, disponibles en **francais et en ang
 4. Encouragement a se connecter
 5. Presence continue
 
-Hierarchie LLM : `claude-haiku -> mistral -> llama3.2:1b -> sans llm`
+Hierarchie LLM : `groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 
@@ -778,17 +776,15 @@ source venv/bin/activate
 # 3. Installer les dependances
 pip install -r requirements.txt
 
-# 4. (Optionnel) Configurer la cle API Claude
-export ANTHROPIC_API_KEY="sk-ant-..."
+# 4. Configurer les cles API LLM (au moins une requise pour le chat)
+export GROQ_API_KEY="gsk_..."          # Primaire : Llama 3.3 70B (le plus rapide)
+export GEMINI_API_KEY="AI..."          # Secondaire : Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiaire : Claude Haiku + generation de donnees
 
-# 5. (Optionnel) Installer les modeles Ollama
-ollama pull mistral
-ollama pull llama3.2:1b
-
-# 6. Entrainer le modele
+# 5. Entrainer le modele
 python train.py
 
-# 7. Lancer l'interface
+# 6. Lancer l'interface
 streamlit run app.py
 ```
 

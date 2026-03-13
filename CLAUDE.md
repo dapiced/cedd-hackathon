@@ -185,7 +185,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ### Response Modulator (`cedd/response_modulator.py`)
 
 - Swaps LLM system prompt based on alert level (4 distinct prompts, FR and EN)
-- LLM fallback chain: Claude API → Ollama (local) → static emergency text
+- LLM fallback chain: Groq API → Gemini API → Claude API → static emergency text
 - Orange/Red prompts include Kids Help Phone resources
 
 ### Session Tracker (`cedd/session_tracker.py`)
@@ -291,7 +291,7 @@ python train.py
 #    - 1-800-668-6868
 #    - Text 686868
 #    - 911 for immediate danger
-# 3. Test LLM fallback chain: Claude → Ollama → static text
+# 3. Test LLM fallback chain: Groq → Gemini → Claude → static text
 ```
 
 ### After modifying `generate_synthetic_data.py` or training data:
@@ -517,13 +517,19 @@ python train.py
 # Populate demo history (optional)
 python simulate_history.py
 
+# Configure LLM API keys (at least one required for live chat)
+export GROQ_API_KEY=your_key        # Primary LLM: Llama 3.3 70B (fastest)
+export GEMINI_API_KEY=your_key      # Secondary LLM: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY=your_key   # Tertiary LLM: Claude Haiku + data generation
+
 # Run the app
 streamlit run app.py
 ```
 
 **Environment variables:**
-- `ANTHROPIC_API_KEY` — required for Claude API calls (data generation + live chat)
-- Ollama must be running locally for the Ollama fallback path
+- `GROQ_API_KEY` — Groq API (primary LLM: Llama 3.3 70B Versatile, fastest inference)
+- `GEMINI_API_KEY` — Google Gemini API (secondary LLM: Gemini 2.5 Flash)
+- `ANTHROPIC_API_KEY` — Claude API (tertiary LLM: Claude Haiku + required for data generation)
 
 ---
 
@@ -532,7 +538,9 @@ streamlit run app.py
 - `streamlit` — web interface
 - `scikit-learn` — ML pipeline (GradientBoosting, StandardScaler, cross-validation)
 - `numpy` — numerical operations
-- `anthropic` — Claude API client
+- `groq` — Groq API client (primary LLM: Llama 3.3 70B Versatile)
+- `google-generativeai` — Google Gemini API client (secondary LLM: Gemini 2.5 Flash)
+- `anthropic` — Claude API client (tertiary LLM: Claude Haiku)
 - `joblib` — model serialization
 - `sqlite3` — session tracking (Python stdlib)
 - `sentence-transformers` — multilingual sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`)
@@ -546,7 +554,7 @@ streamlit run app.py
 - **Print output**: bilingual during training
 - **Variable names**: English
 - **Lexicons**: bilingual dictionaries in `feature_extractor.py`
-- **Error handling**: LLM fallback chain (Claude → Ollama → static text)
+- **Error handling**: LLM fallback chain (Groq → Gemini → Claude → static text)
 - **Git workflow**: Feature branches, PRs reviewed by at least one teammate, main branch protected
 - **No secrets in code**: API keys via environment variables only
 
@@ -598,4 +606,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — Feature importance visualization added to dashboard*
+*Last updated: March 13, 2026 — LLM hierarchy updated to Groq → Gemini → Claude → static*

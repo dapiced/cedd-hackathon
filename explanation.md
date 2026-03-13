@@ -290,16 +290,18 @@ All prompts are hardcoded strings — never AI-generated (safety-critical).
 ### LLM Fallback Chain
 
 ```
-1. claude-haiku  (Anthropic API, cloud)
+1. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
        ↓ fails?
-2. mistral       (Ollama, local)
+2. gemini-flash   (Google Gemini API, Gemini 2.5 Flash)
        ↓ fails?
-3. llama3.2:1b   (Ollama, local, smaller)
+3. claude-haiku   (Anthropic API, Claude Haiku)
        ↓ fails?
 4. fallback-statique  (hardcoded text, always works)
 ```
 
 Even the static fallback is level-aware — a Red fallback includes KHP phone number and 911. CEDD **never fails silently**.
+
+**Environment variables:** Each model requires its own API key: `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
 
 ---
 
@@ -537,7 +539,8 @@ User types: "nothing matters anymore"
     │ Level 3 + handoff step 1   │
     │ → Empathetic validation    │
     │   system prompt            │
-    │ → claude-haiku API call    │
+    │ → LLM API call (Groq /    │
+    │   Gemini / Claude)        │
     │ = "I hear you, what you're │
     │   feeling is real..."      │
     └────────────┬───────────────┘
@@ -637,4 +640,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — Feature importance visualization added to dashboard*
+*Updated: March 13, 2026 — LLM fallback chain updated: Groq (Llama 3.3 70B) → Gemini 2.5 Flash → Claude Haiku → static*
