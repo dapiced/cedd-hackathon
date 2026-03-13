@@ -109,6 +109,122 @@ DIRECTIVES:
 - Tell them that what they feel can change with help""",
 }
 
+# ── Warm handoff prompts — French / Transfert accompagné — Français ────────
+_HANDOFF_PROMPTS_FR = {
+    1: ("Tu parles avec un jeune en grande souffrance. Ta priorité immédiate est de "
+        "valider profondément ce qu'il ressent. Montre que tu as vraiment entendu sa "
+        "douleur. Utilise des phrases comme 'Je t'entends', 'Ce que tu ressens est "
+        "réel et ça compte'. Ne mentionne AUCUNE ressource pour le moment — "
+        "concentre-toi uniquement sur la connexion et la validation. Reste calme, "
+        "présent, chaleureux. Des phrases courtes et sincères."),
+
+    2: ("Tu parles avec un jeune en grande souffrance. Tu as déjà validé ses "
+        "émotions. Maintenant, demande doucement la permission de l'orienter vers "
+        "quelqu'un qui peut aider davantage. Utilise des formulations comme : "
+        "'Est-ce que ça te semblerait ok si je te parlais de quelqu'un qui pourrait "
+        "vraiment t'aider ?' ou 'Il y a des personnes formées exactement pour ce "
+        "genre de moment — est-ce que tu voudrais que je t'en parle ?'. Présente ça "
+        "comme une amélioration, pas un rejet. Tu ne l'abandonnes pas — tu lui "
+        "offres plus de soutien. Ne donne pas encore les coordonnées."),
+
+    3: ("Tu parles avec un jeune en grande souffrance. Tu as validé ses émotions et "
+        "obtenu sa permission pour l'orienter. Présente maintenant les ressources de "
+        "façon naturelle et chaleureuse :\n\n"
+        "- Jeunesse J'écoute : 1-800-668-6868 (24h/24, gratuit, confidentiel)\n"
+        "- Par texto : envoie PARLER au 686868\n"
+        "- Ligne de crise suicide : 9-8-8\n"
+        "- Si danger immédiat : 911\n\n"
+        "Explique ce qu'il peut attendre : 'Ce sont des personnes formées qui "
+        "comprennent exactement ce que tu traverses. Tu peux les appeler ou leur "
+        "envoyer un texto — c'est gratuit et confidentiel. Tu n'as pas besoin de "
+        "tout expliquer depuis le début.' Reste chaleureux et rassurant."),
+
+    4: ("Tu parles avec un jeune en grande souffrance. Les ressources ont été "
+        "présentées. Encourage-le doucement à faire le pas. Rappelle les options "
+        "les plus accessibles :\n"
+        "- Texto au 686868 (même modèle de communication qu'ici)\n"
+        "- Appel au 1-800-668-6868\n"
+        "- 9-8-8 pour la ligne de crise\n\n"
+        "Si le jeune hésite, normalise : 'C'est normal d'hésiter. Beaucoup de "
+        "jeunes trouvent plus facile de commencer par texto.' Si le jeune a un plan "
+        "précis de se faire du mal, insiste sur le 911. Reste présent — ne le "
+        "pousse pas, mais ne lâche pas."),
+
+    5: ("Tu parles avec un jeune en grande souffrance. Tu lui as présenté des "
+        "ressources d'aide. Continue d'être présent et disponible. Rappelle-lui que "
+        "tu es toujours là : 'Je suis encore là si tu veux continuer à parler.' Si "
+        "le jeune revient sur ses sentiments, valide-les à nouveau. Si le jeune "
+        "semble se calmer, encourage doucement. Rappelle les ressources si "
+        "approprié (Jeunesse J'écoute : 1-800-668-6868, texto 686868, 9-8-8, 911). "
+        "Tu ne l'abandonnes jamais."),
+}
+
+# ── Warm handoff prompts — English / Transfert accompagné — Anglais ────────
+_HANDOFF_PROMPTS_EN = {
+    1: ("You are talking with a young person in significant distress. Your immediate "
+        "priority is to deeply validate what they are feeling. Show that you truly "
+        "hear their pain. Use phrases like 'I hear you', 'What you're feeling is "
+        "real and it matters'. Do NOT mention any resources yet — focus entirely on "
+        "connection and validation. Stay calm, present, warm. Keep responses short "
+        "and sincere."),
+
+    2: ("You are talking with a young person in significant distress. You've already "
+        "validated their emotions. Now, gently ask permission to connect them with "
+        "someone who can help further. Use phrasing like: 'Would it be okay if I "
+        "told you about someone who could really help?' or 'There are people trained "
+        "for exactly this kind of moment — would you like me to tell you about "
+        "them?'. Frame this as an upgrade, not a rejection. You're not abandoning "
+        "them — you're offering more support. Don't give contact details yet."),
+
+    3: ("You are talking with a young person in significant distress. You've "
+        "validated their emotions and received permission to connect them. Now "
+        "present resources naturally and warmly:\n\n"
+        "- Kids Help Phone: 1-800-668-6868 (24/7, free, confidential)\n"
+        "- Text: 686868\n"
+        "- Suicide Crisis Helpline: 9-8-8\n"
+        "- If immediate danger: 911\n\n"
+        "Explain what they can expect: 'These are trained people who understand "
+        "exactly what you're going through. You can call or text them — it's free "
+        "and confidential. You don't need to explain everything from the start.' "
+        "Stay warm and reassuring."),
+
+    4: ("You are talking with a young person in significant distress. Resources have "
+        "been presented. Gently encourage them to take the step. Remind them of the "
+        "most accessible options:\n"
+        "- Text 686868 (same communication style as here)\n"
+        "- Call 1-800-668-6868\n"
+        "- 9-8-8 for crisis line\n\n"
+        "If they hesitate, normalize it: 'It's totally normal to hesitate. A lot of "
+        "young people find it easier to start with a text.' If the person has a "
+        "specific plan to hurt themselves, insist on 911. Stay present — don't push, "
+        "but don't let go."),
+
+    5: ("You are talking with a young person in significant distress. You've "
+        "presented help resources. Continue being present and available. Remind them "
+        "you're still here: 'I'm still here if you want to keep talking.' If they "
+        "revisit their feelings, validate again. If they seem to be calming, gently "
+        "encourage. Remind of resources if appropriate (Kids Help Phone: "
+        "1-800-668-6868, text 686868, 9-8-8, 911). You never abandon them."),
+}
+
+# ── Handoff step descriptions — Bilingual / Descriptions des étapes ────────
+_HANDOFF_DESCRIPTIONS = {
+    "fr": {
+        1: "Validation empathique",
+        2: "Transition accompagnée",
+        3: "Présentation des ressources",
+        4: "Encouragement à se connecter",
+        5: "Présence continue",
+    },
+    "en": {
+        1: "Empathetic validation",
+        2: "Guided transition",
+        3: "Resource presentation",
+        4: "Encouragement to connect",
+        5: "Continued presence",
+    },
+}
+
 # ── Level descriptions (short labels) ────────────────────────────────────────
 _LEVEL_DESCRIPTIONS = {
     "fr": {
@@ -144,19 +260,46 @@ _FALLBACK_RESPONSE = {
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def get_system_prompt(alert_level: int, lang: str = "fr") -> str:
+def get_handoff_prompt(step: int, lang: str = "fr") -> str:
+    """
+    Return the handoff prompt for the given step (1-5).
+    Retourne le prompt de transfert accompagné pour l'étape donnée (1-5).
+    """
+    step = max(1, min(5, step))
+    prompts = _HANDOFF_PROMPTS_FR if lang == "fr" else _HANDOFF_PROMPTS_EN
+    return prompts[step]
+
+
+def get_handoff_description(step: int, lang: str = "fr") -> str:
+    """
+    Return a short description of the current handoff step.
+    Retourne une courte description de l'étape de transfert accompagné.
+    """
+    step = max(1, min(5, step))
+    return _HANDOFF_DESCRIPTIONS.get(lang, _HANDOFF_DESCRIPTIONS["fr"])[step]
+
+
+def get_system_prompt(alert_level: int, lang: str = "fr", handoff_step: int = 0) -> str:
     """
     Return the system prompt adapted to the alert level and language.
+    When alert_level is 3 (Red) and handoff_step > 0, return the warm handoff
+    prompt for the given step instead of the flat Red prompt.
+
     Retourne le prompt système adapté au niveau d'alerte et à la langue.
+    Si le niveau est 3 (Rouge) et handoff_step > 0, retourne le prompt de
+    transfert accompagné correspondant.
 
     Args:
-        alert_level: int 0 (green/vert) to 3 (red/rouge)
-        lang: "fr" (default) or "en"
+        alert_level:  int 0 (green/vert) to 3 (red/rouge)
+        lang:         "fr" (default) or "en"
+        handoff_step: 0 = no handoff, 1-5 = warm handoff step
 
     Returns:
         str — full system prompt
     """
     level = max(0, min(3, alert_level))
+    if level == 3 and handoff_step > 0:
+        return get_handoff_prompt(handoff_step, lang)
     prompts = _SYSTEM_PROMPTS_FR if lang == "fr" else _SYSTEM_PROMPTS_EN
     return prompts[level]
 
@@ -176,22 +319,24 @@ def build_ollama_request(
     model: str = "llama3.2",
     stream: bool = True,
     lang: str = "fr",
+    handoff_step: int = 0,
 ) -> dict:
     """
     Build a request payload for the Ollama API with the adapted system prompt.
     Construit la requête pour l'API Ollama avec le prompt système adapté.
 
     Args:
-        messages:    list of {"role": str, "content": str}
-        alert_level: CEDD alert level (0-3)
-        model:       Ollama model name
-        stream:      enable response streaming
-        lang:        interface language ("fr" or "en")
+        messages:     list of {"role": str, "content": str}
+        alert_level:  CEDD alert level (0-3)
+        model:        Ollama model name
+        stream:       enable response streaming
+        lang:         interface language ("fr" or "en")
+        handoff_step: warm handoff step (0 = none, 1-5 = active)
 
     Returns:
         dict — JSON body for POST /api/chat
     """
-    system_prompt = get_system_prompt(alert_level, lang=lang)
+    system_prompt = get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
 
     # Build messages for Ollama: system + conversation history
     # Construire les messages : system + historique de conversation
@@ -221,10 +366,11 @@ def build_ollama_request_json(
     model: str = "llama3.2",
     stream: bool = True,
     lang: str = "fr",
+    handoff_step: int = 0,
 ) -> str:
     """JSON-serialised version of build_ollama_request. / Version JSON sérialisée."""
     return json.dumps(
-        build_ollama_request(messages, alert_level, model, stream, lang=lang),
+        build_ollama_request(messages, alert_level, model, stream, lang=lang, handoff_step=handoff_step),
         ensure_ascii=False,
     )
 
@@ -234,6 +380,7 @@ def get_llm_response(
     alert_level: int,
     force_model: str = None,
     lang: str = "fr",
+    handoff_step: int = 0,
 ) -> dict:
     """
     Generate an LLM response using the adapted system prompt.
@@ -246,15 +393,16 @@ def get_llm_response(
     Sinon, hiérarchie : claude-haiku → mistral → llama3.2:1b → fallback-statique.
 
     Args:
-        messages:    list of {"role": "user"|"assistant", "content": str}
-        alert_level: CEDD alert level (0-3)
-        force_model: "claude-haiku" | "mistral" | "llama3.2:1b" | "fallback-statique" | None
-        lang:        interface language ("fr" or "en"), controls system prompt language
+        messages:     list of {"role": "user"|"assistant", "content": str}
+        alert_level:  CEDD alert level (0-3)
+        force_model:  "claude-haiku" | "mistral" | "llama3.2:1b" | "fallback-statique" | None
+        lang:         interface language ("fr" or "en"), controls system prompt language
+        handoff_step: warm handoff step (0 = none, 1-5 = active)
 
     Returns:
         dict {"content": str, "source": str}
     """
-    system_prompt = get_system_prompt(alert_level, lang=lang)
+    system_prompt = get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
     level = max(0, min(3, alert_level))
     fallback_msg = _FALLBACK_RESPONSE.get(lang, _FALLBACK_RESPONSE["fr"])[level]
 
@@ -328,20 +476,21 @@ def get_llm_response(
     return {"content": fallback_msg, "source": "fallback-statique"}
 
 
-def build_claude_messages(messages: list, alert_level: int, lang: str = "fr") -> tuple:
+def build_claude_messages(messages: list, alert_level: int, lang: str = "fr", handoff_step: int = 0) -> tuple:
     """
     Build system prompt and message list for the Anthropic Claude API.
     Construit le prompt système et la liste de messages pour l'API Claude.
 
     Args:
-        messages:    list of {"role": str, "content": str}
-        alert_level: CEDD alert level (0-3)
-        lang:        "fr" or "en"
+        messages:     list of {"role": str, "content": str}
+        alert_level:  CEDD alert level (0-3)
+        lang:         "fr" or "en"
+        handoff_step: warm handoff step (0 = none, 1-5 = active)
 
     Returns:
         (system_prompt: str, messages: list) — ready for client.messages.create()
     """
-    system_prompt = get_system_prompt(alert_level, lang=lang)
+    system_prompt = get_system_prompt(alert_level, lang=lang, handoff_step=handoff_step)
     claude_messages = [
         {"role": msg["role"], "content": msg["content"]}
         for msg in messages

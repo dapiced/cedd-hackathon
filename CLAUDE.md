@@ -53,13 +53,15 @@ cedd-hackathon/
 │
 ├── cedd/                           # Main Python package (the "brain")
 │   ├── __init__.py
-│   ├── feature_extractor.py        # Text → 7 features/message → 42 trajectory features
+│   ├── feature_extractor.py        # Text → 10 features/message + 4 embedding + 3 coherence → 67 features
 │   ├── classifier.py               # CEDDClassifier: GradientBoosting + 6-gate safety logic
 │   ├── response_modulator.py       # Adaptive system prompts per alert level + LLM fallback chain
 │   └── session_tracker.py          # Cross-session longitudinal risk tracking (SQLite)
 │
 ├── data/
-│   ├── synthetic_conversations.json  # 320 labeled training conversations (40/class × FR+EN)
+│   ├── synthetic_conversations.json  # 480 labeled training conversations (60/class × FR+EN)
+│   ├── annotated_conversations.json  # Quality-annotated conversations (Claude-scored)
+│   ├── filtered_conversations.json   # Post-annotation filtered subset
 │   └── cedd_sessions.db             # SQLite database (auto-created at runtime)
 │
 ├── models/
@@ -67,11 +69,14 @@ cedd-hackathon/
 │
 ├── tests/                           # Adversarial test suite (Track 1 — Stress-Testing)
 │   ├── adversarial_suite.py         # CLI test runner: --verbose, --category, --export
-│   ├── test_cases_adversarial.json  # 10 adversarial cases across 7 categories (FR + EN)
+│   ├── test_cases_adversarial.json  # 13 adversarial cases across 11 categories (FR + EN)
 │   └── results/
 │       ├── baseline_v1.json         # Original baseline: 7/10 passed, 0 critical misses
 │       ├── post_data_expansion.json # After 320-convo retrain: 9/10 passed
-│       └── post_keyword_fix.json    # After crisis keyword expansion: 10/10 passed
+│       ├── post_keyword_fix.json    # After crisis keyword expansion: 10/10 passed
+│       ├── post_negation_embeddings.json  # After negation + embeddings: 9/10
+│       ├── post_features_456.json   # 67 features: 13/13 passed, 0 critical misses
+│       └── post_480_convos.json     # Current (480 convos): 13/13 passed, 0 critical misses
 │
 ├── demo/                            # Demo scenarios for team presentation (March 16)
 │   ├── demo_scenario.md             # FR — Félix, CÉGEP, Green→Yellow→Orange (9 msgs)
@@ -87,7 +92,7 @@ cedd-hackathon/
 ```
 PHASE 1: TRAINING (offline, run once)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-generate_synthetic_data.py  →  data/synthetic_conversations.json (320 convos)
+generate_synthetic_data.py  →  data/synthetic_conversations.json (480 convos)
                                          ↓
                               train.py  (cross-validate → fit → save)
                                          ↓
@@ -99,13 +104,13 @@ app.py loads saved model
          ↓
 user sends message
          ↓
-feature_extractor.py  →  7 features per message → 42 trajectory features
+feature_extractor.py  →  10 features per message → 60 trajectory + 4 embedding + 3 coherence = 67 features
          ↓
 classifier.py  →  6-gate decision logic → alert level (0-3)
          ↓
-response_modulator.py  →  adaptive system prompt → LLM response
+response_modulator.py  →  adaptive system prompt (+ 5-step warm handoff at Red) → LLM response
          ↓
-session_tracker.py  →  saves to SQLite for longitudinal tracking
+session_tracker.py  →  saves to SQLite for longitudinal tracking + withdrawal detection
 ```
 
 ---
@@ -114,26 +119,42 @@ session_tracker.py  →  saves to SQLite for longitudinal tracking
 
 ### Feature Extraction (`cedd/feature_extractor.py`)
 
-**7 features per user message:**
+**10 features per user message:**
 
 | # | Feature | What it measures |
 |---|---------|-----------------|
-| 1 | `word_count` | Message length (shorter = concerning) |
-| 2 | `punctuation_ratio` | Ratio of punctuation to words |
-| 3 | `question_presence` | Does the message contain a question? (0 or 1) |
-| 4 | `negative_score` | Count of negative words from bilingual lexicon |
-| 5 | `finality_score` | Count of finality words ("plus rien", "end it all") |
-| 6 | `hope_score` | Count of hope/future words |
-| 7 | `length_delta` | Change in length vs previous message |
+| 0 | `word_count` | Message length (shorter = concerning) |
+| 1 | `punctuation_ratio` | Ratio of punctuation to characters |
+| 2 | `question_presence` | Does the message contain a question? (0 or 1) |
+| 3 | `negative_score` | Ratio of negative words from bilingual lexicon |
+| 4 | `finality_score` | Ratio of finality words ("plus rien", "end it all") |
+| 5 | `hope_score` | Ratio of hope/future words |
+| 6 | `length_delta` | Change in length vs previous message |
+| 7 | `negation_score` | Detects negated positive states ("ne...pas bien", "can't cope") |
+| 8 | `identity_conflict_score` | Detects 2SLGBTQ+/cultural identity distress ("my family won't accept me") |
+| 9 | `somatization_score` | Detects emotional distress co-occurring with physical complaints |
 
-**42 trajectory features** = 7 features × 6 statistics (mean, std, slope, last, max, min) computed over all user messages in the conversation. This is the ML model input.
+**60 trajectory features** = 10 features × 6 statistics (mean, std, slope, last, max, min) computed over all user messages in the conversation.
 
-Bilingual lexicons: `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS` contain both FR and EN terms.
+**4 embedding features** = semantic trajectory features using `paraphrase-multilingual-MiniLM-L12-v2`:
+- `embedding_drift` — mean cosine distance between consecutive messages
+- `crisis_similarity` — cosine similarity of last message to crisis centroid
+- `embedding_slope` — PCA→1D slope (directional semantic drift)
+- `embedding_variance` — mean pairwise cosine distance (conversation coherence)
+
+**3 coherence features** = behavioral withdrawal patterns:
+- `short_response_ratio` — fraction of user messages with < 5 words (disengagement)
+- `min_topic_coherence` — min cosine similarity between consecutive user messages
+- `question_response_ratio` — fraction of assistant questions followed by responsive reply
+
+**Total: 67 features** = 60 trajectory + 4 embedding + 3 coherence. This is the ML model input.
+
+Bilingual lexicons: `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`, `PHYSICAL_CONTEXT_WORDS`, `IDENTITY_CONFLICT_WORDS`, `SOMATIZATION_EMOTIONAL_WORDS` all contain both FR and EN terms. `NEGATION_PATTERNS_FR` and `NEGATION_PATTERNS_EN` provide regex patterns for negation structures.
 
 ### Classifier (`cedd/classifier.py`)
 
 **ML Pipeline:**
-- Step 1: `StandardScaler` — normalizes 42 features to mean=0, std=1
+- Step 1: `StandardScaler` — normalizes 67 features to mean=0, std=1
 - Step 2: `GradientBoostingClassifier` — 200 trees, max_depth=3, learning_rate=0.1
 
 **6-Gate Safety Logic** (`get_alert_level()` method):
@@ -141,7 +162,7 @@ Bilingual lexicons: `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS` contain bot
 ```
 Gate 1: < 3 user messages? → return Green (not enough data)
 Gate 2: Safety keyword floor — crisis words → force Red/Orange regardless of ML
-Gate 3: ML prediction — run model on 42D vector
+Gate 3: ML prediction — run model on 67D vector
 Gate 4: Low confidence (< 45%)? → default to Yellow (cautious)
 Gate 5: Short conversation cap (< 6 msgs)? → cap at Orange max
 Gate 6: Safety floor enforcement — ML can never go below keyword level
@@ -172,17 +193,17 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 ### Training (`train.py`)
 
-- Loads 320 synthetic conversations from `data/synthetic_conversations.json`
-- Extracts 42 trajectory features per conversation → X (320 × 42), y (320 labels)
-- Cross-validation: `StratifiedKFold(n_splits=4)` → **~91.2% accuracy ± 1.5%**
-- Train accuracy: ~100% (expected overfitting on 320 samples with 200 trees)
-- Top features: `word_count_slope` (0.376), `word_count_max` (0.245), `length_delta_mean` (0.124), `finality_score_mean` (0.097)
+- Loads 480 synthetic conversations from `data/synthetic_conversations.json`
+- Extracts 67 trajectory features per conversation → X (480 × 67), y (480 labels)
+- Cross-validation: `StratifiedKFold(n_splits=4)` → **~91.7% accuracy ± 4.4%**
+- Train accuracy: ~100% (expected overfitting on 480 samples with 200 trees)
+- Top features: `word_count_slope` (0.367), `word_count_max` (0.249), `length_delta_mean` (0.126), `finality_score_mean` (0.119)
 - Saves trained model to `models/cedd_model.joblib`
 
 ### Data Generation (`generate_synthetic_data.py`)
 
 - Uses Claude Haiku API to generate realistic youth conversations
-- 40 conversations per class × 4 classes × 2 languages (FR + EN) = 320 total
+- 60 conversations per class × 4 classes × 2 languages (FR + EN) = 480 total
 - Each conversation: 12 user messages + 12 assistant messages
 - Fully bilingual: authentic Québécois French + Canadian English
 - **All data is synthetic — no real PII allowed** (hackathon rule)
@@ -193,30 +214,38 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 | Metric | Value |
 |--------|-------|
-| Cross-validated accuracy (k=4) | **~91.2% ± 1.5%** |
+| Cross-validated accuracy (k=4) | **~91.7% ± 4.4%** |
 | Train accuracy | ~100% (expected overfitting) |
-| Feature count | 42 (7 × 6 stats) |
-| Training conversations | **320 (40/class × FR + EN)** |
-| Top feature | `word_count_slope` (importance: 0.376) |
-| 2nd feature | `word_count_max` (0.245) |
-| 3rd feature | `length_delta_mean` (0.124) |
-| Adversarial tests | **10/10 passing · 0 critical misses** |
+| Feature count | **67** (10 × 6 stats + 4 embedding + 3 coherence) |
+| Per-message features | **10** (word_count, punctuation, question, negative, finality, hope, length_delta, negation, identity_conflict, somatization) |
+| Training conversations | **480 (60/class × FR + EN)** |
+| Sample:feature ratio | **7.2:1** (improved from 4.8:1) |
+| Top feature | `word_count_slope` (importance: 0.367) |
+| 2nd feature | `word_count_max` (0.249) |
+| 3rd feature | `length_delta_mean` (0.126) |
+| 4th feature | `finality_score_mean` (0.119) |
+| Adversarial tests | **13/13 passing · 0 critical misses** |
 | Languages | French + English (fully bilingual training data) |
 
-> **Previous baseline (March 10):** 66.7% ± 26.4% on 24 convos. The +24.5pp gain came from expanding the dataset to 320 balanced bilingual conversations.
+> **Metrics history:**
+> - **Baseline (March 10):** 66.7% ± 26.4% on 24 convos, 42 features (7×6), 7/10 adversarial
+> - **Data expansion:** 91.2% ± 1.5% on 320 convos, 48 features (8×6), 9/10 adversarial
+> - **+Negation +Embeddings:** 92.2% ± 1.8%, 52 features, 9/10 adversarial
+> - **+Identity +Somatization +Coherence:** 92.5% ± 1.5%, 67 features, 13/13 adversarial
+> - **Data expansion to 480 (current):** 91.7% ± 4.4%, 67 features, 13/13 adversarial
 
 ---
 
 ## Known Limitations
 
-- **Lexical features only** — counts words, doesn't understand meaning (misses synonyms, sarcasm, periphrases like "je pèse sur tout le monde")
-- **No negation handling** — "je ne me sens pas bien" may score low on negativity (see negation handling in Planned Improvements)
+- **Lexical features complemented by embeddings** — sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`) catch synonyms and paraphrases, but sarcasm and periphrases like "je pèse sur tout le monde" remain challenging
 - **ML unreliable for short conversations** (< 6 messages) → capped at Orange
 - **No clinical validation** — thresholds are not validated by mental health professionals
 - **Single demo user** in the Streamlit UI (`demo_user`)
-- **No somatization awareness** — physical complaints ("my chest hurts") reduce negative scores via `PHYSICAL_CONTEXT_WORDS`, which may mask somatized emotional distress common in South Asian and East Asian cultural contexts
-- **No silence/withdrawal detection** — sudden drop in message frequency or conversation abandonment is not tracked as a potential crisis signal
-- **No identity-conflict lexicon** — expressions like "my family won't accept me" or "I can't be who I am" are not captured by current distress lexicons, missing 2SLGBTQ+ youth in crisis
+- **Identity conflict detection is phrase-based** — `IDENTITY_CONFLICT_WORDS` catches explicit phrases but may miss coded or indirect identity distress
+- **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
+- **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
+- **Sample-to-feature ratio improving** — 480 samples / 67 features = 7.2:1 ratio (ideal is 10:1, up from 4.8:1)
 
 ---
 
@@ -228,7 +257,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ```bash
 # 1. Verify training still works
 python train.py
-# 2. Check accuracy didn't drop (baseline: 91.2% ± 1.5%)
+# 2. Check accuracy didn't drop (baseline: 91.7% ± 4.4%)
 # 3. Check top features still make clinical sense
 # 4. Run the app and test with a sample conversation
 streamlit run app.py
@@ -262,7 +291,7 @@ python train.py
 ```bash
 # 1. Regenerate data
 python generate_synthetic_data.py
-# 2. Verify balanced distribution: 30 per class × 4 classes
+# 2. Verify balanced distribution: 60 per class × 4 classes
 # 3. Retrain and compare accuracy to baseline
 python train.py
 # 4. Check for data leakage: no test conversations in training set
@@ -286,7 +315,7 @@ print('Smoke test PASSED')
 
 ### Adversarial Test Suite (run after any ML or classifier change):
 ```bash
-# Run all 10 adversarial cases — exit code 2 = critical miss (safety regression)
+# Run all 13 adversarial cases — exit code 2 = critical miss (safety regression)
 python tests/adversarial_suite.py
 
 # Verbose output with probabilities and top features
@@ -297,9 +326,10 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 ```
 
 **Test categories:** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
-`quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`
+`quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`,
+`somatization`, `identity_conflict`
 
-**Current:** 10/10 passed · 0 critical misses (`tests/results/post_keyword_fix.json`)
+**Current:** 13/13 passed · 0 critical misses (`tests/results/post_480_convos.json`)
 **Original baseline:** 7/10 (`tests/results/baseline_v1.json`) — kept for historical comparison.
 
 **Critical rule:** Exit code `2` means a crisis was predicted as Green or Yellow — this is a **safety regression** and blocks any merge.
@@ -340,13 +370,14 @@ EmoAgent is the closest academic reference. Key differences:
 
 | | CEDD | EmoAgent |
 |---|---|---|
-| Detection | Lexical + GradientBoosting (0ms, $0) | Multi-agent GPT-4o (slow, expensive) |
-| Explainability | Full (feature weights visible) | Black box |
-| Bilingual | FR + EN native | English only |
+| Detection | Lexical + Embeddings + GradientBoosting (67 features, ~0ms, $0) | Multi-agent GPT-4o (slow, expensive) |
+| Explainability | Full (feature weights visible, 30+ named features in FR+EN) | Black box |
+| Bilingual | FR + EN native (lexicons, embeddings, coherence) | English only |
 | Cross-session | SQLite longitudinal tracking | Per-conversation only |
-| Clinical tools | 4-level alert system | PHQ-9, PDI, PANSS (validated) |
+| Clinical tools | 4-level alert system + 6-gate safety logic | PHQ-9, PDI, PANSS (validated) |
+| Cultural sensitivity | Somatization, identity conflict, coherence features | None |
 
-**Our pitch:** "EmoAgent needs 4 GPT-4o calls per message. CEDD detects in 0ms with regex and GradientBoosting, and only calls the LLM to modulate the response. It's the difference between an IDS that deep-inspects all traffic vs a lightweight edge firewall."
+**Our pitch:** "EmoAgent needs 4 GPT-4o calls per message. CEDD detects in ~0ms with 67 features (lexical + multilingual embeddings + behavioral coherence) and GradientBoosting, and only calls the LLM to modulate the response. It's the difference between an IDS that deep-inspects all traffic vs a lightweight edge firewall — and ours works in both French and English."
 
 **What to borrow from EmoAgent:**
 - EmoEval-style virtual patients for adversarial testing (Track 1)
@@ -361,7 +392,7 @@ Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across 
 - Canadian-specific crisis resources (Kids Help Phone) → CEDD does
 - French-language crisis detection → CEDD does
 - Subtle/coded distress detection → CEDD's trajectory analysis does
-- Warm handoff to human responder → CEDD's roadmap
+- Warm handoff to human responder → CEDD does (5-step flow implemented)
 - Cross-session memory → CEDD does
 
 ---
@@ -375,10 +406,10 @@ Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across 
 | Cultural Group | How Distress Is Expressed | Impact on CEDD |
 |---|---|---|
 | **Indigenous** | Storytelling, substance references, holistic/spiritual framing | Standard lexicons miss indirect expressions |
-| **South Asian** | Somatization — "my chest hurts" = emotional pain | `PHYSICAL_CONTEXT_WORDS` may wrongly reduce scores |
-| **East Asian** | Withdrawal, silence, minimizing ("I'm fine") | Silence and flat affect = inverted crisis signals |
+| **South Asian** | Somatization — "my chest hurts" = emotional pain | ✅ `somatization_score` detects physical+emotional co-occurrence |
+| **East Asian** | Withdrawal, silence, minimizing ("I'm fine") | ✅ `short_response_ratio` + `question_response_ratio` catch disengagement |
 | **Francophone** | French-language distress, diverse dialects | ✅ CEDD has native FR lexicons (advantage) |
-| **2SLGBTQ+** | Identity conflict, coded rejection language | Need identity-aware lexicon additions |
+| **2SLGBTQ+** | Identity conflict, coded rejection language | ✅ `IDENTITY_CONFLICT_WORDS` + `identity_conflict_score` added |
 | **Neurodivergent** | Literal language, shutdown, emotional bursts | Temporal patterns distinguish from sustained crisis |
 
 ### Key stats (Kids Help Phone 2024):
@@ -389,7 +420,7 @@ Amanda audited 6 platforms (ChatGPT, Gemini, Character.AI, Wysa, Woebot) across 
 
 ---
 
-## Warm Handoff Architecture (Planned)
+## Warm Handoff Architecture (Implemented)
 
 The warm handoff replaces the industry standard "cold" referral (display a phone number, end conversation) with a **5-step accompanied transition**:
 
@@ -414,89 +445,25 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 
 | When | What | Why |
 |---|---|---|
-| **March 16-23** (pre-hackathon) | Sentence embeddings (Level 2) | Best effort/impact ratio. Impressive to explain to the jury. Shows the team we have a clear upgrade path. |
-| **March 16-23** (first half) | Claude quality annotator (Level 4) + Adversarial test suite + Negation handling (Level 1) | Data quality + robustness. Covers all 3 axes. |
-| **March 16-23** (second half) | Conversational coherence features + Cultural detection enhancements + Warm handoff | Polish, differentiation, UX. |
-| **March 23 morning** (deadline) | Final metrics comparison + report + presentation prep | Show before/after improvement honestly. |
+| **March 16-23** (first half) | Final polish, presentation prep | UX differentiation |
+| **March 22 evening** (deadline) | Final metrics comparison + report + submission | Show before/after improvement honestly |
 
-**Presentation strategy:** Show limitations honestly: *"91.2% with simple lexical features and a balanced bilingual dataset. Our next version uses multilingual embeddings — here are the preliminary results."*
+**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 91.7% accuracy. From 7 features to 67. From lexical counting to multilingual embeddings + coherence analysis. Here's how we got there."*
 
-### 🔴 High Priority — Do First
+### ✅ Completed Improvements
 
-| Improvement | What It Does | Effort | Est. Gain | Axis |
-|---|---|---|---|---|
-| **Sentence embeddings** | Replace word counting with semantic vectors. Catches synonyms, paraphrases, sarcasm that lexical counting misses entirely. Example: `"je pèse sur tout le monde"` → semantically close to `"fardeau"` without containing the exact word. | 2-3 hrs | **+8-12%** | Logic Hardening |
-| **Claude as quality annotator** | Use Claude API to score each synthetic conversation for ambiguity/realism, filter low-quality examples, generate targeted edge cases. Quality >> Quantity. | 2-3 hrs | **+15-20%** | Data Augmentation |
-| ✅ **Adversarial test suite** *(DONE — 10/10, see `tests/results/post_keyword_fix.json`)* | Systematic red-teaming: sarcasm, code-switching, Québécois slang, negation patterns, minimization ("I'm fine"), somatization ("my chest hurts"). | ~~3-4 hrs~~ | ~~**+5-8%**~~ | Stress-Testing |
-
-#### Code reference — Sentence embeddings (Level 2):
-```python
-from sentence_transformers import SentenceTransformer
-
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
-
-# "je pèse sur tout le monde"
-# → 384-dimension vector
-# → semantically close to "fardeau" even without the exact word
-# This is the single highest-impact change.
-```
-
-#### Code reference — Claude quality annotator (Level 4):
-```python
-# For each generated conversation, ask Claude:
-# "On a scale of 0-3, what is the distress level
-#  of this conversation? Justify in 2 sentences."
-#
-# Filter conversations where Claude hesitates
-# = keep only unambiguous examples
-# Quality >> Quantity
-```
-
-### 🟠 Medium Priority — Do If Time Allows
-
-| Improvement | What It Does | Effort | Est. Gain | Axis |
-|---|---|---|---|---|
-| **Negation handling** | Detect `"je ne me sens pas bien"` as negative (currently scores 0). Regex patterns for FR/EN negation (`ne...pas`, `ne...plus`, `ne...jamais` + positive word = negative signal). | 1-2 hrs | **+5-8%** | Logic Hardening |
-| **Conversational coherence features** | Add 3 new features that track conversational engagement beyond lexical content. | 2-3 hrs | **+5-8%** | Logic Hardening |
-| **Somatization flag** | When physical complaints co-occur with declining hope trajectory, escalate instead of reducing score. | 1-2 hrs | **+2-4%** | Logic Hardening |
-| **Identity-conflict lexicon** | Add 2SLGBTQ+ distress expressions ("my family won't accept me", "I can't be who I am"). | 1 hr | **+2-3%** | Data Augmentation |
-| **Silence/withdrawal detection** | Track message frequency, response delays, conversation abandonment as crisis signals. | 2-3 hrs | **+3-5%** | Logic Hardening |
-| ✅ **English training data** *(DONE — 160 EN convos generated, dataset now 320 total)* | Generate 120 English conversations to match the French set. | ~~1-2 hrs~~ | ~~**+3-5%**~~ | Data Augmentation |
-
-#### Code reference — Negation handling (Level 1):
-```python
-# Currently:
-# "je ne me sens pas bien" → negative_score = 0 (missed!)
-
-# Improved:
-# Detect "ne ... pas + positive word" = negative signal
-negation_patterns_fr = [
-    r"ne\s+\w+\s+pas",    # ne ... pas
-    r"ne\s+\w+\s+plus",   # ne ... plus
-    r"ne\s+\w+\s+jamais",  # ne ... jamais
-    r"plus\s+envie",       # plus envie
-]
-negation_patterns_en = [
-    r"don'?t\s+feel\s+(good|well|better|ok)",
-    r"can'?t\s+(cope|go on|take it|do this)",
-    r"no\s+(hope|point|reason|future)",
-    r"never\s+(get better|be happy|feel ok)",
-]
-```
-
-#### Code reference — Conversational coherence features:
-```python
-# 3 new features to add to feature_extractor.py:
-
-# 1. Short response ratio — messages < 5 words = disengagement signal
-short_response_ratio = sum(1 for m in user_msgs if len(m.split()) < 5) / len(user_msgs)
-
-# 2. Topic shift detection — abrupt subject changes indicate avoidance
-# (can use embedding cosine similarity between consecutive messages)
-
-# 3. Response timing proxy — if available, track time between messages
-# (faster responses when agitated, slower when withdrawing)
-```
+| Improvement | Status | Result | Axis |
+|---|---|---|---|
+| ✅ **Adversarial test suite** | DONE | 13/13 passing, 0 critical misses | Stress-Testing |
+| ✅ **English training data** | DONE | 240 EN + 240 FR = 480 balanced bilingual | Data Augmentation |
+| ✅ **Sentence embeddings** | DONE | 4 embedding features (`paraphrase-multilingual-MiniLM-L12-v2`): drift, crisis similarity, slope, variance | Logic Hardening |
+| ✅ **Claude quality annotator** | DONE | Insight-only — filtering hurt accuracy, kept as analysis tool (`annotate_data.py`) | Data Augmentation |
+| ✅ **Negation handling** | DONE | `negation_score` feature (#7): regex patterns for FR/EN negation structures | Logic Hardening |
+| ✅ **Identity-conflict lexicon** | DONE | `identity_conflict_score` feature (#8): 2SLGBTQ+ distress expressions (FR+EN) | Logic Hardening |
+| ✅ **Somatization flag** | DONE | `somatization_score` feature (#9): physical+emotional co-occurrence. Removed blunt `score *= 0.5` dampening. | Logic Hardening |
+| ✅ **Conversational coherence** | DONE | 3 coherence features: `short_response_ratio`, `min_topic_coherence`, `question_response_ratio` | Logic Hardening |
+| ✅ **Warm handoff prompt flow** | DONE | 5-step guided crisis transition: validation → permission → resources → encouragement → continued presence. Step-specific bilingual prompts, handoff progress UI, SQLite logging | UX |
+| ✅ **Silence/withdrawal detection** | DONE | `last_activity` tracking, `check_withdrawal_risk()` after >24h absence without closing, welcome-back banner + withdrawal badge in dashboard | Logic Hardening |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -505,7 +472,6 @@ short_response_ratio = sum(1 for m in user_msgs if len(m.split()) < 5) / len(use
 | **LSTM sequence model** | Replace GradientBoosting with a model that understands message order natively. Currently: model sees [mean, std, slope...] = summary statistics, loses ordering. LSTM sees [msg1 → msg2 → msg3...] = understands that msg4 is more concerning *because* it follows msg3. | 3-4 hrs | **+10-15%** | Logic Hardening |
 | **Minimization detection** | Cross-reference "I'm fine" with contradicting behavioral signals. | 1-2 hrs | **+1-3%** | Logic Hardening |
 | **Burst vs sustained patterns** | Temporal smoothing to distinguish ADHD emotional bursts from sustained crisis. | 2-3 hrs | **+1-3%** | Logic Hardening |
-| **Warm handoff prompt flow** | Implement the 5-step transition conversation flow for Red level. | 2-3 hrs | High (UX) | UX |
 
 ---
 
@@ -559,6 +525,7 @@ streamlit run app.py
 - `anthropic` — Claude API client
 - `joblib` — model serialization
 - `sqlite3` — session tracking (Python stdlib)
+- `sentence-transformers` — multilingual sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`)
 
 ---
 
@@ -588,7 +555,7 @@ streamlit run app.py
 9. **Run the adversarial suite after any ML or classifier change.** Exit code `2` = critical miss = safety regression. See `tests/adversarial_suite.py`.
 10. **Red recall is the most important metric.** Missing a crisis (false negative on Red) is the worst possible outcome. Optimize accordingly.
 11. **Cultural sensitivity matters.** See "Canadian Multicultural Context" section. Detection that only works for Western English speakers is not acceptable for this hackathon.
-12. **The warm handoff is a design goal, not yet implemented.** See "Warm Handoff Architecture" section. Don't implement it without team discussion.
+12. **The warm handoff is implemented.** 5-step flow in `response_modulator.py`, tracked in `session_tracker.py`, with UI progress indicator in `app.py`. See "Warm Handoff Architecture" section.
 
 ---
 
