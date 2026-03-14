@@ -377,7 +377,7 @@ Flags users who return after >24h without clicking Reset:
 Reset = close session + archive to DB + start fresh (all data kept)
 Delete = CEDD never deletes data (clinical safety requires full audit trail)
 
-The app supports **5 demo profiles** (Shuchita, Priyanka, Amanda, Dominic, Guest), each with a distinct longitudinal trajectory. `simulate_history.py` generates 7 sessions per user with different patterns (stable green, gradual improvement, fluctuating, escalating). Guest starts with no history for judges to try fresh. All methods take `user_id` as parameter — the architecture is ready for real multi-user deployment.
+The app supports **5 demo profiles** with bilingual trajectory labels in the dropdown — e.g. "Dominic (escalating)" in EN, "Dominic (escalade)" in FR. `DEMO_USERS` is a bilingual dict keyed by language; `_user_id_from_display()` strips the label to get the bare name for SQLite lookup. `simulate_history.py` generates 7 sessions per user with different patterns (stable green, gradual improvement, fluctuating, escalating). Guest starts with no history for judges to try fresh. All methods take `user_id` as parameter — the architecture is ready for real multi-user deployment.
 
 ---
 
@@ -401,13 +401,13 @@ def load_tracker(): ...
 
 ### Layout
 
-- **Header row** — Title + subtitle with inline team badge (SVG shield + gradient pill for "404HarmNotFound"), profile selector (5 demo users), language toggle, theme toggle, reset button
+- **Header row** — Title + subtitle with inline team badge (SVG shield + gradient pill for "404HarmNotFound"), profile selector (5 demo users with trajectory labels), language toggle, theme toggle, reset button
 - `col_chat (60%)` — Welcome card (empty state) or chat bubbles with timestamps, LLM source badges, and alert level badges + input form
 - `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
 
 ### Chat UX Details
 
-- **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, and a call-to-action. Styled with theme colors (works in both light and dark mode).
+- **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, a call-to-action, and a **profile legend** listing all 5 demo profiles with their trajectory types (🟢 stable, 🟡 improving, 🔀 fluctuating, 🔴 escalating, ✨ new). Judges see all available scenarios without clicking the dropdown. Styled with theme colors (works in both light and dark mode).
 - **Timestamps:** Each message shows `HH:MM` in small muted text — right-aligned for user bubbles, left-aligned for assistant bubbles.
 - **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🔵 Cohere") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
 - **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
