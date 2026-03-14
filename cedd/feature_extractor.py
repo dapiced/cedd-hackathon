@@ -22,7 +22,8 @@ FINALITY_WORDS = [
     "terminé", "fini", "dernière", "dernier", "dernier fois",
     "disparaître", "en finir", "mourir", "mort", "suicide", "tuer",
     "adieu", "au revoir pour toujours", "plus jamais",
-    "à bout", "épuisé", "vide", "seul au monde", "abandonné",
+    "à bout", "épuisé", "épuisée", "vide", "seul au monde", "seule au monde",
+    "abandonné", "abandonnée",
     "partir", "à quoi ça sert", "plus envie",
     # English / Anglais
     "never", "nothing left", "no one", "useless", "burden",
@@ -57,10 +58,12 @@ NEGATIVE_WORDS = [
     # French / Français
     "me sens mal", "ça va mal", "tout va mal", "me sens pas bien", "pas bien du tout",
     "pas", "jamais", "rien", "personne", "nul", "mauvais",
-    "terrible", "horrible", "triste", "seul", "perdu", "inutile",
-    "fatigué", "épuisé", "peur", "anxieux", "inquiet", "déprimé",
+    "terrible", "horrible", "triste", "seul", "seule", "perdu", "perdue", "inutile",
+    "fatigué", "fatiguée", "épuisé", "épuisée", "peur", "anxieux", "anxieuse",
+    "inquiet", "inquiète", "déprimé", "déprimée",
     "sombre", "noir", "vide", "fardeau", "honte", "coupable",
-    "échec", "raté", "déchet", "merdique", "impossible", "désespéré",
+    "échec", "raté", "ratée", "déchet", "merdique", "impossible",
+    "désespéré", "désespérée",
     "pleure", "larmes", "coeur gros", "souffre", "peine",
     # English / Anglais
     "feel bad", "things are bad", "everything's wrong", "not feeling well", "not well at all",
@@ -102,9 +105,10 @@ IDENTITY_CONFLICT_WORDS = [
 # Mots émotionnels co-occurrents avec plaintes physiques (somatisation)
 SOMATIZATION_EMOTIONAL_WORDS = [
     # French / Français
-    "triste", "seul", "vide", "anxieux", "déprimé", "peur", "angoisse",
-    "pleure", "désespéré", "souffre", "mort", "mourir", "fardeau",
-    "abandonné", "inutile", "honte",
+    "triste", "seul", "seule", "vide", "anxieux", "anxieuse",
+    "déprimé", "déprimée", "peur", "angoisse",
+    "pleure", "désespéré", "désespérée", "souffre", "mort", "mourir", "fardeau",
+    "abandonné", "abandonnée", "inutile", "honte",
     # English / Anglais
     "sad", "alone", "empty", "anxious", "depressed", "scared", "crying",
     "hopeless", "suffering", "death", "die", "burden", "abandoned",
@@ -134,6 +138,25 @@ NEGATION_PATTERNS_EN = [
     r"nothing\s+(helps|works|matters)",                 # nothing helps/works
     r"won'?t\s+get\s+better",                           # won't get better
 ]
+
+
+# ── Word-boundary matching helper ─────────────────────────────────────────────
+# Correspondance avec frontières de mots (évite les faux positifs de sous-chaîne)
+
+def _word_boundary_count(word, text):
+    """Count occurrences of word in text using word boundaries.
+    Prevents substring matching (e.g., 'mort' won't match 'morte' or 'mortel').
+    Special handling for 'personne' to avoid French article false positives.
+
+    Compte les occurrences d'un mot dans le texte avec frontières de mots.
+    Empêche la correspondance de sous-chaîne (ex. 'mort' ne correspond pas à 'morte').
+    """
+    if word == "personne":
+        return len(re.findall(
+            r'(?<!une )(?<!la )(?<!cette )(?<!chaque )(?<!toute )\bpersonne\b',
+            text
+        ))
+    return len(re.findall(r'\b' + re.escape(word) + r'\b', text))
 
 
 # ── Low-level feature functions ───────────────────────────────────────────────
@@ -179,7 +202,7 @@ def _negative_score(text: str) -> float:
     single_word_neg = [neg for neg in NEGATIVE_WORDS if ' ' not in neg]
 
     count = sum(1 for phrase in multi_word_neg if phrase in text_lower)
-    count += sum(1 for w in words if any(neg in w for neg in single_word_neg))
+    count += sum(_word_boundary_count(neg, text_lower) for neg in single_word_neg)
 
     return count / len(words)
 
@@ -199,7 +222,7 @@ def _finality_score(text: str) -> float:
             if phrase in text_lower:
                 count += 1
         else:
-            count += sum(1 for w in words if phrase in w)
+            count += _word_boundary_count(phrase, text_lower)
     return min(count / max(len(words), 1), 1.0)
 
 
@@ -245,7 +268,7 @@ def _identity_conflict_score(text: str) -> float:
             if phrase in text_lower:
                 count += 1
         else:
-            count += sum(1 for w in words if phrase in w)
+            count += _word_boundary_count(phrase, text_lower)
     return min(count / max(len(words), 1), 1.0)
 
 
@@ -271,7 +294,7 @@ def _somatization_score(text: str) -> float:
     single_word_emo = [w for w in SOMATIZATION_EMOTIONAL_WORDS if ' ' not in w]
 
     count = sum(1 for phrase in multi_word_emo if phrase in text_lower)
-    count += sum(1 for w in words if any(emo in w for emo in single_word_emo))
+    count += sum(_word_boundary_count(emo, text_lower) for emo in single_word_emo)
 
     return min(count / max(len(words), 1), 1.0)
 
@@ -291,7 +314,7 @@ def _hope_score(text: str) -> float:
             if phrase in text_lower:
                 count += 1
         else:
-            count += sum(1 for w in words if phrase in w)
+            count += _word_boundary_count(phrase, text_lower)
     return min(count / max(len(words), 1), 1.0)
 
 
