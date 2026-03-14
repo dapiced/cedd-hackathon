@@ -305,7 +305,17 @@ Even the static fallback is level-aware — a Red fallback includes KHP phone nu
 
 **Environment variables:** Each model requires its own API key: `COHERE_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
 
-**`system_prompt_override` parameter:** `get_llm_response()` accepts an optional `system_prompt_override` string. When provided, it replaces the CEDD-adapted system prompt entirely. Used by compare mode to send an empty prompt (`""`) for the "Without CEDD" side, showing the raw LLM response with no safety instructions.
+**`system_prompt_override` parameter:** `get_llm_response()` accepts an optional `system_prompt_override` string. When provided, it replaces the CEDD-adapted system prompt entirely. Used by compare mode to send an empty prompt (`""`) for the "Without CEDD" side, and by the counselor handoff to inject the `HUMAN_COUNSELOR_PROMPT`.
+
+### Simulated Counselor "Alex"
+
+At Red alert, CEDD offers to connect with **Alex**, a simulated KHP counselor. Three new components in `response_modulator.py`:
+
+- **`HUMAN_COUNSELOR_PROMPT`** — Bilingual system prompt. Alex is a 28-year-old KHP counselor using ASIST (Applied Suicide Intervention Skills Training) active listening techniques. Rules: short responses (2-4 sentences), one question at a time, always validate before asking, never reveal AI nature, include crisis resources if suicidal thoughts are expressed.
+- **`get_handoff_offer_message(lang)`** — Returns an empathetic bilingual message offering to connect with Alex.
+- **`get_llm_response_as_counselor(messages, lang, force_model)`** — Calls `get_llm_response()` with `system_prompt_override=HUMAN_COUNSELOR_PROMPT[lang]`. Reuses the entire fallback chain (Cohere → Groq → Gemini → Claude). If all LLMs fail, uses a counselor-specific static fallback (not the generic Red fallback).
+
+**Key design decision:** The counselor mode reuses the same `get_llm_response()` function — it just swaps the system prompt. No new API logic, no new error handling. The fallback chain, `force_model` support, and message cleaning all work exactly the same way.
 
 ---
 
@@ -325,7 +335,9 @@ Replaces the industry "cold referral" (dump a phone number, end conversation) wi
 
 **Progression:** Each user message while at Red advances the handoff one step. If level drops below Red, handoff_step stays (crisis may not be over).
 
-**Future goal:** Replace step 3 "here's the number" with a seamless in-app handoff where a human KHP responder joins the same chat, receiving an anonymized CEDD summary.
+**Simulated counselor handoff:** Beyond the 5-step prompts, CEDD now offers a **simulated counselor handoff**. At Red, before starting the 5-step flow, CEDD asks: "Would you like me to connect you with Alex, a trained counselor from Kids Help Phone?" If the user accepts, the chat switches to a counselor persona ("Alex") with distinct blue styling. The CEDD classifier is bypassed entirely — Alex uses ASIST active listening techniques via `HUMAN_COUNSELOR_PROMPT`. Only Reset exits counselor mode. If the user declines, the normal 5-step warm handoff continues.
+
+**Future goal:** Replace the simulated Alex with a real seamless in-app handoff where a human KHP responder joins the same chat, receiving an anonymized CEDD summary.
 
 **Research backing:** 44% of crisis callers abandon before connecting. 71% of youth prefer text. 20% seek crisis help via text vs 5% by phone in Ontario.
 
@@ -403,16 +415,37 @@ def load_tracker(): ...
 - **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 - **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
 - **Feature radar chart:** Plotly `go.Scatterpolar` in a collapsible expander showing the 10 per-message features for the latest user message, normalized to 0-1. Each axis = one base feature (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization). The polygon is colored by alert level. After 3+ messages, a green ghost overlay of Msg 1 shows the "healthy baseline" for comparison — judges see the shape distort as drift happens. Zero extra compute: calls `extract_features()` which is pure word counting (no ML, no embeddings). Bilingual axis labels via `_RADAR_NAMES`.
+- **Counselor handoff ("Alex"):** At Red alert, CEDD offers to connect the user with a simulated KHP counselor named Alex. Two buttons replace the chat input: "Yes, connect me" / "No thank you". If accepted, a 2-second spinner simulates connection, then Alex's intro message appears in a blue gradient bubble with 🧑‍⚕️ avatar. A blue gradient banner at the top of the chat shows "Alex — Jeunesse, J'écoute / Kids Help Phone · Online now". All subsequent messages bypass the CEDD classifier and use the ASIST counselor persona. Source badge shows "Alex — KHP". Only Reset exits counselor mode — clinically, disconnecting from a counselor mid-crisis to return to a chatbot would be harmful.
 
 ### Core Loop (what happens when you send a message)
 
+**Normal mode (`chat_mode == "normal"`):**
 1. User types message → append to `st.session_state.messages` (with `timestamp`)
 2. `clf.get_alert_level(messages)` → 67 features → 6 gates → alert level
 3. Store alert in `session_state` + log to SQLite
 4. If Red: advance warm handoff step (1→2→3→4→5)
-5. `get_llm_response()` → pick system prompt → call LLM → get response
-6. Append assistant response to messages (with `timestamp`, `source`, `alert_level`)
-7. `st.rerun()` → UI rebuilds with everything updated
+5. **If Red + not yet offered:** switch to `handoff_offered` mode, show offer message, `st.rerun()`
+6. `get_llm_response()` → pick system prompt → call LLM → get response
+7. Append assistant response to messages (with `timestamp`, `source`, `alert_level`)
+8. `st.rerun()` → UI rebuilds with everything updated
+
+**Handoff offered mode (`chat_mode == "handoff_offered"`):**
+- Chat input is hidden, replaced by two buttons: "Yes, connect me" / "No thank you"
+- **Yes:** → `chat_mode = "connecting"` → `st.rerun()`
+- **No:** → `chat_mode = "normal"` → generate normal Red-level CEDD response → `st.rerun()`
+
+**Connecting mode (`chat_mode == "connecting"`):**
+- 2-second spinner ("Connecting you with Alex...")
+- Append Alex's intro message (bilingual, with `is_counselor: True` flag)
+- `chat_mode = "human_mode"` → `st.rerun()`
+
+**Human counselor mode (`chat_mode == "human_mode"`):**
+1. User types message → append to messages
+2. **Skip CEDD classifier entirely**
+3. `get_llm_response_as_counselor()` → counselor system prompt → call LLM → get response
+4. Append response with `source: "counselor"`, `is_counselor: True`, `alert_level: 3`
+5. `st.rerun()`
+6. Only Reset exits this mode (no way to go back to normal mid-conversation)
 
 ### Themes
 
@@ -433,8 +466,9 @@ Each message dict in `st.session_state.messages` carries optional metadata beyon
 | Key | Added to | Value |
 |-----|----------|-------|
 | `timestamp` | User + Assistant | `HH:MM` string from `datetime.now()` |
-| `source` | Assistant only | LLM source key (e.g. `"groq"`, `"gemini-flash"`) |
+| `source` | Assistant only | LLM source key (e.g. `"groq"`, `"gemini-flash"`, `"counselor"`, `"cedd-system"`) |
 | `alert_level` | Assistant only | Integer 0-3 — CEDD alert level at that exchange |
+| `is_counselor` | Assistant only | Boolean — `True` for Alex counselor messages (triggers blue bubble styling) |
 
 These are rendered inline in `render_chat()` as timestamps, LLM badges, and alert dots. Messages from before these changes (e.g. loaded from session history) gracefully degrade via `.get()` checks.
 
@@ -588,6 +622,10 @@ User types: "nothing matters anymore"
     │ Show "crisis word detected" │
     │ Show feature importance     │
     │ Show handoff step 1/5       │
+    │ Offer counselor handoff     │
+    │  → "Connect with Alex?" 💙  │
+    │  → Yes: blue bubbles, ASIST │
+    │  → No: continue CEDD Red    │
     │ Update history chart        │
     └─────────────────────────────┘
 ```
@@ -671,4 +709,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 14, 2026 — Added Cohere Command A as primary LLM, reordered fallback chain: Cohere → Groq → Gemini → Claude → static text*
+*Updated: March 14, 2026 — Added simulated counselor "Alex" handoff at RED (ASIST persona, blue UI, chat mode state machine, `HUMAN_COUNSELOR_PROMPT`)*

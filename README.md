@@ -204,12 +204,14 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 - **Level 0**: Warm supportive assistant, open questions, positive register
 - **Level 1**: Emotional validation priority, one question at a time, active listening
 - **Level 2**: Safe space, resources mentioned naturally (Kids Help Phone: 1-800-668-6868)
-- **Level 3**: Crisis protocol with **5-step warm handoff**:
+- **Level 3**: Crisis protocol with **5-step warm handoff** + **simulated counselor "Alex"**:
   1. Empathetic validation (no resources yet)
   2. Permission-based transition ("Would it be okay if I connected you with someone?")
   3. Resource presentation (KHP 1-800-668-6868, text 686868, 9-8-8, 911)
   4. Encouragement to connect (normalize hesitation, suggest text-first)
   5. Continued presence ("I'm still here if you want to keep talking")
+
+  At Red, CEDD also offers to connect with **Alex**, a simulated KHP counselor using ASIST active listening techniques. If the user accepts, the chat switches to a counselor persona with distinct visual styling (blue bubbles, 🧑‍⚕️ avatar, counselor banner). The counselor mode bypasses CEDD classification and uses `HUMAN_COUNSELOR_PROMPT` via the same LLM fallback chain. Only Reset exits counselor mode.
 
 **LLM hierarchy with automatic fallback:**
 ```
@@ -269,6 +271,7 @@ Two-column interface with real-time updates after each message.
 | **Alert transition toast** | CSS-animated notification when alert level increases (3s fade-in/out)                      |
 | **Compare mode**           | Side-by-side: raw LLM (no instructions) vs LLM with CEDD adaptive prompts. Toggle via 🔀 button |
 | **Feature radar**          | Plotly spider chart: 10 per-message features normalized 0-1, latest msg vs Msg 1 ghost overlay   |
+| **Counselor handoff**      | At RED, offers to connect with simulated KHP counselor "Alex" (ASIST persona). Blue bubbles, 🧑‍⚕️ avatar, counselor banner. Bypasses CEDD in counselor mode |
 | **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
 | **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
 | **Active signals**         | Dominant features displayed as colour-coded pills                          |
@@ -718,12 +721,14 @@ Les **noms lisibles des features** sont disponibles en francais et en anglais (3
 
 #### 3. Response Modulator -- `cedd/response_modulator.py`
 
-Quatre niveaux de prompts systeme distincts, disponibles en **francais et en anglais**. Le niveau Rouge utilise un **transfert accompagne en 5 etapes** :
+Quatre niveaux de prompts systeme distincts, disponibles en **francais et en anglais**. Le niveau Rouge utilise un **transfert accompagne en 5 etapes** + **intervenant simule « Alex »** :
 1. Validation empathique (pas de ressources encore)
 2. Transition accompagnee (demande de permission)
 3. Presentation des ressources (JJE, 9-8-8, 911)
 4. Encouragement a se connecter
 5. Presence continue
+
+Au niveau Rouge, CEDD propose aussi de connecter l'utilisateur avec **Alex**, un·e intervenant·e simule·e de JJE utilisant les techniques d'ecoute active ASIST. Si l'utilisateur accepte, le chat bascule vers un persona d'intervenant avec un style visuel distinct (bulles bleues, avatar 🧑‍⚕️, banniere d'intervenant). Le mode intervenant contourne le classificateur CEDD et utilise `HUMAN_COUNSELOR_PROMPT` via la meme chaine de fallback LLM. Seul le bouton Reinitialiser quitte le mode intervenant.
 
 Hierarchie LLM : `cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
 
@@ -737,7 +742,7 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
 
-Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀), **radar des features** (graphique araignee Plotly des 10 features par message, dernier message vs Msg 1 en overlay). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
+Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀), **radar des features** (graphique araignee Plotly des 10 features par message, dernier message vs Msg 1 en overlay), **transfert vers intervenant** (au niveau Rouge, propose de connecter avec « Alex », intervenant·e simule·e JJE utilisant ASIST ; bulles bleues, avatar 🧑‍⚕️, banniere d'intervenant ; contourne le classificateur CEDD en mode intervenant). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
 
 ---
 
