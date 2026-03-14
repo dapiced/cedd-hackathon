@@ -84,6 +84,10 @@ cedd-hackathon/
 │   ├── demo_scenario.md             # FR — Félix, CÉGEP, Green→Yellow→Orange (9 msgs)
 │   └── demo_scenario_en.md         # EN — Alex, university, Green→Yellow→Orange (9 msgs)
 │
+├── report.md                        # Formal hackathon report (required deliverable)
+├── generate_slides.py               # Generates presentation_404HarmNotFound.pptx (12 slides)
+├── presentation_404HarmNotFound.pptx # Final presentation deck for March 23 finals
+│
 └── README.md                        # Full bilingual documentation
 ```
 
@@ -520,6 +524,9 @@ normal → (RED detected) → handoff_offered → (user accepts) → connecting 
 | ✅ **Simulated counselor handoff** | DONE | At RED, CEDD offers to connect with "Alex", a simulated KHP counselor using ASIST active listening. State machine: normal → handoff_offered (2 buttons) → connecting (spinner) → human_mode (bypasses CEDD, counselor persona). Blue gradient bubbles (`.chat-bubble-counselor` CSS class, white text) + 🧑‍⚕️ avatar + counselor banner. Bilingual. Only Reset exits counselor mode. Reuses existing LLM fallback chain with `HUMAN_COUNSELOR_PROMPT` override. | UX |
 | ✅ **UI polish: expander borders + prompt wrap** | DONE | All `st.expander` boxes use theme-matching borders (`border: 1px solid` on `[data-testid="stExpander"]` and `details`). System prompt display changed from `st.code()` (monospace, no wrap) to `st.markdown()` with `white-space:pre-wrap` for proper word wrapping. | UX |
 | ✅ **Word-boundary keyword matching** | DONE | Replaced substring `if word in text` with regex `\b` word boundaries in classifier safety gates and feature extractor lexicons. Context-aware "personne" handling (negative lookbehinds for French articles). Added feminine forms to FINALITY_WORDS, NEGATIVE_WORDS, SOMATIZATION_EMOTIONAL_WORDS. Fixes false positives: "morte de rire"/"mortel" no longer match "mort", "une personne" no longer triggers critical floor. adv_021 now correctly GREEN (was Orange). 6 new adversarial tests added (emoji_only, repeated_word, short_recovery, long_message, neutral_personne_fr, emoji_crisis). 36/36 passing. | Logic Hardening |
+| ✅ **Profile trajectory labels** | DONE | `DEMO_USERS` changed from flat list to bilingual dict with trajectory labels (e.g. "Dominic (escalating)" / "Dominic (escalade)"). `_user_id_from_display()` extracts bare name for SQLite lookup. Welcome card includes profile legend showing all 5 demo profiles with trajectory types. | UX |
+| ✅ **Hackathon report** | DONE | Formal report (`report.md`) structured around 3 hackathon tracks (Adversarial Stress-Testing, Logic Hardening, Synthetic Data Augmentation) + evaluation axes (Safety, UX, Data Quality). 14 sections with metrics evolution, architecture diagrams, competitive analysis. | Deliverable |
+| ✅ **Presentation deck** | DONE | 12-slide PowerPoint (`presentation_404HarmNotFound.pptx`) generated via `generate_slides.py` (python-pptx). Dark blue theme, alert-level colors, comparison tables, architecture diagrams. Ready for March 23 finals. | Deliverable |
 
 ### 🟡 Lower Priority — Nice to Have
 

@@ -717,5 +717,40 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 
 ---
 
+## Hackathon Deliverables
+
+### 1. `report.md` — Formal Hackathon Report
+
+Required submission deliverable. 14-section report structured around the 3 hackathon tracks:
+
+- **Track 1: Adversarial Stress-Testing** — 36 test cases, 20 categories, 7/10 → 36/36 progression
+- **Track 2: Logic Hardening** — 6-gate safety logic, 67 features, word-boundary precision
+- **Track 3: Synthetic Data Augmentation** — 600 conversations, 6 adversarial archetypes, bilingual
+
+Also covers architecture, metrics evolution (66.7% → 90.0%), UX, Canadian multicultural context, competitive analysis vs EmoAgent, limitations, and future work.
+
+### 2. `generate_slides.py` → `presentation_404HarmNotFound.pptx`
+
+12-slide PowerPoint deck for the March 23 finals presentation (5 minutes). Generated via `python-pptx`:
+
+| Slide | Content |
+|-------|---------|
+| 1 | Title — CEDD branding, team 404HarmNotFound |
+| 2 | The Problem — trajectory blindness, KHP stats |
+| 3 | Our Solution — 4 alert levels, Classic vs CEDD comparison table |
+| 4 | Architecture — 3-layer diagram, LLM fallback chain |
+| 5 | Feature Engineering — 10 features × 6 stats + 4 embedding + 3 coherence = 67 |
+| 6 | 6-Gate Safety Logic — all 6 gates with conditions/actions |
+| 7 | Track 1: Adversarial Testing — 7/10 → 36/36, 20 categories |
+| 8 | Track 2: Logic Hardening — negation, identity, somatization, embeddings, coherence |
+| 9 | Track 3: Data Augmentation — 480 standard + 120 adversarial, bilingual |
+| 10 | UX & Warm Handoff — 5-step flow, simulated counselor "Alex", research evidence |
+| 11 | Results & Metrics — baseline vs final table, top features, vs EmoAgent |
+| 12 | Impact & Next Steps — multicultural, LSTM, emergency resources |
+
+Re-generate anytime: `python generate_slides.py`
+
+---
+
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 14, 2026 — Word-boundary keyword matching (`\b` regex + context-aware "personne" + feminine lexicon forms), 36/36 adversarial tests across 20 categories*
+*Updated: March 14, 2026 — Word-boundary keyword matching, profile trajectory labels, hackathon report and presentation deck*
