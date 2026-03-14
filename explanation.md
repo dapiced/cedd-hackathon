@@ -290,18 +290,20 @@ All prompts are hardcoded strings — never AI-generated (safety-critical).
 ### LLM Fallback Chain
 
 ```
-1. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
+1. cohere         (Cohere API, Command A — default)
        ↓ fails?
-2. gemini-flash   (Google Gemini API, Gemini 2.5 Flash)
+2. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
        ↓ fails?
-3. claude-haiku   (Anthropic API, Claude Haiku)
+3. gemini-flash   (Google Gemini API, Gemini 2.5 Flash)
        ↓ fails?
-4. fallback-statique  (hardcoded text, always works)
+4. claude-haiku   (Anthropic API, Claude Haiku)
+       ↓ fails?
+5. fallback-statique  (hardcoded text, always works)
 ```
 
 Even the static fallback is level-aware — a Red fallback includes KHP phone number and 911. CEDD **never fails silently**.
 
-**Environment variables:** Each model requires its own API key: `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
+**Environment variables:** Each model requires its own API key: `COHERE_API_KEY`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`. The chain skips any model whose key is not set and tries the next one.
 
 **`system_prompt_override` parameter:** `get_llm_response()` accepts an optional `system_prompt_override` string. When provided, it replaces the CEDD-adapted system prompt entirely. Used by compare mode to send an empty prompt (`""`) for the "Without CEDD" side, showing the raw LLM response with no safety instructions.
 
@@ -393,7 +395,7 @@ def load_tracker(): ...
 
 - **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, and a call-to-action. Styled with theme colors (works in both light and dark mode).
 - **Timestamps:** Each message shows `HH:MM` in small muted text — right-aligned for user bubbles, left-aligned for assistant bubbles.
-- **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🟠 Groq Llama 3.3 70B") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
+- **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🔵 Cohere") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
 - **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
 - **Demo autopilot:** "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario — 9 messages showing Green → Yellow → Orange drift. The LLM response time provides natural pacing between messages. Judges can sit back and watch the full drift unfold live. A "Stop" button cancels mid-demo.
 - **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 6 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
@@ -568,8 +570,8 @@ User types: "nothing matters anymore"
     │ Level 3 + handoff step 1   │
     │ → Empathetic validation    │
     │   system prompt            │
-    │ → LLM API call (Groq /    │
-    │   Gemini / Claude)        │
+    │ → LLM API call (Cohere /  │
+    │   Groq / Gemini / Claude) │
     │ = "I hear you, what you're │
     │   feeling is real..."      │
     └────────────┬───────────────┘
@@ -669,4 +671,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 13, 2026 — UI polish + compare mode + radar: welcome card, branding, timestamps, badges, demo, about, export, toast, compare, feature radar*
+*Updated: March 14, 2026 — Added Cohere Command A as primary LLM, reordered fallback chain: Cohere → Groq → Gemini → Claude → static text*
