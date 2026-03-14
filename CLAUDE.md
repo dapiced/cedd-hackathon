@@ -69,7 +69,7 @@ cedd-hackathon/
 │
 ├── tests/                           # Adversarial test suite (Track 1 — Stress-Testing)
 │   ├── adversarial_suite.py         # CLI test runner: --verbose, --category, --export
-│   ├── test_cases_adversarial.json  # 30 adversarial cases across 16 categories (FR + EN)
+│   ├── test_cases_adversarial.json  # 36 adversarial cases across 20 categories (FR + EN)
 │   └── results/
 │       ├── baseline_v1.json         # Original baseline: 7/10 passed, 0 critical misses
 │       ├── post_data_expansion.json # After 320-convo retrain: 9/10 passed
@@ -77,7 +77,8 @@ cedd-hackathon/
 │       ├── post_negation_embeddings.json  # After negation + embeddings: 9/10
 │       ├── post_features_456.json   # 67 features: 13/13 passed, 0 critical misses
 │       ├── post_480_convos.json     # 480 convos: 13/13 passed, 0 critical misses
-│       └── post_600_convos.json     # Current (600 convos): 30/30 passed, 0 critical misses
+│       ├── post_600_convos.json     # 600 convos: 30/30 passed, 0 critical misses
+│       └── post_word_boundary_fix.json  # Current: word-boundary fix, 36/36 passed, 0 critical misses
 │
 ├── demo/                            # Demo scenarios for team presentation (March 16)
 │   ├── demo_scenario.md             # FR — Félix, CÉGEP, Green→Yellow→Orange (9 msgs)
@@ -201,7 +202,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - Extracts 67 trajectory features per conversation → X (600 × 67), y (600 labels)
 - Cross-validation: `StratifiedKFold(n_splits=4)` → **~90.5% accuracy ± 1.5%**
 - Train accuracy: ~100% (expected overfitting on 600 samples with 200 trees)
-- Top features: `word_count_max` (0.189), `word_count_slope` (0.160), `word_count_last` (0.137), `finality_score_mean` (0.097)
+- Top features: `word_count_max` (0.192), `word_count_slope` (0.179), `word_count_last` (0.138), `length_delta_mean` (0.075)
 - Saves trained model to `models/cedd_model.joblib`
 
 ### Data Generation (`generate_synthetic_data.py`)
@@ -216,21 +217,21 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 
 ---
 
-## Current Metrics (as of March 13, 2026)
+## Current Metrics (as of March 14, 2026)
 
 | Metric | Value |
 |--------|-------|
-| Cross-validated accuracy (k=4) | **~90.5% ± 1.5%** |
+| Cross-validated accuracy (k=4) | **~90.0% ± 1.6%** |
 | Train accuracy | ~100% (expected overfitting) |
 | Feature count | **67** (10 × 6 stats + 4 embedding + 3 coherence) |
 | Per-message features | **10** (word_count, punctuation, question, negative, finality, hope, length_delta, negation, identity_conflict, somatization) |
 | Training conversations | **600 (480 standard + 120 adversarial, FR + EN)** |
 | Sample:feature ratio | **9.0:1** (improved from 7.2:1, ideal is 10:1) |
-| Top feature | `word_count_max` (importance: 0.189) |
-| 2nd feature | `word_count_slope` (0.160) |
-| 3rd feature | `word_count_last` (0.137) |
-| 4th feature | `finality_score_mean` (0.097) |
-| Adversarial tests | **30/30 passing · 0 critical misses** |
+| Top feature | `word_count_max` (importance: 0.192) |
+| 2nd feature | `word_count_slope` (0.179) |
+| 3rd feature | `word_count_last` (0.138) |
+| 4th feature | `length_delta_mean` (0.075) |
+| Adversarial tests | **36/36 passing · 0 critical misses** |
 | Languages | French + English (fully bilingual training data) |
 
 > **Metrics history:**
@@ -239,7 +240,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 > - **+Negation +Embeddings:** 92.2% ± 1.8%, 52 features, 9/10 adversarial
 > - **+Identity +Somatization +Coherence:** 92.5% ± 1.5%, 67 features, 13/13 adversarial
 > - **Data expansion to 480:** 91.7% ± 4.4%, 67 features, 13/13 adversarial
-> - **Adversarial augmentation to 600 (current):** 90.5% ± 1.5%, 67 features, 30/30 adversarial (6 new archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection)
+> - **Adversarial augmentation to 600:** 90.5% ± 1.5%, 67 features, 30/30 adversarial (6 new archetypes: physical_only, sarcasm_distress, adversarial_bypass, identity_distress, neurodivergent_flat, crisis_with_deflection)
+> - **Word-boundary fix + new tests (current):** 90.0% ± 1.6%, 67 features, 36/36 adversarial (regex `\b` keyword matching, context-aware "personne", feminine lexicon forms, 6 new test cases across 4 new categories)
 
 ---
 
@@ -252,7 +254,8 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - **Somatization relies on word co-occurrence** — `somatization_score` detects physical + emotional word overlap, but not clinical somatization reasoning
 - **Silence/withdrawal detection is threshold-based** — `check_withdrawal_risk()` flags users returning after >24h without closing, but doesn't yet track intra-session message timing or progressive disengagement patterns
 - **Sample-to-feature ratio improving** — 600 samples / 67 features = 9.0:1 ratio (ideal is 10:1, up from 7.2:1)
-- **Over-prediction on short/ambiguous green conversations** — physical-only, neurodivergent literal, and cultural expressions with "mort"/"killed" may trigger orange (documented as acceptable in adversarial tests with tolerance ±2)
+- **Over-prediction on short/ambiguous green conversations** — physical-only, neurodivergent literal, and dramatic length variation may trigger orange (documented as acceptable in adversarial tests with tolerance ±2)
+- **Word-boundary matching improved but not perfect** — `\b` regex prevents "mort"→"morte"/"mortel" substring false positives; context-aware "personne" matching skips article-preceded uses ("une personne"); French feminine forms added to lexicons. Remaining edge: idioms like "mort de rire" where "mort" is a standalone word still match finality lexicon
 
 ---
 
@@ -322,7 +325,7 @@ print('Smoke test PASSED')
 
 ### Adversarial Test Suite (run after any ML or classifier change):
 ```bash
-# Run all 30 adversarial cases — exit code 2 = critical miss (safety regression)
+# Run all 36 adversarial cases — exit code 2 = critical miss (safety regression)
 python tests/adversarial_suite.py
 
 # Verbose output with probabilities and top features
@@ -332,12 +335,13 @@ python tests/adversarial_suite.py --verbose
 python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).json
 ```
 
-**Test categories (16):** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
+**Test categories (20):** `false_positive_physical`, `sarcasm`, `negation`, `code_switching`,
 `quebecois_slang`, `gradual_drift_no_keywords`, `direct_crisis`, `hidden_intent`, `manipulation_downplay`,
 `somatization`, `identity_conflict`, `sudden_escalation`, `active_bypass`, `rapid_recovery_manipulation`,
-`cultural_false_positive`, `neurodivergent_pattern`
+`cultural_false_positive`, `neurodivergent_pattern`, `emoji_only`, `repeated_word`, `short_recovery`,
+`long_message`, `neutral_personne_fr`, `emoji_crisis`
 
-**Current:** 30/30 passed · 0 critical misses (`tests/results/post_600_convos.json`)
+**Current:** 36/36 passed · 0 critical misses (`tests/results/post_word_boundary_fix.json`)
 **Original baseline:** 7/10 (`tests/results/baseline_v1.json`) — kept for historical comparison.
 
 **Critical rule:** Exit code `2` means a crisis was predicted as Green or Yellow — this is a **safety regression** and blocks any merge.
@@ -483,13 +487,13 @@ normal → (RED detected) → handoff_offered → (user accepts) → connecting 
 | **March 16-23** (first half) | Final polish, presentation prep | UX differentiation |
 | **March 22 evening** (deadline) | Final metrics comparison + report + submission | Show before/after improvement honestly |
 
-**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 90.5% accuracy (±1.5% stable). From 7 features to 67. From 24 convos to 600. From 7/10 adversarial to 30/30. Feature importance visualization for full explainability. Here's how we got there."*
+**Presentation strategy:** Show the improvement trajectory honestly: *"66.7% → 90.0% accuracy (±1.6% stable). From 7 features to 67. From 24 convos to 600. From 7/10 adversarial to 36/36. Word-boundary regex for precision. Feature importance visualization for full explainability. Here's how we got there."*
 
 ### ✅ Completed Improvements
 
 | Improvement | Status | Result | Axis |
 |---|---|---|---|
-| ✅ **Adversarial test suite** | DONE | 30/30 passing, 0 critical misses (16 categories) | Stress-Testing |
+| ✅ **Adversarial test suite** | DONE | 36/36 passing, 0 critical misses (20 categories) | Stress-Testing |
 | ✅ **English training data** | DONE | 300 EN + 300 FR = 600 bilingual (480 standard + 120 adversarial) | Data Augmentation |
 | ✅ **Sentence embeddings** | DONE | 4 embedding features (`paraphrase-multilingual-MiniLM-L12-v2`): drift, crisis similarity, slope, variance | Logic Hardening |
 | ✅ **Claude quality annotator** | DONE | Insight-only — filtering hurt accuracy, kept as analysis tool (`annotate_data.py`) | Data Augmentation |
@@ -515,6 +519,7 @@ normal → (RED detected) → handoff_offered → (user accepts) → connecting 
 | ✅ **Feature radar chart** | DONE | Plotly `Scatterpolar` showing 10 per-message features (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization) normalized 0-1. Latest message in alert-level color, Msg 1 as green ghost overlay (after 3+ messages). Collapsible expander in dashboard. Bilingual axis labels. Zero extra compute — uses already-computed `extract_features()` values. | UX |
 | ✅ **Simulated counselor handoff** | DONE | At RED, CEDD offers to connect with "Alex", a simulated KHP counselor using ASIST active listening. State machine: normal → handoff_offered (2 buttons) → connecting (spinner) → human_mode (bypasses CEDD, counselor persona). Blue gradient bubbles (`.chat-bubble-counselor` CSS class, white text) + 🧑‍⚕️ avatar + counselor banner. Bilingual. Only Reset exits counselor mode. Reuses existing LLM fallback chain with `HUMAN_COUNSELOR_PROMPT` override. | UX |
 | ✅ **UI polish: expander borders + prompt wrap** | DONE | All `st.expander` boxes use theme-matching borders (`border: 1px solid` on `[data-testid="stExpander"]` and `details`). System prompt display changed from `st.code()` (monospace, no wrap) to `st.markdown()` with `white-space:pre-wrap` for proper word wrapping. | UX |
+| ✅ **Word-boundary keyword matching** | DONE | Replaced substring `if word in text` with regex `\b` word boundaries in classifier safety gates and feature extractor lexicons. Context-aware "personne" handling (negative lookbehinds for French articles). Added feminine forms to FINALITY_WORDS, NEGATIVE_WORDS, SOMATIZATION_EMOTIONAL_WORDS. Fixes false positives: "morte de rire"/"mortel" no longer match "mort", "une personne" no longer triggers critical floor. adv_021 now correctly GREEN (was Orange). 6 new adversarial tests added (emoji_only, repeated_word, short_recovery, long_message, neutral_personne_fr, emoji_crisis). 36/36 passing. | Logic Hardening |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -650,4 +655,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 14, 2026 — Added simulated counselor "Alex" handoff at RED (ASIST persona, blue UI, state machine: normal → handoff_offered → connecting → human_mode)*
+*Last updated: March 14, 2026 — Word-boundary keyword matching fix (`\b` regex + context-aware "personne" + feminine lexicon forms), 6 new adversarial tests (36/36 passing, 20 categories)*

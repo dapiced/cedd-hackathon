@@ -99,7 +99,9 @@ For each user message, CEDD extracts **10 numbers**:
 | 8 | `identity_conflict_score` | Phrases about identity rejection ("my family won't accept me") | 46% of KHP youth are 2SLGBTQ+ — identity distress is major |
 | 9 | `somatization_score` | Physical + emotional words co-occurring | Cultural pattern: "my stomach hurts" + "I feel empty" = somatization |
 
-**Bilingual lexicons:** `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`, `IDENTITY_CONFLICT_WORDS`, `SOMATIZATION_EMOTIONAL_WORDS`, `PHYSICAL_CONTEXT_WORDS` all contain both French and English terms.
+**Bilingual lexicons:** `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`, `IDENTITY_CONFLICT_WORDS`, `SOMATIZATION_EMOTIONAL_WORDS`, `PHYSICAL_CONTEXT_WORDS` all contain both French and English terms. Lexicons include feminine forms for gendered French adjectives (e.g., "seul"/"seule", "épuisé"/"épuisée", "déprimé"/"déprimée").
+
+**Word-boundary matching:** All lexicon scoring uses regex `\b` word boundaries via `_word_boundary_count()`. This prevents substring false positives — e.g., "mort" (death) no longer matches inside "morte" (feminine) or "mortel" (slang for awesome). For "personne", a context-aware regex with negative lookbehinds skips article-preceded uses ("une personne" = a person) while matching pronoun uses ("personne ne m'aime" = nobody loves me).
 
 If a conversation has 8 user messages, the output is a **(8, 10) matrix** — 8 rows, 10 columns.
 
@@ -128,10 +130,10 @@ Example: `word_count` across 8 messages: `[45, 38, 30, 22, 15, 10, 6, 3]`
 Naming convention: `{feature}_{statistic}` — e.g., `word_count_slope`, `finality_score_mean`.
 
 **Top features by model importance:**
-1. `word_count_max` (0.189) — how long were messages at peak
-2. `word_count_slope` (0.160) — shrinking messages is a top crisis signal
-3. `word_count_last` (0.137) — most recent message length
-4. `finality_score_mean` (0.097) — average finality language
+1. `word_count_max` (0.192) — how long were messages at peak
+2. `word_count_slope` (0.179) — shrinking messages is a top crisis signal
+3. `word_count_last` (0.138) — most recent message length
+4. `length_delta_mean` (0.075) — average message length change
 
 ---
 
@@ -224,7 +226,7 @@ File: `cedd/classifier.py`, method `get_alert_level()` (line 178)
 → Skip ML entirely. Only scan for crisis/critical/distress keywords. Default to Green with "insufficient context" label.
 
 ### Gate 2: Safety Keyword Floor
-→ Scan ALL user text for crisis words ("mourir", "kill myself"), critical words ("disappear", "burden"), and distress words ("crying", "alone"). Set a `minimum_level` floor that ML cannot go below.
+→ Scan ALL user text for crisis words ("mourir", "kill myself"), critical words ("disappear", "burden"), and distress words ("crying", "alone"). Set a `minimum_level` floor that ML cannot go below. Uses `_keyword_match()` with `\b` word boundaries for single words and substring matching for multi-word phrases. "personne" has special context-aware handling to avoid false positives from French article-preceded uses ("une personne").
 
 ### Gate 3: ML Prediction
 → Run the 67-feature vector through GradientBoosting. Get `ml_level` and `confidence`.
@@ -260,7 +262,7 @@ File: `train.py`
 
 1. **Load & extract:** Loop through 600 conversations → extract 67-feature vector for each → build X (600 x 67) and y (600 labels)
 
-2. **Cross-validation:** `StratifiedKFold(n_splits=4)` — splits data into 4 groups, trains on 3, tests on 1, rotates 4 times. "Stratified" = each fold has the same class proportions. Result: **90.5% ± 1.5%** accuracy (more stable than the previous 91.7% ± 4.4% — the lower variance means more consistent performance across folds).
+2. **Cross-validation:** `StratifiedKFold(n_splits=4)` — splits data into 4 groups, trains on 3, tests on 1, rotates 4 times. "Stratified" = each fold has the same class proportions. Result: **90.0% ± 1.6%** accuracy (stable — the lower variance means consistent performance across folds).
 
 3. **Full training:** `clf.fit(X, y)` on all 600 conversations. Train accuracy ~100% (expected — 200 trees memorize 600 samples).
 
@@ -525,7 +527,7 @@ Files: `tests/adversarial_suite.py`, `tests/test_cases_adversarial.json`
 
 ### What It Tests
 
-30 carefully crafted conversations across 16 categories, each designed to exploit a specific weakness:
+36 carefully crafted conversations across 20 categories, each designed to exploit a specific weakness:
 
 | Category | What It Tests | Expected | Tolerance |
 |----------|--------------|----------|-----------|
@@ -545,6 +547,12 @@ Files: `tests/adversarial_suite.py`, `tests/test_cases_adversarial.json`
 | `rapid_recovery_manipulation` (x2) | "I feel better" after crisis — safety floor must hold | Red | **0 (exact)** |
 | `cultural_false_positive` (x3) | "Mort de rire", "killed it", "personne" neutrally | Green | ±2 |
 | `neurodivergent_pattern` (x3) | Literal communication, ADHD bursts, topic jumps | Green-Yellow | ±1-2 |
+| `emoji_only` | Very short messages with ellipses and emoji | Green | ±2 |
+| `repeated_word` | Repeated words and brief frustration | Yellow | ±1 |
+| `short_recovery` | Brief crisis then rapid recovery | Yellow | ±2 |
+| `long_message` | Single long venting message without crisis words | Green | ±2 |
+| `neutral_personne_fr` | Neutral use of "personne" (= person) in French | Green | ±1 |
+| `emoji_crisis` | Crisis words mixed with emoji — **must be Red** | Red | **0 (exact)** |
 
 ### Pass/Fail Logic
 
@@ -567,7 +575,8 @@ post_keyword_fix.json       → 10/10 passed
 post_negation_embeddings    →  9/10 (new tests added)
 post_features_456.json      → 13/13 passed
 post_480_convos.json        → 13/13 passed
-post_600_convos.json        → 30/30 passed (current — expanded to 30 tests, 16 categories)
+post_600_convos.json        → 30/30 passed (expanded to 30 tests, 16 categories)
+post_word_boundary_fix.json → 36/36 passed (current — regex \b keyword matching, 36 tests, 20 categories)
 ```
 
 ---
@@ -687,7 +696,7 @@ The filtered dataset was tested but **hurt accuracy**:
 
 | Dataset | Size | Sample:Feature Ratio | Class Balance | Result |
 |---------|------|---------------------|---------------|--------|
-| Full (600) | 600 | 9.0:1 | Near-balanced (140/160/160/140) | **90.5% ± 1.5%** accuracy |
+| Full (600) | 600 | 9.0:1 | Near-balanced (140/160/160/140) | **90.0% ± 1.6%** accuracy |
 | Standard only (480) | 480 | 7.2:1 | Balanced (120 per class) | 91.7% ± 4.4% accuracy |
 | Filtered (304) | 304 | 4.5:1 | Unbalanced (some classes lost more) | Lower accuracy |
 
@@ -709,4 +718,4 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
-*Updated: March 14, 2026 — Added simulated counselor "Alex" handoff at RED (ASIST persona, blue UI, chat mode state machine, `HUMAN_COUNSELOR_PROMPT`)*
+*Updated: March 14, 2026 — Word-boundary keyword matching (`\b` regex + context-aware "personne" + feminine lexicon forms), 36/36 adversarial tests across 20 categories*
