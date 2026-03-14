@@ -69,8 +69,8 @@ Detection relies on a hybrid approach:
              | level 0-3 + confidence + top features
              v
 +------------------------+        +--------------------------+
-|  Response Modulator    |------->|  LLM Claude / Mistral /  |
-|  (adaptive prompt)     |        |  Llama / static fallback |
+|  Response Modulator    |------->|  LLM Cohere / Groq /     |
+|  (adaptive prompt)     |        |  Gemini / Claude / static|
 |  FR or EN system prompt|        +--------------------------+
 +------------------------+
              |
@@ -213,11 +213,12 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **LLM hierarchy with automatic fallback:**
 ```
-groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
+cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
 ```
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
+| `cohere`           | `COHERE_API_KEY`    | Blue      |
 | `groq`             | `GROQ_API_KEY`      | Orange    |
 | `gemini-flash`     | `GEMINI_API_KEY`    | Blue      |
 | `claude-haiku`     | `ANTHROPIC_API_KEY` | Purple    |
@@ -260,7 +261,7 @@ Two-column interface with real-time updates after each message.
 |----------------------------|----------------------------------------------------------------------------|
 | **Welcome card**           | Branded card with brain emoji, title, description and CTA when chat is empty |
 | **Chat timestamps**        | HH:MM timestamp below each message bubble (right-aligned for user, left for assistant) |
-| **LLM source badge**       | Small coloured badge on each assistant bubble showing which LLM generated it (e.g. 🟠 Groq Llama 3.3 70B) |
+| **LLM source badge**       | Small coloured badge on each assistant bubble showing which LLM generated it (e.g. 🔵 Cohere) |
 | **Alert level badge**      | Coloured alert dot (e.g. 🟢 Green) on each assistant message showing CEDD classification at that point |
 | **Demo autopilot**         | "Play Demo" button auto-plays the Félix/Alex scenario (9 messages). Judges watch drift unfold live |
 | **About CEDD panel**       | Collapsible explainer: what CEDD does, how it works, what the dashboard shows. Bilingual |
@@ -274,7 +275,7 @@ Two-column interface with real-time updates after each message.
 | **Feature importance**     | Collapsible Plotly horizontal bar chart: top 5 features by composite score (model importance × scaled value), 6 colour categories. Visible at Yellow+ including safety overrides |
 | **Level history**          | Plotly line chart: alert level history for the current session             |
 | **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
-| **LLM selector**           | 4 buttons to choose/force the conversational model                         |
+| **LLM selector**           | 5 buttons to choose/force the conversational model                         |
 | **Active system prompt**   | Description of the current mode + expander showing the full prompt         |
 | **Session stats**          | Counters: messages, exchanges, alert peak                                  |
 
@@ -340,7 +341,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 
 **Prerequisites:**
 - Python 3.9+
-- At least one LLM API key (Groq, Gemini, or Anthropic)
+- At least one LLM API key (Cohere, Groq, Gemini, or Anthropic)
 
 ```bash
 # 1. Clone the repository
@@ -355,9 +356,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Configure LLM API keys (at least one required for live chat)
-export GROQ_API_KEY="gsk_..."          # Primary: Llama 3.3 70B (fastest)
-export GEMINI_API_KEY="AI..."          # Secondary: Gemini 2.5 Flash
-export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiary: Claude Haiku + data generation
+export COHERE_API_KEY="..."            # Primary: Cohere Command A (default)
+export GROQ_API_KEY="gsk_..."          # Secondary: Llama 3.3 70B via Groq (fastest)
+export GEMINI_API_KEY="AI..."          # Tertiary: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Quaternary: Claude Haiku + data generation
 
 # 5. Train the model
 python train.py
@@ -365,10 +367,6 @@ python train.py
 # 6. Launch the interface
 streamlit run app.py
 ```
-```powershell
-# Windows OS only : see setup-cedd-for-win.ps1
-```
-
 ---
 
 ### Usage
@@ -621,8 +619,8 @@ La detection repose sur une approche hybride :
              | niveau 0-3 + confiance + features dominantes
              v
 +------------------------+        +--------------------------+
-|  Response Modulator    |------->|  LLM Groq / Gemini /     |
-|  (prompt adaptatif)    |        |  Claude / sans llm       |
+|  Response Modulator    |------->|  LLM Cohere / Groq /     |
+|  (prompt adaptatif)    |        |  Gemini / Claude / sans  |
 |  Prompt FR ou EN       |        +--------------------------+
 +------------------------+
              |
@@ -727,7 +725,7 @@ Quatre niveaux de prompts systeme distincts, disponibles en **francais et en ang
 4. Encouragement a se connecter
 5. Presence continue
 
-Hierarchie LLM : `groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
+Hierarchie LLM : `cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 
@@ -789,9 +787,10 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Configurer les cles API LLM (au moins une requise pour le chat)
-export GROQ_API_KEY="gsk_..."          # Primaire : Llama 3.3 70B (le plus rapide)
-export GEMINI_API_KEY="AI..."          # Secondaire : Gemini 2.5 Flash
-export ANTHROPIC_API_KEY="sk-ant-..."  # Tertiaire : Claude Haiku + generation de donnees
+export COHERE_API_KEY="..."            # Primaire : Cohere Command A (par defaut)
+export GROQ_API_KEY="gsk_..."          # Secondaire : Llama 3.3 70B via Groq (le plus rapide)
+export GEMINI_API_KEY="AI..."          # Tertiaire : Gemini 2.5 Flash
+export ANTHROPIC_API_KEY="sk-ant-..."  # Quaternaire : Claude Haiku + generation de donnees
 
 # 5. Entrainer le modele
 python train.py
@@ -799,11 +798,6 @@ python train.py
 # 6. Lancer l'interface
 streamlit run app.py
 ```
-
-```powershell
-# Windows OS uniquement : voir setup-cedd-for-win.ps1
-```
-
 ---
 
 ### Utilisation
