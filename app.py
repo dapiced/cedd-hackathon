@@ -114,10 +114,17 @@ def get_theme_css(theme: str) -> str:
     }}
     [data-testid="stExpander"] {{
         background-color: {t['bg_card']} !important;
-        border-color: {t['border']} !important;
+        border: 1px solid {t['border']} !important;
+    }}
+    [data-testid="stExpander"] details {{
+        border: 1px solid {t['border']} !important;
+    }}
+    [data-testid="stExpander"] summary {{
+        border: none !important;
     }}
     [data-testid="stExpanderDetails"] {{
         background-color: {t['bg_card']} !important;
+        border-color: {t['border']} !important;
     }}
     [data-testid="stExpander"] [data-testid="stIconMaterial"] {{
         color: {t['text_main']} !important;
@@ -180,6 +187,14 @@ def get_theme_css(theme: str) -> str:
     .chat-bubble-assistant {{
         background-color: {t['chat_bot']} !important;
         color: {t['text_main']} !important;
+    }}
+    .chat-bubble-counselor {{
+        background: linear-gradient(135deg, #1a5276, #2471a3) !important;
+        color: #ffffff !important;
+        border: 1px solid #2980b9 !important;
+    }}
+    .chat-bubble-counselor .llm-badge {{
+        color: #aed6f1 !important;
     }}
     .chat-container {{
         background: {t['bg_chat']} !important;
@@ -686,10 +701,9 @@ def render_chat(S: dict, theme: str = "light", messages: list = None):
                     src_name = LLM_DISPLAY_NAMES.get(source, source)
                     bubble += f'<span class="llm-badge" style="color:{src_color};">{src_emoji} {src_name}</span>'
                 if is_counselor:
-                    # Blue counselor bubble with avatar
+                    # Blue counselor bubble with avatar / Bulle bleue d'intervenant avec avatar
                     msgs_html += (
-                        f'<div class="chat-bubble-assistant" style="background:linear-gradient(135deg,#1a5276,#2471a3);'
-                        f'color:#fff;border:1px solid #2980b9;">'
+                        f'<div class="chat-bubble-assistant chat-bubble-counselor">'
                         f'<span style="font-size:1.1rem;margin-right:6px;">🧑‍⚕️</span>{bubble}</div>'
                     )
                 else:
@@ -1145,7 +1159,26 @@ def main():
     col_title, col_profile, col_lang, col_theme, col_reset = st.columns([3, 1.5, 1, 1, 1])
     with col_title:
         st.markdown(f"# {S['app_title']}")
-        st.caption(S["app_subtitle"])
+        # Team badge: shield with "404" = "harm not found" / Badge d'équipe : bouclier "404"
+        team_badge = (
+            '<span style="display:inline-flex;align-items:center;gap:4px;'
+            'background:linear-gradient(135deg,#1a5276,#2ecc71);color:#fff;'
+            'padding:2px 8px 2px 6px;border-radius:10px;font-size:0.7rem;font-weight:700;'
+            'letter-spacing:0.3px;vertical-align:middle;margin-left:4px;">'
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;">'
+            '<path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7L12 2z" '
+            'fill="#2ecc71" stroke="#fff" stroke-width="1.5"/>'
+            '<text x="12" y="15" text-anchor="middle" fill="#fff" '
+            'font-size="8" font-weight="bold" font-family="monospace">404</text>'
+            '</svg>'
+            '404HarmNotFound</span>'
+        )
+        st.markdown(
+            f'<p style="font-size:0.85rem;color:rgba(128,128,128,0.8);margin-top:-10px;">'
+            f'{S["app_subtitle"].rsplit("404HarmNotFound", 1)[0]}{team_badge}</p>',
+            unsafe_allow_html=True,
+        )
 
     with col_profile:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1639,7 +1672,14 @@ def main():
 
         # System prompt expander / Affichage du prompt
         with st.expander(S["prompt_expander"]):
-            st.code(get_system_prompt(level, lang=lang, handoff_step=st.session_state.handoff_step), language=None)
+            prompt_text = get_system_prompt(level, lang=lang, handoff_step=st.session_state.handoff_step)
+            st.markdown(
+                f'<div style="white-space:pre-wrap;word-wrap:break-word;font-size:0.85rem;'
+                f'line-height:1.5;padding:10px 12px;border-radius:6px;'
+                f'background:{THEMES[theme]["bg_input"]};color:{THEMES[theme]["text_main"]};">'
+                f'{prompt_text.replace("<", "&lt;").replace(">", "&gt;")}</div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
 

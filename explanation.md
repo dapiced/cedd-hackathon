@@ -399,7 +399,7 @@ def load_tracker(): ...
 
 ### Layout
 
-- **Header row** — Title + subtitle ("Team 404HarmNotFound"), profile selector (5 demo users), language toggle, theme toggle, reset button
+- **Header row** — Title + subtitle with inline team badge (SVG shield + gradient pill for "404HarmNotFound"), profile selector (5 demo users), language toggle, theme toggle, reset button
 - `col_chat (60%)` — Welcome card (empty state) or chat bubbles with timestamps, LLM source badges, and alert level badges + input form
 - `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
 
@@ -449,7 +449,7 @@ def load_tracker(): ...
 
 ### Themes
 
-Light and dark themes via CSS injection. `THEMES` dictionary defines colors for every UI element. `get_theme_css()` generates CSS, injected via `st.markdown(css, unsafe_allow_html=True)`.
+Light and dark themes via CSS injection. `THEMES` dictionary defines colors for every UI element. `get_theme_css()` generates CSS, injected via `st.markdown(css, unsafe_allow_html=True)`. All `st.expander` boxes (feature radar, system prompt, detected signals) use theme-matching borders via CSS targeting `[data-testid="stExpander"]` and its `details` child. The system prompt display uses `st.markdown()` with `white-space:pre-wrap` for proper word wrapping (not `st.code()` which truncates long prompts). Counselor bubbles use a dedicated `.chat-bubble-counselor` CSS class with `!important` overrides to ensure white text on the blue gradient background.
 
 ### Visualizations (Plotly)
 
