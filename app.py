@@ -217,15 +217,17 @@ def get_theme_css(theme: str) -> str:
 """
 
 LLM_SOURCE_INDICATOR = {
+    "cohere":            ("🔵", "#39594d"),
     "groq":              ("🟠", "#f97316"),
     "gemini-flash":      ("💎", "#4285f4"),
     "claude-haiku":      ("🟣", "#7c3aed"),
     "fallback-statique": ("⚠️", "#f59e0b"),
 }
 LLM_DISPLAY_NAMES = {
-    "groq": "Groq Llama 3.3 70B",
-    "gemini-flash": "Gemini 2.5 Flash",
-    "claude-haiku": "Claude Haiku",
+    "cohere": "Cohere",
+    "groq": "Groq",
+    "gemini-flash": "Gemini",
+    "claude-haiku": "Claude",
 }
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 DEMO_USERS = ["Shuchita", "Priyanka", "Amanda", "Dominic", "Guest"]
@@ -340,7 +342,7 @@ STRINGS = {
         "rec_attention":    "Attention soutenue recommandée",
         "rec_consultation": "Consultation professionnelle suggérée",
         "rec_intervention": "Intervention prioritaire recommandée",
-        "llm_fallback":     "Sans LLM",
+        "llm_fallback":     "sans LLM",
         "handoff_title":      "Transfert accompagné",
         "handoff_step_label": "Étape {step}/5 : <b>{desc}</b>",
         "withdrawal_banner":  "Bon retour. Ça fait un moment — comment tu te sens ?",
@@ -411,7 +413,7 @@ STRINGS = {
         "rec_attention":    "Sustained attention recommended",
         "rec_consultation": "Professional consultation suggested",
         "rec_intervention": "Priority intervention recommended",
-        "llm_fallback":     "Without LLM",
+        "llm_fallback":     "no LLM",
         "handoff_title":      "Warm Handoff",
         "handoff_step_label": "Step {step}/5: <b>{desc}</b>",
         "withdrawal_banner":  "Welcome back. It's been a while — how are you feeling?",
@@ -582,7 +584,7 @@ def init_state():
             "level": 0, "label": "green", "confidence": 0.0,
             "dominant_features": [], "probabilities": {},
         },
-        "selected_llm":    "groq",
+        "selected_llm":    "cohere",
         "last_llm_source": None,
         "input_key":       0,
         "user_id":         "Guest",
@@ -1438,7 +1440,7 @@ def main():
 
         # LLM selector / Sélecteur LLM
         st.markdown(S["llm_header"])
-        llm_cols = st.columns(4)
+        llm_cols = st.columns(5)
         for col, (src, (emoji, _)) in zip(llm_cols, LLM_SOURCE_INDICATOR.items()):
             is_selected = st.session_state.selected_llm == src
             btn_label = S["llm_fallback"] if src == "fallback-statique" else LLM_DISPLAY_NAMES.get(src, src)

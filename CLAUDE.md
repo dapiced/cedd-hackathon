@@ -185,7 +185,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ### Response Modulator (`cedd/response_modulator.py`)
 
 - Swaps LLM system prompt based on alert level (4 distinct prompts, FR and EN)
-- LLM fallback chain: Groq API → Gemini API → Claude API → static emergency text
+- LLM fallback chain: Cohere API → Groq API → Gemini API → Claude API → static emergency text
 - Orange/Red prompts include Kids Help Phone resources
 
 ### Session Tracker (`cedd/session_tracker.py`)
@@ -290,7 +290,7 @@ python train.py
 #    - 1-800-668-6868
 #    - Text 686868
 #    - 911 for immediate danger
-# 3. Test LLM fallback chain: Groq → Gemini → Claude → static text
+# 3. Test LLM fallback chain: Cohere → Groq → Gemini → Claude → static text
 ```
 
 ### After modifying `generate_synthetic_data.py` or training data:
@@ -384,7 +384,7 @@ EmoAgent is the closest academic reference. Key differences:
 | Clinical tools | 4-level alert system + 6-gate safety logic | PHQ-9, PDI, PANSS (validated) |
 | Cultural sensitivity | Somatization, identity conflict, coherence features | None |
 
-**Our pitch:** "EmoAgent needs 4 GPT-4o calls per message. CEDD detects in ~0ms with 67 features (lexical + multilingual embeddings + behavioral coherence) and GradientBoosting, and only calls the LLM to modulate the response. It's the difference between an IDS that deep-inspects all traffic vs a lightweight edge firewall — and ours works in both French and English."
+**Our pitch:** "EmoAgent needs 4 GPT-4o calls per message. CEDD detects in ~0ms with 67 features (lexical + multilingual embeddings + behavioral coherence) and GradientBoosting, and only calls the LLM to modulate the response. 5-model fallback chain (Cohere → Groq → Gemini → Claude → static) ensures availability. It's the difference between an IDS that deep-inspects all traffic vs a lightweight edge firewall — and ours works in both French and English."
 
 **What to borrow from EmoAgent:**
 - EmoEval-style virtual patients for adversarial testing (Track 1)
@@ -529,18 +529,20 @@ python train.py
 python simulate_history.py          # 4 user profiles × 7 sessions each
 
 # Configure LLM API keys (at least one required for live chat)
-export GROQ_API_KEY=your_key        # Primary LLM: Llama 3.3 70B (fastest)
-export GEMINI_API_KEY=your_key      # Secondary LLM: Gemini 2.5 Flash
-export ANTHROPIC_API_KEY=your_key   # Tertiary LLM: Claude Haiku + data generation
+export COHERE_API_KEY=your_key      # Primary LLM: Cohere Command A (default)
+export GROQ_API_KEY=your_key        # Secondary LLM: Llama 3.3 70B via Groq (fastest)
+export GEMINI_API_KEY=your_key      # Tertiary LLM: Gemini 2.5 Flash
+export ANTHROPIC_API_KEY=your_key   # Quaternary LLM: Claude Haiku + data generation
 
 # Run the app
 streamlit run app.py
 ```
 
 **Environment variables:**
-- `GROQ_API_KEY` — Groq API (primary LLM: Llama 3.3 70B Versatile, fastest inference)
-- `GEMINI_API_KEY` — Google Gemini API (secondary LLM: Gemini 2.5 Flash)
-- `ANTHROPIC_API_KEY` — Claude API (tertiary LLM: Claude Haiku + required for data generation)
+- `COHERE_API_KEY` — Cohere API (primary LLM: Command A, default)
+- `GROQ_API_KEY` — Groq API (secondary LLM: Llama 3.3 70B Versatile, fastest inference)
+- `GEMINI_API_KEY` — Google Gemini API (tertiary LLM: Gemini 2.5 Flash)
+- `ANTHROPIC_API_KEY` — Claude API (quaternary LLM: Claude Haiku + required for data generation)
 
 ---
 
@@ -549,9 +551,10 @@ streamlit run app.py
 - `streamlit` — web interface
 - `scikit-learn` — ML pipeline (GradientBoosting, StandardScaler, cross-validation)
 - `numpy` — numerical operations
-- `groq` — Groq API client (primary LLM: Llama 3.3 70B Versatile)
-- `google-generativeai` — Google Gemini API client (secondary LLM: Gemini 2.5 Flash)
-- `anthropic` — Claude API client (tertiary LLM: Claude Haiku)
+- `cohere` — Cohere API client (primary LLM: Command A)
+- `groq` — Groq API client (secondary LLM: Llama 3.3 70B Versatile)
+- `google-generativeai` — Google Gemini API client (tertiary LLM: Gemini 2.5 Flash)
+- `anthropic` — Claude API client (quaternary LLM: Claude Haiku)
 - `joblib` — model serialization
 - `sqlite3` — session tracking (Python stdlib)
 - `sentence-transformers` — multilingual sentence embeddings (`paraphrase-multilingual-MiniLM-L12-v2`)
@@ -565,7 +568,7 @@ streamlit run app.py
 - **Print output**: bilingual during training
 - **Variable names**: English
 - **Lexicons**: bilingual dictionaries in `feature_extractor.py`
-- **Error handling**: LLM fallback chain (Groq → Gemini → Claude → static text)
+- **Error handling**: LLM fallback chain (Cohere → Groq → Gemini → Claude → static text)
 - **Git workflow**: Feature branches, PRs reviewed by at least one teammate, main branch protected
 - **No secrets in code**: API keys via environment variables only
 
@@ -617,4 +620,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 13, 2026 — UI polish + compare mode + radar: welcome card, team branding, timestamps, badges, demo, about, export, toast, compare, feature radar*
+*Last updated: March 14, 2026 — Added Cohere Command A as primary LLM, reordered fallback chain: Cohere → Groq → Gemini → Claude → static text*
