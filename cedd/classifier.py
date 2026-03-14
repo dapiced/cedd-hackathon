@@ -9,6 +9,7 @@ Utilise un GradientBoostingClassifier sklearn.
 """
 
 import os
+import re
 import numpy as np
 import joblib
 from sklearn.ensemble import GradientBoostingClassifier
@@ -95,6 +96,27 @@ _FEATURE_DISPLAY_NAMES = {
     "fr": _FEATURE_DISPLAY_NAMES_FR,
     "en": _FEATURE_DISPLAY_NAMES_EN,
 }
+
+
+def _keyword_match(keyword, text):
+    """Match keyword in text. Uses word boundaries for single words,
+    substring matching for multi-word phrases.
+    Special handling for 'personne' to avoid French article false positives
+    ('une personne' = a person ≠ 'personne ne m'écoute' = nobody listens).
+
+    Correspondance de mot-clé dans le texte. Utilise les frontières de mots
+    pour les mots simples, correspondance de sous-chaîne pour les phrases.
+    """
+    if ' ' in keyword:
+        return keyword in text
+    if keyword == "personne":
+        # Match "personne" as "nobody" — skip when preceded by French article
+        # Correspondre "personne" comme "personne/nobody" — ignorer après article
+        return bool(re.search(
+            r'(?<!une )(?<!la )(?<!cette )(?<!chaque )(?<!toute )\bpersonne\b',
+            text
+        ))
+    return bool(re.search(r'\b' + re.escape(keyword) + r'\b', text))
 
 
 class CEDDClassifier:
@@ -240,9 +262,9 @@ class CEDDClassifier:
                 "hurting", "sad", "feel bad", "things are bad", "scared", "anxious",
             ]
 
-            crisis_score = sum(1 for m in crisis_words if m in text)
-            critical_score = sum(1 for m in critical_words if m in text)
-            distress_score = sum(1 for m in distress_words if m in text)
+            crisis_score = sum(1 for m in crisis_words if _keyword_match(m, text))
+            critical_score = sum(1 for m in critical_words if _keyword_match(m, text))
+            distress_score = sum(1 for m in distress_words if _keyword_match(m, text))
 
             if crisis_score >= 1:
                 label_feat = "mot de crise détecté" if lang == "fr" else "crisis word detected"
@@ -320,9 +342,9 @@ class CEDDClassifier:
             "no one", "never better", "stop everything",
         ]
 
-        crisis_score = sum(1 for m in crisis_words if m in full_text)
-        distress_score = sum(1 for m in distress_words if m in full_text)
-        critical_score = sum(1 for m in critical_words if m in full_text)
+        crisis_score = sum(1 for m in crisis_words if _keyword_match(m, full_text))
+        distress_score = sum(1 for m in distress_words if _keyword_match(m, full_text))
+        critical_score = sum(1 for m in critical_words if _keyword_match(m, full_text))
 
         if crisis_score >= 1:
             minimum_level = 3  # minimum Rouge if crisis word detected

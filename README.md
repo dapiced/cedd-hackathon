@@ -407,16 +407,16 @@ Results on the 600-conversation bilingual dataset (480 standard + 120 adversaria
 
 | Metric                    | Value                         |
 |---------------------------|-------------------------------|
-| CV accuracy (k=4)         | **90.5% +/- 1.5%**           |
+| CV accuracy (k=4)         | **90.0% +/- 1.6%**           |
 | Train accuracy            | 100% (expected overfitting)   |
 | Number of features        | **67** (10x6 + 4 emb + 3 coh)|
 | Training conversations    | **600** (480 standard + 120 adversarial) |
 | Sample:feature ratio      | **9.0:1** (improved from 7.2) |
-| Top feature               | `word_count_max` (0.189)      |
-| 2nd feature               | `word_count_slope` (0.160)    |
-| 3rd feature               | `word_count_last` (0.137)     |
-| 4th feature               | `finality_score_mean` (0.097) |
-| Adversarial tests         | **30/30 passing**             |
+| Top feature               | `word_count_max` (0.192)      |
+| 2nd feature               | `word_count_slope` (0.179)    |
+| 3rd feature               | `word_count_last` (0.138)     |
+| 4th feature               | `length_delta_mean` (0.075)   |
+| Adversarial tests         | **36/36 passing**             |
 | Critical misses           | **0**                         |
 | Languages                 | French + English (bilingual)  |
 
@@ -430,7 +430,8 @@ Results on the 600-conversation bilingual dataset (480 standard + 120 adversaria
 | March 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
 | March 12 | +Identity + Somatization + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
 | March 12 | Data expansion to 480 convos (60/class) | 91.7% +/- 4.4% | 13/13 |
-| March 13 | Adversarial augmentation to 600 convos (6 new archetypes) | **90.5% +/- 1.5%** | **30/30** |
+| March 13 | Adversarial augmentation to 600 convos (6 new archetypes) | 90.5% +/- 1.5% | 30/30 |
+| March 14 | Word-boundary fix + 6 new tests (regex `\b`, context-aware "personne", feminine forms) | **90.0% +/- 1.6%** | **36/36** |
 
 ---
 
@@ -454,7 +455,7 @@ cedd-hackathon/
 |
 +-- tests/                          # Adversarial test suite (Track 1)
 |   +-- adversarial_suite.py        # CLI test runner (--verbose, --category, --export)
-|   +-- test_cases_adversarial.json # 30 adversarial test cases across 16 categories (FR + EN)
+|   +-- test_cases_adversarial.json # 36 adversarial test cases across 20 categories (FR + EN)
 |   +-- results/
 |       +-- baseline_v1.json        # Original: 7/10 passed
 |       +-- post_data_expansion.json# 320 convos: 9/10 passed
@@ -462,7 +463,8 @@ cedd-hackathon/
 |       +-- post_negation_embeddings.json  # +Negation +Embeddings
 |       +-- post_features_456.json  # 67 features: 13/13 passed, 0 critical misses
 |       +-- post_480_convos.json    # 480 convos: 13/13 passed
-|       +-- post_600_convos.json    # Current: 600 convos, 30/30 passed
+|       +-- post_600_convos.json    # 600 convos: 30/30 passed
+|       +-- post_word_boundary_fix.json  # Current: word-boundary fix, 36/36 passed
 |
 +-- data/
 |   +-- synthetic_conversations.json  # 600 labeled conversations (480 standard + 120 adversarial, FR + EN)
@@ -484,7 +486,7 @@ cedd-hackathon/
 
 The `tests/` directory provides a systematic red-teaming suite to validate CEDD robustness against real-world edge cases.
 
-#### Test categories (30 tests across 16 categories)
+#### Test categories (36 tests across 20 categories)
 
 | Category | Description | Count |
 |---|---|---|
@@ -504,6 +506,12 @@ The `tests/` directory provides a systematic red-teaming suite to validate CEDD 
 | `rapid_recovery_manipulation` | Deep crisis then "I feel better" -- safety floor must persist | 2 |
 | `cultural_false_positive` | "Mort de rire", "killed it", "personne" in neutral contexts | 3 |
 | `neurodivergent_pattern` | Literal/flat communication, ADHD bursts, topic jumps | 3 |
+| `emoji_only` | Very short messages with ellipses and emoji | 1 |
+| `repeated_word` | Repeated words and brief frustration messages | 1 |
+| `short_recovery` | Brief crisis then rapid recovery (short conversation) | 1 |
+| `long_message` | Single long venting message without crisis words | 1 |
+| `neutral_personne_fr` | Neutral use of "personne" (= person) in French | 1 |
+| `emoji_crisis` | Crisis words mixed with emoji -- **must always be Red** | 1 |
 
 #### Running the suite
 
@@ -529,7 +537,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | `1` | Some tests failed (non-critical) |
 | `2` | **Critical miss** -- crisis predicted as Green/Yellow (safety regression, blocks merge) |
 
-> **Current (v8):** 30/30 passed, 0 critical misses -- see `tests/results/post_600_convos.json`
+> **Current (v9):** 36/36 passed, 0 critical misses -- see `tests/results/post_word_boundary_fix.json`
 > **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
 
 ---
@@ -545,6 +553,7 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | Withdrawal detection is threshold-based (>24h), not intra-session   | Track intra-session message timing and progressive disengagement    |
 | Somatization relies on word co-occurrence, not clinical reasoning   | Add validated somatization scales as complementary signal            |
 | LLM not fine-tuned for crisis contexts                              | Fine-tune on certified counsellor conversations                     |
+| Word-boundary matching improved but not perfect (idioms like "mort de rire") | Context-aware phrase exclusion or idiom detection                    |
 
 ---
 
@@ -840,16 +849,16 @@ Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adve
 
 | Metrique                  | Valeur                         |
 |---------------------------|--------------------------------|
-| CV accuracy (k=4)         | **90.5% +/- 1.5%**            |
+| CV accuracy (k=4)         | **90.0% +/- 1.6%**            |
 | Train accuracy            | 100% (overfitting attendu)     |
 | Nombre de features        | **67** (10x6 + 4 emb + 3 coh) |
 | Conversations             | **600** (480 standard + 120 adversariaux) |
 | Ratio echantillons:features | **9.0:1** (ameliore de 7.2)  |
-| Top feature               | `word_count_max` (0.189)       |
-| 2e feature                | `word_count_slope` (0.160)     |
-| 3e feature                | `word_count_last` (0.137)      |
-| 4e feature                | `finality_score_mean` (0.097)  |
-| Tests adversariaux        | **30/30 reussis**              |
+| Top feature               | `word_count_max` (0.192)       |
+| 2e feature                | `word_count_slope` (0.179)     |
+| 3e feature                | `word_count_last` (0.138)      |
+| 4e feature                | `length_delta_mean` (0.075)    |
+| Tests adversariaux        | **36/36 reussis**              |
 | Crises manquees           | **0**                          |
 
 #### Historique des metriques
@@ -862,7 +871,8 @@ Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adve
 | Mars 12 | +Negation + Embeddings (52 features) | ~92.2% +/- 1.8% | 9/10 |
 | Mars 12 | +Identite + Somatisation + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
 | Mars 12 | Expansion donnees a 480 convos (60/classe) | 91.7% +/- 4.4% | 13/13 |
-| Mars 13 | Augmentation adversariale a 600 convos (6 nouveaux archetypes) | **90.5% +/- 1.5%** | **30/30** |
+| Mars 13 | Augmentation adversariale a 600 convos (6 nouveaux archetypes) | 90.5% +/- 1.5% | 30/30 |
+| Mars 14 | Correctif frontieres de mots + 6 nouveaux tests (regex `\b`, "personne" contextuel, formes feminines) | **90.0% +/- 1.6%** | **36/36** |
 
 ---
 
@@ -886,7 +896,7 @@ cedd-hackathon/
 |
 +-- tests/                          # Suite de tests adversariaux (Track 1)
 |   +-- adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
-|   +-- test_cases_adversarial.json # 30 cas de test adversariaux, 16 categories (FR + EN)
+|   +-- test_cases_adversarial.json # 36 cas de test adversariaux, 20 categories (FR + EN)
 |   +-- results/                    # Historique des resultats
 |
 +-- data/
@@ -907,7 +917,7 @@ cedd-hackathon/
 
 Le repertoire `tests/` fournit une suite de tests systematiques pour valider la robustesse de CEDD face a des cas reels difficiles.
 
-#### Categories de tests (30 tests, 16 categories)
+#### Categories de tests (36 tests, 20 categories)
 
 | Categorie | Description | Nb |
 |---|---|---|
@@ -927,6 +937,12 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `rapid_recovery_manipulation` | Crise profonde puis "ca va mieux" -- le plancher doit persister | 2 |
 | `cultural_false_positive` | "Mort de rire", "killed it", "personne" en contexte neutre | 3 |
 | `neurodivergent_pattern` | Communication litterale/plate, explosions TDAH, sauts de sujet | 3 |
+| `emoji_only` | Messages tres courts avec ellipses et emoji | 1 |
+| `repeated_word` | Mots repetes et messages de frustration brefs | 1 |
+| `short_recovery` | Crise breve puis recuperation rapide (conversation courte) | 1 |
+| `long_message` | Long message de ventilation sans mots de crise | 1 |
+| `neutral_personne_fr` | Utilisation neutre de "personne" (= quelqu'un) en francais | 1 |
+| `emoji_crisis` | Mots de crise melanges avec emoji -- **doit etre Rouge** | 1 |
 
 #### Codes de sortie
 
@@ -936,7 +952,7 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `1` | Certains tests echoues (non critique) |
 | `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
-> **Actuel (v8) :** 30/30 reussis, 0 crise manquee -- voir `tests/results/post_600_convos.json`
+> **Actuel (v9) :** 36/36 reussis, 0 crise manquee -- voir `tests/results/post_word_boundary_fix.json`
 
 ---
 
@@ -949,6 +965,7 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | Detection identitaire basee sur des phrases, pas le contexte       | Fine-tuner les embeddings sur un corpus detresse identitaire     |
 | Detection d'abandon basee sur seuil (>24h), pas intra-session     | Suivre le delai intra-session et le desengagement progressif     |
 | LLM non fine-tune pour le contexte de crise                       | Fine-tuning sur conversations d'intervenants certifies           |
+| Correspondance par frontieres de mots amelioree mais pas parfaite (idiomes comme "mort de rire") | Exclusion contextuelle de phrases ou detection d'idiomes |
 
 ---
 
