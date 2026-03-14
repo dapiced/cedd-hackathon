@@ -476,8 +476,12 @@ cedd-hackathon/
 |   +-- cedd_model.joblib            # Trained model (created by train.py)
 |
 +-- demo/
-    +-- demo_scenario.md             # FR demo: Felix, CEGEP, Green->Yellow->Orange
-    +-- demo_scenario_en.md          # EN demo: Alex, university, Green->Yellow->Orange
+|   +-- demo_scenario.md             # FR demo: Felix, CEGEP, Green->Yellow->Orange
+|   +-- demo_scenario_en.md          # EN demo: Alex, university, Green->Yellow->Orange
+|
++-- report.md                        # Formal hackathon report (required deliverable)
++-- generate_slides.py               # Generates presentation .pptx (12 slides)
++-- presentation_404HarmNotFound.pptx # Final presentation deck for March 23 finals
 ```
 
 ---
