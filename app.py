@@ -252,7 +252,27 @@ LLM_DISPLAY_NAMES = {
     "counselor": "Alex — KHP",
 }
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
-DEMO_USERS = ["Shuchita", "Priyanka", "Amanda", "Dominic", "Guest"]
+DEMO_USERS = {
+    "fr": [
+        "Shuchita (stable vert)",
+        "Priyanka (amélioration)",
+        "Amanda (fluctuant)",
+        "Dominic (escalade)",
+        "Guest (nouveau)",
+    ],
+    "en": [
+        "Shuchita (stable green)",
+        "Priyanka (improving)",
+        "Amanda (fluctuating)",
+        "Dominic (escalating)",
+        "Guest (new)",
+    ],
+}
+
+
+def _user_id_from_display(display_name):
+    """Extract user_id from display name: 'Shuchita (stable green)' → 'Shuchita'"""
+    return display_name.split(" (")[0]
 
 # ─── Demo autopilot scenarios / Scénarios de démo automatisés ─────────────────
 DEMO_SCENARIOS = {
@@ -328,6 +348,8 @@ STRINGS = {
         "welcome_title":       "Bienvenue sur CEDD",
         "welcome_text":        "Un système de sécurité en temps réel qui surveille la trajectoire émotionnelle de ta conversation — pas juste un message, mais l'évolution complète.",
         "welcome_cta":         "Écris ton premier message ci-dessous ⬇️",
+        "welcome_profiles":    "Essaie un profil de démo ↗️",
+        "welcome_profile_list": "🟢 Shuchita — stable · 🟡 Priyanka — amélioration · 🔀 Amanda — fluctuant · 🔴 Dominic — escalade · ✨ Guest — nouveau",
         "input_placeholder":   "Écris ton message ici et appuie sur Entrée",
         "send_btn":            "Envoyer ➤",
         "dashboard_header":    "### 📊 Dashboard CEDD",
@@ -406,6 +428,8 @@ STRINGS = {
         "welcome_title":       "Welcome to CEDD",
         "welcome_text":        "A real-time safety layer that monitors the emotional trajectory of your conversation — not just one message, but the full evolution.",
         "welcome_cta":         "Type your first message below ⬇️",
+        "welcome_profiles":    "Try a demo profile ↗️",
+        "welcome_profile_list": "🟢 Shuchita — stable · 🟡 Priyanka — improving · 🔀 Amanda — fluctuating · 🔴 Dominic — escalating · ✨ Guest — new",
         "input_placeholder":   "Type your message here and press Enter",
         "send_btn":            "Send ➤",
         "dashboard_header":    "### 📊 CEDD Dashboard",
@@ -675,6 +699,11 @@ def render_chat(S: dict, theme: str = "light", messages: list = None):
             f'{S["welcome_text"]}</div>'
             f'<div style="font-size:0.8rem;color:{t["text_muted"]};opacity:0.7;">'
             f'{S["welcome_cta"]}</div>'
+            f'<hr style="border:none;border-top:1px solid {t["border"]};margin:14px 0 10px;">'
+            f'<div style="font-size:0.78rem;font-weight:600;color:{t["text_main"]};opacity:0.8;margin-bottom:4px;">'
+            f'{S["welcome_profiles"]}</div>'
+            f'<div style="font-size:0.72rem;color:{t["text_muted"]};opacity:0.7;line-height:1.6;">'
+            f'{S["welcome_profile_list"]}</div>'
             f'</div></div>'
         )
     else:
@@ -1182,14 +1211,17 @@ def main():
 
     with col_profile:
         st.markdown("<br>", unsafe_allow_html=True)
-        current_idx = DEMO_USERS.index(st.session_state.user_id) if st.session_state.user_id in DEMO_USERS else len(DEMO_USERS) - 1
-        selected_user = st.selectbox(
+        display_list = DEMO_USERS[lang]
+        bare_names = [_user_id_from_display(d) for d in display_list]
+        current_idx = bare_names.index(st.session_state.user_id) if st.session_state.user_id in bare_names else len(display_list) - 1
+        selected_display = st.selectbox(
             S["profile_label"],
-            DEMO_USERS,
+            display_list,
             index=current_idx,
             key="profile_selector",
             label_visibility="collapsed",
         )
+        selected_user = _user_id_from_display(selected_display)
         if selected_user != st.session_state.user_id:
             # End current session before switching / Clôturer la session avant de changer
             max_lvl = max((h["level"] for h in st.session_state.alert_history), default=0)
