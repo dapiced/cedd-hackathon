@@ -255,13 +255,13 @@ cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) ->
 
 Two-column interface with real-time updates after each message.
 
-**Profile selector** in the header: 5 demo profiles (Shuchita, Priyanka, Amanda, Dominic, Guest) with distinct longitudinal histories. Switching profiles ends the current session and loads the selected user's history.
+**Profile selector** in the header: 5 demo profiles with bilingual trajectory labels — e.g. "Dominic (escalating)" in EN, "Dominic (escalade)" in FR. Switching profiles ends the current session and loads the selected user's history.
 
 **Language toggle** in the header: switch between English and Francais at any time. The UI, system prompts, and LLM responses all switch to the selected language.
 
 | Component                  | Description                                                                |
 |----------------------------|----------------------------------------------------------------------------|
-| **Welcome card**           | Branded card with brain emoji, title, description and CTA when chat is empty |
+| **Welcome card**           | Branded card with brain emoji, title, description, CTA, and profile legend showing all 5 demo trajectories |
 | **Chat timestamps**        | HH:MM timestamp below each message bubble (right-aligned for user, left for assistant) |
 | **LLM source badge**       | Small coloured badge on each assistant bubble showing which LLM generated it (e.g. 🔵 Cohere) |
 | **Alert level badge**      | Coloured alert dot (e.g. 🟢 Green) on each assistant message showing CEDD classification at that point |
@@ -397,7 +397,7 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 python tests/adversarial_suite.py --verbose
 ```
 
-Opens at `http://localhost:8501`. Use the **profile selector** in the header to switch between demo users (Shuchita, Priyanka, Amanda, Dominic, Guest). Use the language toggle to switch languages. Click **Reset / Reinitialiser** to start a new monitoring session.
+Opens at `http://localhost:8501`. Use the **profile selector** in the header to switch between demo users — each shows its trajectory label (e.g. "Shuchita (stable green)", "Dominic (escalating)"). Labels switch language with the toggle. Click **Reset / Reinitialiser** to start a new monitoring session.
 
 ---
 
