@@ -21,6 +21,9 @@ from cedd.response_modulator import (
     get_level_description,
     get_system_prompt,
     get_handoff_description,
+    get_handoff_offer_message,
+    get_counselor_intro,
+    get_llm_response_as_counselor,
 )
 from cedd.session_tracker import SessionTracker
 
@@ -222,12 +225,16 @@ LLM_SOURCE_INDICATOR = {
     "gemini-flash":      ("💎", "#4285f4"),
     "claude-haiku":      ("🟣", "#7c3aed"),
     "fallback-statique": ("⚠️", "#f59e0b"),
+    "cedd-system":       ("🧠", "#2980b9"),
+    "counselor":         ("🧑‍⚕️", "#1a5276"),
 }
 LLM_DISPLAY_NAMES = {
     "cohere": "Cohere",
     "groq": "Groq",
     "gemini-flash": "Gemini",
     "claude-haiku": "Claude",
+    "cedd-system": "CEDD",
+    "counselor": "Alex — KHP",
 }
 LEVEL_EMOJIS = {0: "🟢", 1: "🟡", 2: "🟠", 3: "🔴"}
 DEMO_USERS = ["Shuchita", "Priyanka", "Amanda", "Dominic", "Guest"]
@@ -366,6 +373,11 @@ STRINGS = {
         "compare_left_sub":    "LLM brut — aucune instruction de sécurité",
         "compare_right_header":"### 🧠 Avec CEDD",
         "compare_right_sub":   "LLM guidé par les instructions CEDD adaptatives",
+        "handoff_offer_yes":   "Oui, connecte-moi",
+        "handoff_offer_no":    "Non merci",
+        "counselor_banner_name": "Alex — Jeunesse, J'écoute / Kids Help Phone",
+        "counselor_banner_sub":  "Conseiller·ère humain·e • En ligne maintenant",
+        "counselor_connecting":  "Connexion avec Alex en cours...",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -437,6 +449,11 @@ STRINGS = {
         "compare_left_sub":    "Raw LLM — no safety instructions",
         "compare_right_header":"### 🧠 With CEDD",
         "compare_right_sub":   "LLM guided by CEDD adaptive instructions",
+        "handoff_offer_yes":   "Yes, connect me",
+        "handoff_offer_no":    "No thank you",
+        "counselor_banner_name": "Alex — Jeunesse, J'écoute / Kids Help Phone",
+        "counselor_banner_sub":  "Human Counselor • Online now",
+        "counselor_connecting":  "Connecting you with Alex...",
     },
 }
 
@@ -597,6 +614,8 @@ def init_state():
         "demo_step":      0,        # Current demo message index (0-8)
         "compare_mode":   False,    # True = side-by-side compare mode
         "compare_messages": [],     # "Without CEDD" message list (left side)
+        "chat_mode":      "normal", # "normal" | "handoff_offered" | "connecting" | "human_mode"
+        "handoff_offered": False,   # prevents re-offering once offered
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -617,6 +636,8 @@ def reset_conversation():
     st.session_state.demo_step = 0
     st.session_state.compare_mode = False
     st.session_state.compare_messages = []
+    st.session_state.chat_mode = "normal"
+    st.session_state.handoff_offered = False
 
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
@@ -657,13 +678,22 @@ def render_chat(S: dict, theme: str = "light", messages: list = None):
                     msgs_html += f'<div class="chat-time-user" style="color:{t["text_muted"]};">{ts}</div>'
             else:
                 # Assistant bubble + optional LLM badge
+                is_counselor = msg.get("is_counselor", False)
                 bubble = content
                 source = msg.get("source")
                 if source and source in LLM_SOURCE_INDICATOR:
                     src_emoji, src_color = LLM_SOURCE_INDICATOR[source]
                     src_name = LLM_DISPLAY_NAMES.get(source, source)
                     bubble += f'<span class="llm-badge" style="color:{src_color};">{src_emoji} {src_name}</span>'
-                msgs_html += f'<div class="chat-bubble-assistant">{bubble}</div>'
+                if is_counselor:
+                    # Blue counselor bubble with avatar
+                    msgs_html += (
+                        f'<div class="chat-bubble-assistant" style="background:linear-gradient(135deg,#1a5276,#2471a3);'
+                        f'color:#fff;border:1px solid #2980b9;">'
+                        f'<span style="font-size:1.1rem;margin-right:6px;">🧑‍⚕️</span>{bubble}</div>'
+                    )
+                else:
+                    msgs_html += f'<div class="chat-bubble-assistant">{bubble}</div>'
                 # Timestamp + alert dot row
                 meta_parts = []
                 alert_lvl = msg.get("alert_level")
@@ -1249,6 +1279,21 @@ def main():
         if st.session_state.withdrawal_detected and not st.session_state.messages:
             st.info(S["withdrawal_banner"])
 
+        # Counselor banner / Bannière d'intervenant Alex
+        if st.session_state.chat_mode == "human_mode":
+            st.markdown(
+                f'<div style="background:linear-gradient(135deg,#1a5276,#2980b9);border-radius:12px;'
+                f'padding:12px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
+                f'<span style="font-size:1.4rem;">🟢</span>'
+                f'<div>'
+                f'<div style="color:#fff;font-weight:700;font-size:14px;">'
+                f'{S["counselor_banner_name"]}</div>'
+                f'<div style="color:#aed6f1;font-size:12px;">'
+                f'{S["counselor_banner_sub"]}</div>'
+                f'</div></div>',
+                unsafe_allow_html=True,
+            )
+
         # Compare mode: show two chat columns / Mode comparaison : deux colonnes de chat
         if st.session_state.compare_mode:
             cmp_left, cmp_right = st.columns(2, gap="small")
@@ -1263,126 +1308,218 @@ def main():
         else:
             render_chat(S, theme)
 
-        # Input form / Zone de saisie
-        with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
-            user_input = st.text_input(
-                S["input_placeholder"],
-                placeholder=S["input_placeholder"],
-                label_visibility="collapsed",
-            )
-            submitted = st.form_submit_button(S["send_btn"], use_container_width=True)
-
-        # Demo autopilot: inject next message / Démo automatique : injecter le prochain message
-        if st.session_state.demo_running:
-            scenario = DEMO_SCENARIOS[lang]
-            step = st.session_state.demo_step
-            if step < len(scenario):
-                user_msg = scenario[step]
-                submitted = True
-                user_input = user_msg
-                st.session_state.demo_step += 1
-                if st.session_state.demo_step >= len(scenario):
-                    st.session_state.demo_running = False
-
-        if submitted and user_input.strip():
-            user_msg = user_input.strip()
-
-            # Add user message / Ajouter le message utilisateur
-            now = datetime.now().strftime("%H:%M")
-            st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
-
-            # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
-            if st.session_state.compare_mode:
-                st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
-
-            # Track previous alert level for transition animation
-            # Suivre le niveau précédent pour l'animation de transition
-            prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
-
-            # Analyse with CEDD before generating the LLM response
-            # Analyser avec CEDD avant de générer la réponse
-            alert = clf.get_alert_level(st.session_state.messages, lang=lang)
-            st.session_state.current_alert = alert
-            st.session_state.alert_history.append(alert)
-
-            # Alert transition toast / Toast de transition d'alerte
-            if alert["level"] > prev_level:
-                st.session_state["_alert_toast"] = alert["level"]
-
-            # Log alert to cross-session tracker / Enregistrer dans le tracker
-            tracker.log_alert(
-                st.session_state.user_id,
-                st.session_state.session_id,
-                alert["level"],
-                alert["confidence"],
-                user_msg,
-            )
-
-            # Update last activity for withdrawal detection / MAJ activité pour détection d'abandon
-            tracker.update_last_activity(st.session_state.user_id, st.session_state.session_id)
-
-            # Warm handoff step management / Gestion des étapes de transfert accompagné
-            if alert["level"] == 3:
-                if st.session_state.handoff_step == 0:
-                    # First Red detection — start handoff at step 1
-                    # Première détection Rouge — démarrer le transfert à l'étape 1
-                    st.session_state.handoff_step = 1
-                elif st.session_state.handoff_step < 5:
-                    # Advance to next step / Avancer à l'étape suivante
-                    st.session_state.handoff_step += 1
-                # If already at step 5, stay at step 5 (continued presence)
-                # Si déjà à l'étape 5, rester à 5 (présence continue)
-
-                # Log handoff step / Enregistrer l'étape de transfert
-                tracker.log_handoff_step(
-                    st.session_state.user_id,
-                    st.session_state.session_id,
-                    st.session_state.handoff_step,
-                    alert["level"],
-                )
-            # If level drops below Red, keep handoff_step as-is (crisis may not be over)
-            # Si le niveau descend sous Rouge, garder handoff_step tel quel
-
-            # Generate assistant responses / Générer les réponses de l'assistant
-            with st.spinner("..."):
-                # Compare mode: generate "without CEDD" response first (always Green prompt)
-                # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
-                if st.session_state.compare_mode:
-                    plain_result = get_llm_response(
-                        st.session_state.compare_messages,
-                        0,
+        # ── Handoff offer buttons / Boutons de proposition de transfert ─────────
+        if st.session_state.chat_mode == "handoff_offered":
+            col_yes, col_no = st.columns(2)
+            if col_yes.button(
+                "💙 " + S["handoff_offer_yes"],
+                key="handoff_yes",
+                type="primary",
+                use_container_width=True,
+            ):
+                st.session_state.chat_mode = "connecting"
+                st.rerun()
+            if col_no.button(
+                S["handoff_offer_no"],
+                key="handoff_no",
+                use_container_width=True,
+            ):
+                st.session_state.chat_mode = "normal"
+                # Generate normal Red-level response for declined handoff
+                # Générer une réponse normale niveau Rouge si le transfert est refusé
+                with st.spinner("..."):
+                    result = get_llm_response(
+                        st.session_state.messages,
+                        3,
                         force_model=st.session_state.selected_llm,
                         lang=lang,
-                        handoff_step=0,
-                        system_prompt_override="",  # No instructions — raw LLM response
+                        handoff_step=st.session_state.handoff_step,
                     )
-                    if plain_result["content"]:
-                        st.session_state.compare_messages.append({
+                if result["content"]:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": result["content"],
+                        "timestamp": datetime.now().strftime("%H:%M"),
+                        "source": result["source"],
+                        "alert_level": 3,
+                    })
+                    st.session_state.last_llm_source = result["source"]
+                st.rerun()
+
+        # ── Connecting to counselor / Connexion à l'intervenant ───────────────
+        elif st.session_state.chat_mode == "connecting":
+            with st.spinner(S["counselor_connecting"]):
+                time.sleep(2)
+            intro = get_counselor_intro(lang)
+            st.session_state.messages.append({
+                "role": "assistant",
+                "content": intro,
+                "timestamp": datetime.now().strftime("%H:%M"),
+                "source": "counselor",
+                "alert_level": 3,
+                "is_counselor": True,
+            })
+            st.session_state.chat_mode = "human_mode"
+            st.rerun()
+
+        # ── Normal / Human mode input / Saisie normale ou mode intervenant ────
+        else:
+            # Input form / Zone de saisie
+            with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
+                user_input = st.text_input(
+                    S["input_placeholder"],
+                    placeholder=S["input_placeholder"],
+                    label_visibility="collapsed",
+                )
+                submitted = st.form_submit_button(S["send_btn"], use_container_width=True)
+
+            # Demo autopilot: inject next message / Démo automatique : injecter le prochain message
+            if st.session_state.demo_running:
+                scenario = DEMO_SCENARIOS[lang]
+                step = st.session_state.demo_step
+                if step < len(scenario):
+                    user_msg = scenario[step]
+                    submitted = True
+                    user_input = user_msg
+                    st.session_state.demo_step += 1
+                    if st.session_state.demo_step >= len(scenario):
+                        st.session_state.demo_running = False
+
+            if submitted and user_input.strip():
+                user_msg = user_input.strip()
+
+                # Add user message / Ajouter le message utilisateur
+                now = datetime.now().strftime("%H:%M")
+                st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+                # ── Human counselor mode: bypass CEDD, use Alex persona ───────
+                if st.session_state.chat_mode == "human_mode":
+                    with st.spinner("..."):
+                        result = get_llm_response_as_counselor(
+                            st.session_state.messages,
+                            lang=lang,
+                            force_model=st.session_state.selected_llm,
+                        )
+                    st.session_state.last_llm_source = result["source"]
+                    if result["content"]:
+                        st.session_state.messages.append({
                             "role": "assistant",
-                            "content": plain_result["content"],
+                            "content": result["content"],
                             "timestamp": datetime.now().strftime("%H:%M"),
+                            "source": "counselor",
+                            "alert_level": 3,
+                            "is_counselor": True,
+                        })
+                    st.rerun()
+
+                # ── Normal CEDD mode ──────────────────────────────────────────
+                else:
+                    # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
+                    if st.session_state.compare_mode:
+                        st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+                    # Track previous alert level for transition animation
+                    # Suivre le niveau précédent pour l'animation de transition
+                    prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
+
+                    # Analyse with CEDD before generating the LLM response
+                    # Analyser avec CEDD avant de générer la réponse
+                    alert = clf.get_alert_level(st.session_state.messages, lang=lang)
+                    st.session_state.current_alert = alert
+                    st.session_state.alert_history.append(alert)
+
+                    # Alert transition toast / Toast de transition d'alerte
+                    if alert["level"] > prev_level:
+                        st.session_state["_alert_toast"] = alert["level"]
+
+                    # Log alert to cross-session tracker / Enregistrer dans le tracker
+                    tracker.log_alert(
+                        st.session_state.user_id,
+                        st.session_state.session_id,
+                        alert["level"],
+                        alert["confidence"],
+                        user_msg,
+                    )
+
+                    # Update last activity for withdrawal detection / MAJ activité pour détection d'abandon
+                    tracker.update_last_activity(st.session_state.user_id, st.session_state.session_id)
+
+                    # Warm handoff step management / Gestion des étapes de transfert accompagné
+                    if alert["level"] == 3:
+                        if st.session_state.handoff_step == 0:
+                            # First Red detection — start handoff at step 1
+                            # Première détection Rouge — démarrer le transfert à l'étape 1
+                            st.session_state.handoff_step = 1
+                        elif st.session_state.handoff_step < 5:
+                            # Advance to next step / Avancer à l'étape suivante
+                            st.session_state.handoff_step += 1
+                        # If already at step 5, stay at step 5 (continued presence)
+                        # Si déjà à l'étape 5, rester à 5 (présence continue)
+
+                        # Log handoff step / Enregistrer l'étape de transfert
+                        tracker.log_handoff_step(
+                            st.session_state.user_id,
+                            st.session_state.session_id,
+                            st.session_state.handoff_step,
+                            alert["level"],
+                        )
+                    # If level drops below Red, keep handoff_step as-is (crisis may not be over)
+                    # Si le niveau descend sous Rouge, garder handoff_step tel quel
+
+                    # ── Counselor handoff offer at RED / Proposition de transfert au ROUGE ──
+                    if alert["level"] == 3 and not st.session_state.handoff_offered:
+                        st.session_state.chat_mode = "handoff_offered"
+                        st.session_state.handoff_offered = True
+                        offer_msg = get_handoff_offer_message(lang)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": offer_msg,
+                            "timestamp": datetime.now().strftime("%H:%M"),
+                            "source": "cedd-system",
+                            "alert_level": 3,
+                        })
+                        st.rerun()
+
+                    # Generate assistant responses / Générer les réponses de l'assistant
+                    with st.spinner("..."):
+                        # Compare mode: generate "without CEDD" response first (always Green prompt)
+                        # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
+                        if st.session_state.compare_mode:
+                            plain_result = get_llm_response(
+                                st.session_state.compare_messages,
+                                0,
+                                force_model=st.session_state.selected_llm,
+                                lang=lang,
+                                handoff_step=0,
+                                system_prompt_override="",  # No instructions — raw LLM response
+                            )
+                            if plain_result["content"]:
+                                st.session_state.compare_messages.append({
+                                    "role": "assistant",
+                                    "content": plain_result["content"],
+                                    "timestamp": datetime.now().strftime("%H:%M"),
+                                })
+
+                        # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
+                        result = get_llm_response(
+                            st.session_state.messages,
+                            alert["level"],
+                            force_model=st.session_state.selected_llm,
+                            lang=lang,
+                            handoff_step=st.session_state.handoff_step,
+                        )
+                    st.session_state.last_llm_source = result["source"]
+
+                    if result["content"]:
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": result["content"],
+                            "timestamp": datetime.now().strftime("%H:%M"),
+                            "source": result["source"],
+                            "alert_level": alert["level"],
                         })
 
-                # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
-                result = get_llm_response(
-                    st.session_state.messages,
-                    alert["level"],
-                    force_model=st.session_state.selected_llm,
-                    lang=lang,
-                    handoff_step=st.session_state.handoff_step,
-                )
-            st.session_state.last_llm_source = result["source"]
-
-            if result["content"]:
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": result["content"],
-                    "timestamp": datetime.now().strftime("%H:%M"),
-                    "source": result["source"],
-                    "alert_level": alert["level"],
-                })
-
-            st.rerun()
+                    st.rerun()
 
     # ── RIGHT: CEDD Dashboard / DROITE : Dashboard CEDD ───────────────────────
     with col_dash:

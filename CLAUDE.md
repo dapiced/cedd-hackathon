@@ -110,7 +110,7 @@ feature_extractor.py  →  10 features per message → 60 trajectory + 4 embeddi
 classifier.py  →  6-gate decision logic → alert level (0-3)
          ↓
 response_modulator.py  →  adaptive system prompt (+ 5-step warm handoff at Red) → LLM response
-         ↓
+         ↓                    ↘ if Red + user accepts → counselor "Alex" mode (ASIST prompt, blue UI)
 session_tracker.py  →  saves to SQLite for longitudinal tracking + withdrawal detection
 ```
 
@@ -187,6 +187,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 - Swaps LLM system prompt based on alert level (4 distinct prompts, FR and EN)
 - LLM fallback chain: Cohere API → Groq API → Gemini API → Claude API → static emergency text
 - Orange/Red prompts include Kids Help Phone resources
+- **Simulated counselor "Alex"**: ASIST-trained KHP persona (`HUMAN_COUNSELOR_PROMPT`) used during counselor handoff mode. `get_llm_response_as_counselor()` reuses the same fallback chain with the counselor system prompt override
 
 ### Session Tracker (`cedd/session_tracker.py`)
 
@@ -437,6 +438,33 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 4. **Seamless connection** — Text-based (686868), same modality, no story repetition
 5. **Background monitoring + follow-up** — CEDD stays active, acknowledges returning users
 
+### Simulated Counselor Handoff ("Alex")
+
+At RED alert, CEDD offers to connect the user with **Alex**, a simulated KHP counselor. This replaces the generic "here's a phone number" with an interactive counselor experience:
+
+**Chat mode state machine** (`chat_mode` in session state):
+```
+normal → (RED detected) → handoff_offered → (user accepts) → connecting → human_mode
+                                           → (user declines) → normal (Red-level CEDD response continues)
+```
+
+- **`handoff_offered`**: Two buttons appear — "Yes, connect me" / "No thank you". Chat input is hidden.
+- **`connecting`**: 2-second spinner, then Alex's bilingual intro message appears.
+- **`human_mode`**: CEDD classifier is bypassed. All messages use `get_llm_response_as_counselor()` with the `HUMAN_COUNSELOR_PROMPT` (ASIST active listening techniques). Messages carry `is_counselor: True` flag for blue bubble styling. Only Reset exits this mode — clinically, disconnecting from a counselor mid-crisis to return to a chatbot would be harmful.
+
+**Visual differentiation:**
+- Blue gradient bubble background + 🧑‍⚕️ avatar for Alex's messages
+- Blue gradient banner at top of chat: "Alex — Jeunesse, J'écoute / Kids Help Phone · Online now"
+- Source badge shows "Alex — KHP" instead of LLM name
+
+**Alex persona** (`HUMAN_COUNSELOR_PROMPT` in `response_modulator.py`):
+- ASIST-trained (Applied Suicide Intervention Skills Training)
+- Short responses (2-4 sentences), one question at a time
+- Always validates emotions before asking questions
+- Never reveals AI nature — presents as a 28-year-old KHP counselor
+- Bilingual (FR with tutoiement, EN)
+- Reuses the same LLM fallback chain; counselor-specific static fallback if all LLMs fail
+
 **Design principle:** Crisis detection is the *beginning* of a handoff process, not the end of the AI's job.
 
 **Research backing:**
@@ -485,6 +513,7 @@ The warm handoff replaces the industry standard "cold" referral (display a phone
 | ✅ **Alert transition animation** | DONE | CSS-animated toast notification when alert level increases. Shows new level emoji + label. 3s fade-in/out animation. Fires once per transition via session state pop. | UX |
 | ✅ **Side-by-side compare mode** | DONE | "🔀 Compare" toggle splits chat into two columns: left = raw LLM (no system prompt), right = LLM with CEDD adaptive instructions. Same user input, two API calls. Shows the value of CEDD's prompt modulation on crisis messages. Demo autopilot disabled in compare mode (too slow with 2× API calls). `system_prompt_override` parameter added to `get_llm_response()`. | UX |
 | ✅ **Feature radar chart** | DONE | Plotly `Scatterpolar` showing 10 per-message features (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization) normalized 0-1. Latest message in alert-level color, Msg 1 as green ghost overlay (after 3+ messages). Collapsible expander in dashboard. Bilingual axis labels. Zero extra compute — uses already-computed `extract_features()` values. | UX |
+| ✅ **Simulated counselor handoff** | DONE | At RED, CEDD offers to connect with "Alex", a simulated KHP counselor using ASIST active listening. State machine: normal → handoff_offered (2 buttons) → connecting (spinner) → human_mode (bypasses CEDD, counselor persona). Blue gradient bubbles + 🧑‍⚕️ avatar + counselor banner. Bilingual. Only Reset exits counselor mode. Reuses existing LLM fallback chain with `HUMAN_COUNSELOR_PROMPT` override. | UX |
 
 ### 🟡 Lower Priority — Nice to Have
 
@@ -620,4 +649,4 @@ streamlit run app.py
 
 ---
 
-*Last updated: March 14, 2026 — Added Cohere Command A as primary LLM, reordered fallback chain: Cohere → Groq → Gemini → Claude → static text*
+*Last updated: March 14, 2026 — Added simulated counselor "Alex" handoff at RED (ASIST persona, blue UI, state machine: normal → handoff_offered → connecting → human_mode)*

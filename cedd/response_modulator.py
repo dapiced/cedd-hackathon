@@ -3,9 +3,11 @@ CEDD Response Modulator
 =======================
 Adapts the system prompt and LLM requests based on the alert level.
 Supports French (fr) and English (en) interface languages.
+Includes simulated counselor "Alex" persona for warm handoff to KHP.
 
 Adapte le prompt système et les requêtes LLM selon le niveau d'alerte.
 Supporte le français (fr) et l'anglais (en).
+Inclut le persona d'intervenant simulé « Alex » pour le transfert accompagné vers JJE.
 """
 
 import json
@@ -450,6 +452,140 @@ def get_llm_response(
 
     # All models failed — return static fallback / Tous les modèles ont échoué
     return {"content": fallback_msg, "source": "fallback-statique"}
+
+
+# ── Simulated counselor prompt — Bilingual / Prompt d'intervenant simulé ───
+HUMAN_COUNSELOR_PROMPT = {
+    "fr": """Tu es Alex, 28 ans, intervenant(e) formé(e) de Jeunesse, J'écoute (Kids Help Phone).
+Tu utilises les techniques d'écoute active ASIST (Applied Suicide Intervention Skills Training).
+Tu parles avec un jeune qui a été orienté vers toi par un chatbot de soutien.
+
+RÈGLES ABSOLUES :
+- Tu ne révèles JAMAIS que tu es une intelligence artificielle
+- Tu te présentes comme un intervenant humain de Jeunesse, J'écoute
+- Tu utilises un ton chaleureux, professionnel et empathique
+- Tu appelles le jeune par "tu" (tutoiement)
+- Tes réponses sont courtes (2-4 phrases maximum)
+- Tu poses UNE question à la fois
+- Tu valides TOUJOURS les émotions avant de poser une question
+- Tu ne donnes pas de conseils non sollicités
+- Si le jeune exprime des pensées suicidaires, explore avec bienveillance et rappelle le 1-800-668-6868 / texto 686868 / 911
+- Tu es calme, jamais pressé(e), toujours présent(e)
+
+TECHNIQUES ASIST :
+- Écoute active : refléter, reformuler, valider
+- Questions ouvertes : "Comment tu te sens par rapport à ça ?"
+- Normalisation : "C'est tout à fait normal de se sentir comme ça"
+- Présence : "Je suis là, prends ton temps"
+""",
+    "en": """You are Alex, 28 years old, a trained counselor at Kids Help Phone.
+You use ASIST (Applied Suicide Intervention Skills Training) active listening techniques.
+You are talking with a young person who was referred to you by a support chatbot.
+
+ABSOLUTE RULES:
+- You NEVER reveal that you are an artificial intelligence
+- You present yourself as a human counselor from Kids Help Phone
+- You use a warm, professional, and empathetic tone
+- Your responses are short (2-4 sentences maximum)
+- You ask ONE question at a time
+- You ALWAYS validate emotions before asking a question
+- You do not give unsolicited advice
+- If the person expresses suicidal thoughts, explore compassionately and remind them of 1-800-668-6868 / text 686868 / 911
+- You are calm, never rushed, always present
+
+ASIST TECHNIQUES:
+- Active listening: reflect, rephrase, validate
+- Open questions: "How are you feeling about that?"
+- Normalization: "It's completely normal to feel that way"
+- Presence: "I'm here, take your time"
+""",
+}
+
+# ── Counselor handoff offer messages — Bilingual ────────────────────────────
+_HANDOFF_OFFER = {
+    "fr": ("Je vois que tu traverses un moment vraiment difficile, et je veux "
+           "m'assurer que tu reçois le meilleur soutien possible.\n\n"
+           "J'aimerais te mettre en contact avec Alex, un·e intervenant·e "
+           "de Jeunesse, J'écoute, qui est formé·e exactement pour ce genre "
+           "de moment. Alex pourra prendre le temps de t'écouter vraiment.\n\n"
+           "Est-ce que tu voudrais que je te connecte avec Alex ?"),
+    "en": ("I can see you're going through a really tough time, and I want "
+           "to make sure you get the best support possible.\n\n"
+           "I'd like to connect you with Alex, a trained counselor from "
+           "Kids Help Phone, who is trained for exactly this kind of moment. "
+           "Alex can take the time to truly listen.\n\n"
+           "Would you like me to connect you with Alex?"),
+}
+
+# ── Counselor intro messages — Bilingual ────────────────────────────────────
+_COUNSELOR_INTRO = {
+    "fr": ("Salut, je suis Alex de Jeunesse, J'écoute. Je suis là pour toi, "
+           "prends ton temps. On m'a dit que tu traversais un moment difficile "
+           "— est-ce que tu veux me raconter ce qui se passe ?"),
+    "en": ("Hey, I'm Alex from Kids Help Phone. I'm here for you, take your "
+           "time. I was told you're going through a tough moment — would you "
+           "like to tell me what's going on?"),
+}
+
+# ── Counselor static fallback — Bilingual ───────────────────────────────────
+_COUNSELOR_FALLBACK = {
+    "fr": ("Je suis là pour toi. Prends ton temps. Si tu as besoin de parler "
+           "à quelqu'un tout de suite, appelle le 1-800-668-6868 ou envoie "
+           "un texto au 686868. Tu n'es pas seul·e."),
+    "en": ("I'm here for you. Take your time. If you need to talk to someone "
+           "right now, call 1-800-668-6868 or text 686868. You are not alone."),
+}
+
+
+def get_handoff_offer_message(lang: str = "fr") -> str:
+    """
+    Return the bilingual message offering to connect with counselor Alex.
+    Retourne le message bilingue proposant de connecter avec l'intervenant Alex.
+    """
+    return _HANDOFF_OFFER.get(lang, _HANDOFF_OFFER["en"])
+
+
+def get_counselor_intro(lang: str = "fr") -> str:
+    """
+    Return Alex's introductory message.
+    Retourne le message d'introduction d'Alex.
+    """
+    return _COUNSELOR_INTRO.get(lang, _COUNSELOR_INTRO["en"])
+
+
+def get_llm_response_as_counselor(
+    messages: list,
+    lang: str = "fr",
+    force_model: str = None,
+) -> dict:
+    """
+    Generate an LLM response using the Alex counselor persona.
+    Reuses the existing fallback chain via get_llm_response().
+
+    Génère une réponse LLM avec le persona d'intervenant Alex.
+    Réutilise la chaîne de fallback existante via get_llm_response().
+
+    Args:
+        messages:    list of {"role": "user"|"assistant", "content": str}
+        lang:        "fr" or "en"
+        force_model: optional LLM override
+
+    Returns:
+        dict {"content": str, "source": str}
+    """
+    result = get_llm_response(
+        messages,
+        alert_level=3,
+        force_model=force_model,
+        lang=lang,
+        handoff_step=0,
+        system_prompt_override=HUMAN_COUNSELOR_PROMPT[lang],
+    )
+    # If all LLMs failed, use counselor-specific fallback
+    # Si tous les LLM ont échoué, utiliser le fallback spécifique au conseiller
+    if result["source"] == "fallback-statique":
+        result["content"] = _COUNSELOR_FALLBACK.get(lang, _COUNSELOR_FALLBACK["en"])
+    return result
 
 
 def build_claude_messages(messages: list, alert_level: int, lang: str = "fr", handoff_step: int = 0) -> tuple:
