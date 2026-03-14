@@ -365,10 +365,6 @@ python train.py
 # 6. Launch the interface
 streamlit run app.py
 ```
-```powershell
-# Windows OS only : see setup-cedd-for-win.ps1
-```
-
 ---
 
 ### Usage
@@ -799,11 +795,6 @@ python train.py
 # 6. Lancer l'interface
 streamlit run app.py
 ```
-
-```powershell
-# Windows OS uniquement : voir setup-cedd-for-win.ps1
-```
-
 ---
 
 ### Utilisation
