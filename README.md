@@ -279,7 +279,7 @@ Two-column interface with real-time updates after each message.
 | **Level history**          | Plotly line chart: alert level history for the current session             |
 | **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
 | **LLM selector**           | 5 buttons to choose/force the conversational model                         |
-| **Active system prompt**   | Description of the current mode + expander showing the full prompt         |
+| **Active system prompt**   | Description of the current mode + expander showing the full prompt (word-wrapped, theme-styled) |
 | **Session stats**          | Counters: messages, exchanges, alert peak                                  |
 
 ---
