@@ -197,7 +197,8 @@ class CEDDClassifier:
             X = X.reshape(1, -1)
         return self.pipeline.predict(X)
 
-    def get_alert_level(self, conversation_messages: list, lang: str = "fr") -> dict:
+    def get_alert_level(self, conversation_messages: list, lang: str = "fr",
+                         response_delay_s: float = None) -> dict:
         """
         Analyse a full conversation and return the alert level.
         Analyse une conversation complète et retourne le niveau d'alerte.
@@ -205,6 +206,7 @@ class CEDDClassifier:
         Args:
             conversation_messages: list of {"role": str, "content": str}
             lang: display language for feature names ("fr" or "en")
+            response_delay_s: seconds since last assistant message (runtime only, not ML)
 
         Returns:
             dict with / dict avec :
@@ -213,6 +215,7 @@ class CEDDClassifier:
               - confidence (float 0-1)
               - probabilities (dict level_label → proba)
               - dominant_features (list of str, in the requested language)
+              - delay_bumped (bool) — True if Gate 7 response delay bump was applied
         """
         if not self.is_fitted:
             raise RuntimeError(
@@ -273,6 +276,7 @@ class CEDDClassifier:
                     "confidence": 0.90,
                     "dominant_features": [label_feat],
                     "probabilities": {},
+                    "delay_bumped": False,
                 }
             if critical_score >= 1:
                 label_feat = "mot critique détecté" if lang == "fr" else "critical word detected"
@@ -281,6 +285,7 @@ class CEDDClassifier:
                     "confidence": 0.70,
                     "dominant_features": [label_feat],
                     "probabilities": {},
+                    "delay_bumped": False,
                 }
             elif distress_score >= 2:
                 label_feat = "mots de détresse détectés" if lang == "fr" else "distress words detected"
@@ -289,6 +294,7 @@ class CEDDClassifier:
                     "confidence": 0.65,
                     "dominant_features": [label_feat],
                     "probabilities": {},
+                    "delay_bumped": False,
                 }
             else:
                 label_feat = (
@@ -301,6 +307,7 @@ class CEDDClassifier:
                     "confidence": 0.80,
                     "dominant_features": [label_feat],
                     "probabilities": {},
+                    "delay_bumped": False,
                 }
 
         # ── Safety rules evaluated before ML ─────────────────────────────────
@@ -383,6 +390,20 @@ class CEDDClassifier:
         # Le classifieur ML ne peut pas descendre sous le niveau minimum de sécurité
         predicted_class = max(ml_level, minimum_level)
 
+        # ── Gate 7: Response delay bump (runtime only, not ML) ─────────────
+        # Porte 7 : hausse si délai de réponse long (runtime seulement, pas ML)
+        # 300s+ AND Yellow+ → bump +1 (cap at Red)
+        # 120s+ AND Orange+ → bump +1 (cap at Red)
+        # Green never bumped (delay alone doesn't create alert)
+        delay_bumped = False
+        if response_delay_s is not None and predicted_class >= 1:
+            if response_delay_s >= 300 and predicted_class >= 1:
+                predicted_class = min(predicted_class + 1, 3)
+                delay_bumped = True
+            elif response_delay_s >= 120 and predicted_class >= 2:
+                predicted_class = min(predicted_class + 1, 3)
+                delay_bumped = True
+
         # If safety rules raised the level above what ML predicted, the ML
         # probabilities are misleading — return empty so the override badge shows.
         safety_override = predicted_class > ml_level
@@ -419,6 +440,7 @@ class CEDDClassifier:
                 "probabilities": {},
                 "dominant_features": [label_feat],
                 "feature_scores": feature_scores,
+                "delay_bumped": delay_bumped,
             }
 
         return {
@@ -430,6 +452,7 @@ class CEDDClassifier:
             },
             "dominant_features": dominant_features[:3],
             "feature_scores": feature_scores,
+            "delay_bumped": delay_bumped,
         }
 
     def save(self, path: str):

@@ -450,7 +450,7 @@ class TestEndToEndIntegration:
         user_texts = [m["content"] for m in msgs if m["role"] == "user"]
         traj = extract_trajectory_features(msg_features, user_texts=user_texts, messages=msgs)
 
-        # Must be 67 features
+        # Must be 67 features (10 × 6 stats + 4 embedding + 3 coherence)
         assert len(traj) == 67, f"Expected 67 features, got {len(traj)}"
         # No NaN values
         assert not np.any(np.isnan(traj)), "Feature vector contains NaN"
