@@ -253,7 +253,7 @@ cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haik
 
 #### 5. Streamlit Interface -- `app.py`
 
-Two-column interface with real-time updates after each message.
+Two-column interface with real-time updates after each message. Professional UI powered by **Inter** font (Google Fonts), **CSS custom properties** (design tokens for spacing, radii, typography scale), **flexbox** chat layout, and **micro-interactions** (hover lift + shadow transitions on bubbles and pills).
 
 **Profile selector** in the header: 5 demo profiles with bilingual trajectory labels — e.g. "Dominic (escalating)" in EN, "Dominic (escalade)" in FR. Switching profiles ends the current session and loads the selected user's history.
 
@@ -261,26 +261,28 @@ Two-column interface with real-time updates after each message.
 
 | Component                  | Description                                                                |
 |----------------------------|----------------------------------------------------------------------------|
-| **Welcome card**           | Branded card with brain emoji, title, description, CTA, and profile legend showing all 5 demo trajectories |
+| **Welcome card**           | Branded card with brain emoji, title, description, CTA, and profile legend showing all 5 demo trajectories. Uses CSS classes (`.welcome-card`) for clean styling |
+| **Chat bubbles**           | Flexbox layout with `align-self` alignment (no floats), subtle box-shadow, hover lift animation, custom 6px scrollbar, `line-height: 1.5` for readability |
 | **Chat timestamps**        | HH:MM timestamp below each message bubble (right-aligned for user, left for assistant) |
 | **LLM source badge**       | Small coloured badge on each assistant bubble showing which LLM generated it (e.g. 🔵 Cohere) |
 | **Alert level badge**      | Coloured alert dot (e.g. 🟢 Green) on each assistant message showing CEDD classification at that point |
 | **Demo autopilot**         | "Play Demo" button auto-plays the Félix/Alex scenario (9 messages). Judges watch drift unfold live |
 | **About CEDD panel**       | Collapsible explainer: what CEDD does, how it works, what the dashboard shows. Bilingual |
 | **Export transcript**      | Download button exports conversation + alert history as JSON file                          |
-| **Alert transition toast** | CSS-animated notification when alert level increases (3s fade-in/out)                      |
+| **Alert transition toast** | CSS-animated notification when alert level increases (3s fade-in/out). Red-level toasts include a pulsing glow animation (`pulse-red` keyframes) |
 | **Compare mode**           | Side-by-side: raw LLM (no instructions) vs LLM with CEDD adaptive prompts. Toggle via 🔀 button |
 | **Feature radar**          | Plotly spider chart: 10 per-message features normalized 0-1, latest msg vs Msg 1 ghost overlay   |
-| **Counselor handoff**      | At RED, offers to connect with simulated KHP counselor "Alex" (ASIST persona). Blue bubbles, 🧑‍⚕️ avatar, counselor banner. Bypasses CEDD in counselor mode |
+| **Counselor handoff**      | At RED, offers to connect with simulated KHP counselor "Alex" (ASIST persona). Blue bubbles with stronger shadow, 🧑‍⚕️ avatar, counselor banner (`.counselor-banner` CSS class). Bypasses CEDD in counselor mode |
 | **Circular gauge**         | Plotly 0-3 indicator with confidence bar                                   |
-| **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with colour coding       |
-| **Active signals**         | Dominant features displayed as colour-coded pills                          |
+| **Probability bars**       | Per-class probabilities (green/yellow/orange/red) with theme-aware bar tracks (`.proba-bar-track` — no more dark-mode bug) |
+| **Active signals**         | Dominant features displayed as colour-coded pills with hover lift effect   |
 | **Feature importance**     | Collapsible Plotly horizontal bar chart: top 5 features by composite score (model importance × scaled value), 6 colour categories. Visible at Yellow+ including safety overrides |
 | **Level history**          | Plotly line chart: alert level history for the current session             |
 | **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
 | **LLM selector**           | 5 buttons to choose/force the conversational model                         |
 | **Active system prompt**   | Description of the current mode + expander showing the full prompt (word-wrapped, theme-styled) |
-| **Session stats**          | Counters: messages, exchanges, alert peak                                  |
+| **Status cards**           | Reusable `.status-card` CSS class for response mode, recommendations, and handoff progress indicators |
+| **Session stats**          | Counters: messages, exchanges, alert peak (bold 1.6rem values, uppercase labels) |
 
 ---
 
@@ -805,9 +807,11 @@ Surveillance longitudinale inter-sessions via SQLite. Calcule `risk_score`, `tre
 
 #### 5. Interface Streamlit -- `app.py`
 
-Interface bilingue en deux colonnes. **Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
+Interface bilingue en deux colonnes avec UI professionnelle : police **Inter** (Google Fonts), **proprietes CSS personnalisees** (tokens de design pour espacement, rayons, echelle typographique), mise en page **flexbox** pour le chat, et **micro-interactions** (elevation au survol + transitions d'ombre sur les bulles et les pills).
 
-Composants du chat : **carte d'accueil** (emoji cerveau, titre, description, CTA quand le chat est vide), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀), **radar des features** (graphique araignee Plotly des 10 features par message, dernier message vs Msg 1 en overlay), **transfert vers intervenant** (au niveau Rouge, propose de connecter avec « Alex », intervenant·e simule·e JJE utilisant ASIST ; bulles bleues, avatar 🧑‍⚕️, banniere d'intervenant ; contourne le classificateur CEDD en mode intervenant). Composants du dashboard : jauge circulaire, probabilites par classe, signaux actifs (pills), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, statistiques de session.
+**Selecteur de profil** dans l'en-tete : 5 profils demo (Shuchita, Priyanka, Amanda, Dominic, Guest) avec des historiques longitudinaux distincts. **Bouton de langue** pour basculer entre Francais et English.
+
+Composants du chat : **carte d'accueil** (classes CSS `.welcome-card`, emoji cerveau, titre, description, CTA quand le chat est vide), **bulles de chat** (mise en page flexbox avec `align-self`, ombre subtile, animation d'elevation au survol, barre de defilement personnalisee 6px, `line-height: 1.5`), **horodatages** (HH:MM sous chaque bulle), **badge LLM** (source du modele sur chaque reponse assistant), **badge niveau d'alerte** (point colore sur chaque reponse assistant), **demo autopilote** (bouton Play Demo joue le scenario Felix/Alex en 9 messages), **panneau A propos** (explication de CEDD repliable), **export JSON** (telecharge la conversation + historique d'alertes), **toast de transition** (notification animee CSS quand le niveau augmente ; animation de pulsation rouge au niveau Rouge), **mode comparaison** (LLM brut vs LLM guide par CEDD cote a cote, toggle via bouton 🔀), **radar des features** (graphique araignee Plotly des 10 features par message, dernier message vs Msg 1 en overlay), **transfert vers intervenant** (au niveau Rouge, propose de connecter avec « Alex », intervenant·e simule·e JJE utilisant ASIST ; bulles bleues avec ombre renforcee, avatar 🧑‍⚕️, banniere d'intervenant `.counselor-banner` ; contourne le classificateur CEDD en mode intervenant). Composants du dashboard : jauge circulaire, probabilites par classe (pistes `.proba-bar-track` adaptees au theme), signaux actifs (pills avec effet d'elevation au survol), **graphique d'importance des features** (barres horizontales Plotly, top 5 par score composite, 6 categories de couleurs, visible a partir du Jaune y compris lors des overrides de securite), historique du niveau, historique longitudinal, selecteur LLM, prompt systeme, cartes de statut (classe CSS `.status-card` reutilisable), statistiques de session (valeurs en gras 1.6rem, labels en majuscules).
 
 ---
 
