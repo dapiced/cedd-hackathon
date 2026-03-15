@@ -2,7 +2,7 @@
 
 ---
 
-## English Documentation
+## English Documentation (Francais par la suite)
 
 CEDD is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, sentence embeddings, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
 
@@ -50,7 +50,7 @@ Detection relies on a hybrid approach:
 
 ```
 +-----------------------------------------------------------------+
-|              Streamlit Interface (app.py) -- FR / EN             |
+|              Streamlit Interface (app.py) -- FR / EN            |
 |  Chat  |  Alert gauge  |  Probas  |  Features  |  Longitudinal  |
 +--------+----------------------------------------------------+---+
          | user messages
@@ -215,7 +215,7 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
 **LLM hierarchy with automatic fallback:**
 ```
-cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
+cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
 ```
 
 | Model              | Requires            | Indicator |
@@ -359,7 +359,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Configure LLM API keys (at least one required for live chat)
-export COHERE_API_KEY="..."            # Primary: Cohere Command A (default)
+export COHERE_API_KEY="..."            # Primary: Cohere (default)
 export GROQ_API_KEY="gsk_..."          # Secondary: Llama 3.3 70B via Groq (fastest)
 export GEMINI_API_KEY="AI..."          # Tertiary: Gemini 2.5 Flash
 export ANTHROPIC_API_KEY="sk-ant-..."  # Quaternary: Claude Haiku + data generation
@@ -616,7 +616,7 @@ La detection repose sur une approche hybride :
 
 ```
 +-----------------------------------------------------------------+
-|            Interface Streamlit (app.py) -- FR / EN               |
+|            Interface Streamlit (app.py) -- FR / EN              |
 |  Chat  |  Jauge alerte  |  Probas  |  Features  |  Longitudinal |
 +--------+----------------------------------------------------+---+
          | messages utilisateur
@@ -743,7 +743,7 @@ Quatre niveaux de prompts systeme distincts, disponibles en **francais et en ang
 
 Au niveau Rouge, CEDD propose aussi de connecter l'utilisateur avec **Alex**, un·e intervenant·e simule·e de JJE utilisant les techniques d'ecoute active ASIST. Si l'utilisateur accepte, le chat bascule vers un persona d'intervenant avec un style visuel distinct (bulles bleues, avatar 🧑‍⚕️, banniere d'intervenant). Le mode intervenant contourne le classificateur CEDD et utilise `HUMAN_COUNSELOR_PROMPT` via la meme chaine de fallback LLM. Seul le bouton Reinitialiser quitte le mode intervenant.
 
-Hierarchie LLM : `cohere (Command A) -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
+Hierarchie LLM : `cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 
@@ -805,7 +805,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # 4. Configurer les cles API LLM (au moins une requise pour le chat)
-export COHERE_API_KEY="..."            # Primaire : Cohere Command A (par defaut)
+export COHERE_API_KEY="..."            # Primaire : Cohere (par defaut)
 export GROQ_API_KEY="gsk_..."          # Secondaire : Llama 3.3 70B via Groq (le plus rapide)
 export GEMINI_API_KEY="AI..."          # Tertiaire : Gemini 2.5 Flash
 export ANTHROPIC_API_KEY="sk-ant-..."  # Quaternaire : Claude Haiku + generation de donnees

@@ -571,7 +571,7 @@ python train.py
 python simulate_history.py          # 4 user profiles × 7 sessions each
 
 # Configure LLM API keys (at least one required for live chat)
-export COHERE_API_KEY=your_key      # Primary LLM: Cohere Command A (default)
+export COHERE_API_KEY=your_key      # Primary LLM: Cohere (default)
 export GROQ_API_KEY=your_key        # Secondary LLM: Llama 3.3 70B via Groq (fastest)
 export GEMINI_API_KEY=your_key      # Tertiary LLM: Gemini 2.5 Flash
 export ANTHROPIC_API_KEY=your_key   # Quaternary LLM: Claude Haiku + data generation
@@ -581,7 +581,7 @@ streamlit run app.py
 ```
 
 **Environment variables:**
-- `COHERE_API_KEY` — Cohere API (primary LLM: Command A, default)
+- `COHERE_API_KEY` — Cohere API (primary LLM: default)
 - `GROQ_API_KEY` — Groq API (secondary LLM: Llama 3.3 70B Versatile, fastest inference)
 - `GEMINI_API_KEY` — Google Gemini API (tertiary LLM: Gemini 2.5 Flash)
 - `ANTHROPIC_API_KEY` — Claude API (quaternary LLM: Claude Haiku + required for data generation)
@@ -593,7 +593,7 @@ streamlit run app.py
 - `streamlit` — web interface
 - `scikit-learn` — ML pipeline (GradientBoosting, StandardScaler, cross-validation)
 - `numpy` — numerical operations
-- `cohere` — Cohere API client (primary LLM: Command A)
+- `cohere` — Cohere API client (primary LLM)
 - `groq` — Groq API client (secondary LLM: Llama 3.3 70B Versatile)
 - `google-generativeai` — Google Gemini API client (tertiary LLM: Gemini 2.5 Flash)
 - `anthropic` — Claude API client (quaternary LLM: Claude Haiku)
