@@ -317,19 +317,19 @@ Every conversation is generated in its target language with authentic regional e
 |  +------------------+    +------------------+    +----------------+  |
 |  | Feature Extractor|    |    Classifier    |    |   Response     |  |
 |  |                  |--->|                  |--->|   Modulator    |  |
-|  | 10 features/msg  |    | 6-gate safety   |    |                |  |
+|  | 10 features/msg  |    | 6-gate safety    |    |                |  |
 |  | 67 trajectory    |    | GradientBoosting |    | Adaptive       |  |
 |  | Bilingual NLP    |    | StandardScaler   |    | system prompts |  |
 |  | Embeddings       |    |                  |    | LLM fallback   |  |
 |  +------------------+    +------------------+    +----------------+  |
 |                                                         |            |
-|  +------------------+                           +-------v--------+  |
-|  | Session Tracker  |                           | LLM Chain      |  |
-|  | SQLite           |                           | Cohere         |  |
-|  | Cross-session    |                           | Groq           |  |
-|  | Withdrawal       |                           | Gemini         |  |
-|  | detection        |                           | Claude         |  |
-|  +------------------+                           | Static text    |  |
+|  +------------------+                           +-------v--------+   |
+|  | Session Tracker  |                           | LLM Chain      |   |
+|  | SQLite           |                           | Cohere         |   |
+|  | Cross-session    |                           | Groq           |   |
+|  | Withdrawal       |                           | Gemini         |   |
+|  | detection        |                           | Claude         |   |
+|  +------------------+                           | Static text    |   |
 |                                                  +----------------+  |
 +---------------------------------------------------------------------+
                               |
