@@ -412,7 +412,7 @@ def load_tracker(): ...
 
 - **Header row** — Title + subtitle with inline team badge (SVG shield + gradient pill for "404HarmNotFound"), profile selector (5 demo users with trajectory labels), language toggle, theme toggle, reset button
 - `col_chat (60%)` — Welcome card (empty state, `.welcome-card` CSS class) or flexbox chat bubbles with timestamps, LLM source badges, alert level badges, hover lift animations + input form with rounded submit button
-- `col_dash (40%)` — Alert gauge, probabilities (theme-aware bar tracks), signals (hoverable pills), history chart, longitudinal chart, LLM selector, response mode (`.status-card`), warm handoff progress, system prompt, session stats (bold values, uppercase labels). Streamlined with fewer dividers for cleaner visual flow
+- `col_dash (40%)` — Alert gauge, probabilities (theme-aware bar tracks), signals (hoverable pills), feature importance chart, feature radar, history chart, **emotional flow streamgraph**, longitudinal chart, LLM selector, response mode (`.status-card`), warm handoff progress, system prompt, session stats (bold values, uppercase labels). Streamlined with fewer dividers for cleaner visual flow
 
 ### Chat UX Details
 
@@ -425,7 +425,8 @@ def load_tracker(): ...
 - **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
 - **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. Red-level toasts also receive a pulsing glow via `@keyframes pulse-red` (`.alert-badge-pulse` class) to draw attention to crisis detection. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 - **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
-- **Feature radar chart:** Plotly `go.Scatterpolar` in a collapsible expander showing the 10 per-message features for the latest user message, normalized to 0-1. Each axis = one base feature (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization). The polygon is colored by alert level. After 3+ messages, a green ghost overlay of Msg 1 shows the "healthy baseline" for comparison — judges see the shape distort as drift happens. Zero extra compute: calls `extract_features()` which is pure word counting (no ML, no embeddings). Bilingual axis labels via `_RADAR_NAMES`.
+- **Feature radar chart:** Plotly `go.Scatterpolar` in a collapsible expander (always visible — shows waiting message before first user message, renders chart after). Shows the 10 per-message features for the latest user message, normalized to 0-1. Each axis = one base feature (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization). The polygon is colored by alert level. After 3+ messages, a green ghost overlay of Msg 1 shows the "healthy baseline" for comparison — judges see the shape distort as drift happens. Zero extra compute: calls `extract_features()` which is pure word counting (no ML, no embeddings). Bilingual axis labels via `_RADAR_NAMES`.
+- **Emotional flow streamgraph:** Collapsible expander (always visible) containing a Plotly stacked area chart of the 4 class probabilities (Green/Yellow/Orange/Red) evolving over messages. After 2+ user messages, shows how the probability distribution shifts — Green area dominates at the start, Red/Orange grows during escalation. Safety overrides (where ML probabilities are empty) are synthesized as 100% at the detected level, creating a visible solid-color spike. Stack order: Green bottom → Red top, so drift visually "rises". Uses `rgba()` fills at 50% alpha, horizontal legend, percentage Y-axis, 160px height. Bilingual labels (Green/Vert, Yellow/Jaune, Orange/Orange, Red/Rouge).
 - **Counselor handoff ("Alex"):** At Red alert, CEDD offers to connect the user with a simulated KHP counselor named Alex. Two buttons replace the chat input: "Yes, connect me" / "No thank you". If accepted, a 2-second spinner simulates connection, then Alex's intro message appears in a blue gradient bubble with 🧑‍⚕️ avatar and stronger box-shadow. A blue gradient banner (`.counselor-banner` CSS class) at the top of the chat shows "Alex — Jeunesse, J'écoute / Kids Help Phone · Online now". All subsequent messages bypass the CEDD classifier and use the ASIST counselor persona. Source badge shows "Alex — KHP". Only Reset exits counselor mode — clinically, disconnecting from a counselor mid-crisis to return to a chatbot would be harmful.
 
 ### Core Loop (what happens when you send a message)
@@ -480,6 +481,7 @@ All `st.expander` boxes use theme-matching borders via CSS targeting `[data-test
 - **Alert history chart:** Line chart (`go.Scatter`) showing alert per message
 - **Longitudinal bar chart:** Bar chart (`go.Bar`) showing max alert per completed session
 - **Feature radar:** Spider chart (`go.Scatterpolar`) showing 10 per-message features normalized 0-1. Latest message colored by alert level + Msg 1 green ghost overlay. Axes: Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization.
+- **Emotional flow (streamgraph):** Stacked area chart (`go.Scatter` with `stackgroup="one"`) showing the 4 class probabilities (Green/Yellow/Orange/Red) evolving across messages. Green stacks at bottom, Red at top — drift visually "rises" toward red. Safety overrides (empty `probabilities` dict) synthesize 100% at the detected level, appearing as a solid color spike. Uses `rgba()` fill colors at 50% alpha for readability. Horizontal legend, percentage Y-axis, 160px height. Appears in a collapsible expander below the alert history chart. Bilingual labels (Green/Vert, Yellow/Jaune, etc.).
 
 ### Chat-Level Metadata (stored in message dicts)
 
@@ -657,6 +659,7 @@ User types: "nothing matters anymore"
     │  → Yes: blue bubbles, ASIST │
     │  → No: continue CEDD Red    │
     │ Update history chart        │
+    │ Update emotional flow      │
     └─────────────────────────────┘
 ```
 
