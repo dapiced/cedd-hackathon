@@ -14,7 +14,7 @@
 5. [Embedding Features — The 4 Semantic Features (60 → 64)](#step-5-embedding-features)
 6. [Coherence Features — The 3 Behavioral Features (64 → 67)](#step-6-coherence-features)
 7. [The ML Model — GradientBoosting + StandardScaler](#step-7-the-ml-model)
-8. [The 6-Gate Safety Logic — Rules That Override ML](#step-8-the-6-gate-safety-logic)
+8. [The 7-Gate Safety Logic — Rules That Override ML](#step-8-the-7-gate-safety-logic)
 9. [The Training Pipeline — How train.py Works](#step-9-training-pipeline)
 10. [Response Modulation — How the Chatbot Adapts](#step-10-response-modulation)
 11. [The Warm Handoff — 5-Step Crisis Transition](#step-11-warm-handoff)
@@ -70,7 +70,7 @@ User sends a message
         ↓
 feature_extractor.py  →  Analyzes ALL user messages → produces 67 numbers
         ↓
-classifier.py         →  Takes 67 numbers → 6 safety gates + ML → alert level
+classifier.py         →  Takes 67 numbers → 7 safety gates + ML → alert level
         ↓
 response_modulator.py →  Picks system prompt for that alert level → calls LLM
         ↓
@@ -217,11 +217,11 @@ Builds **200 decision trees sequentially**. Each tree fixes the mistakes of all 
 
 ---
 
-## Step 8: The 6-Gate Safety Logic
+## Step 8: The 7-Gate Safety Logic
 
 File: `cedd/classifier.py`, method `get_alert_level()` (line 178)
 
-**Philosophy:** ML is smart but not trustworthy enough for life-or-death decisions. The 6 gates ensure safety keywords always override ML predictions.
+**Philosophy:** ML is smart but not trustworthy enough for life-or-death decisions. The 7 gates ensure safety keywords always override ML predictions, and runtime signals like response delay can escalate alerts.
 
 ### Gate 1: Not Enough Data (< 3 user messages)
 → Skip ML entirely. Only scan for crisis/critical/distress keywords. Default to Green with "insufficient context" label.
@@ -240,6 +240,12 @@ File: `cedd/classifier.py`, method `get_alert_level()` (line 178)
 
 ### Gate 6: Safety Floor Enforcement
 → `final_level = max(ml_level, minimum_level)`. ML can only raise the level above the keyword floor, never lower it.
+
+### Gate 7: Response Delay Bump (Runtime Only)
+→ Measures the time between the last assistant message and the user's reply. Long delays are clinically associated with hesitation and withdrawal. This is a **runtime-only gate** — it cannot be an ML feature because training data is synthetic (no real timestamps).
+- **300 seconds+** AND currently Yellow or higher → bump +1 level (cap at Red)
+- **120 seconds+** AND currently Orange or higher → bump +1 level (cap at Red)
+- **Green is never bumped** — delay alone doesn't create an alert (the user might just be away)
 
 **Design principle:** Asymmetric errors — false positives (over-alerting) are always preferable to false negatives (missing a crisis).
 
@@ -415,7 +421,7 @@ def load_tracker(): ...
 - **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🔵 Cohere") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
 - **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
 - **Demo autopilot:** "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario — 9 messages showing Green → Yellow → Orange drift. The LLM response time provides natural pacing between messages. Judges can sit back and watch the full drift unfold live. A "Stop" button cancels mid-demo.
-- **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 6 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
+- **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 7 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
 - **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
 - **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. Red-level toasts also receive a pulsing glow via `@keyframes pulse-red` (`.alert-badge-pulse` class) to draw attention to crisis detection. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 - **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
@@ -426,7 +432,7 @@ def load_tracker(): ...
 
 **Normal mode (`chat_mode == "normal"`):**
 1. User types message → append to `st.session_state.messages` (with `timestamp`)
-2. `clf.get_alert_level(messages)` → 67 features → 6 gates → alert level
+2. `clf.get_alert_level(messages)` → 67 features → 7 gates → alert level
 3. Store alert in `session_state` + log to SQLite
 4. If Red: advance warm handoff step (1→2→3→4→5)
 5. **If Red + not yet offered:** switch to `handoff_offered` mode, show offer message, `st.rerun()`
@@ -473,7 +479,7 @@ All `st.expander` boxes use theme-matching borders via CSS targeting `[data-test
 - **Feature importance chart:** Horizontal bar chart (`go.Bar`, orientation="h") in a collapsible expander. Shows top 5 features by composite score (model importance × scaled value). Bars are colour-coded by 6 categories: red (crisis/finality), orange (negative/negation), blue (structural), green (hope), purple (identity/cultural), teal (behavioral/coherence). Visible at Yellow+ including safety overrides. Bilingual title ("Signaux détectés" / "Detected signals")
 - **Alert history chart:** Line chart (`go.Scatter`) showing alert per message
 - **Longitudinal bar chart:** Bar chart (`go.Bar`) showing max alert per completed session
-- **Feature radar:** Spider chart (`go.Scatterpolar`) showing 10 per-message features normalized 0-1. Latest message colored by alert level + Msg 1 green ghost overlay. Axes: Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization
+- **Feature radar:** Spider chart (`go.Scatterpolar`) showing 10 per-message features normalized 0-1. Latest message colored by alert level + Msg 1 green ghost overlay. Axes: Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization.
 
 ### Chat-Level Metadata (stored in message dicts)
 
@@ -620,6 +626,7 @@ User types: "nothing matters anymore"
     │ Gate 4: confidence check   │
     │ Gate 5: short convo cap    │
     │ Gate 6: max(ML, keywords)  │
+    │ Gate 7: response delay     │
     │ = alert level RED          │
     └────────────┬───────────────┘
                  ↓
@@ -715,7 +722,7 @@ The filtered dataset was tested but **hurt accuracy**:
 | Filtered (304) | 304 | 4.5:1 | Unbalanced (some classes lost more) | Lower accuracy |
 
 Three reasons filtering hurt:
-1. **Fewer samples** for 67 features (ratio drops from 7.2:1 to 4.5:1)
+1. **Fewer samples** for 67 features (ratio drops from 9.0:1 to lower)
 2. **Class balance broken** — some classes lost more conversations than others
 3. **Removing "ambiguous" examples removes edge cases** the model NEEDS to learn from
 
@@ -738,7 +745,7 @@ filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
 Required submission deliverable. 14-section report structured around the 3 hackathon tracks:
 
 - **Track 1: Adversarial Stress-Testing** — 36 test cases, 20 categories, 7/10 → 36/36 progression
-- **Track 2: Logic Hardening** — 6-gate safety logic, 67 features, word-boundary precision
+- **Track 2: Logic Hardening** — 7-gate safety logic, 67 features, word-boundary precision
 - **Track 3: Synthetic Data Augmentation** — 600 conversations, 6 adversarial archetypes, bilingual
 
 Also covers architecture, metrics evolution (66.7% → 90.0%), UX, Canadian multicultural context, competitive analysis vs EmoAgent, limitations, and future work.
@@ -754,7 +761,7 @@ Also covers architecture, metrics evolution (66.7% → 90.0%), UX, Canadian mult
 | 3 | Our Solution — 4 alert levels, Classic vs CEDD comparison table |
 | 4 | Architecture — 3-layer diagram, LLM fallback chain |
 | 5 | Feature Engineering — 10 features × 6 stats + 4 embedding + 3 coherence = 67 |
-| 6 | 6-Gate Safety Logic — all 6 gates with conditions/actions |
+| 6 | 7-Gate Safety Logic — all 7 gates with conditions/actions |
 | 7 | Track 1: Adversarial Testing — 7/10 → 36/36, 20 categories |
 | 8 | Track 2: Logic Hardening — negation, identity, somatization, embeddings, coherence |
 | 9 | Track 3: Data Augmentation — 480 standard + 120 adversarial, bilingual |
@@ -774,19 +781,19 @@ File: `tests/test_unit.py`
 
 The adversarial suite (Step 15) tests the **full pipeline end-to-end** with 36 hand-crafted conversations. But it doesn't test individual components in isolation. Unit tests validate that each module works correctly on its own — catching bugs at the source rather than through their downstream effects.
 
-### What's Tested (90 tests across 4 modules)
+### What's Tested (94 tests across 4 modules)
 
 | Module | Tests | What's Validated |
 |--------|------:|-----------------|
 | **Feature Extractor** | 34 | Each of the 10 features produces correct values for known inputs (FR + EN), edge cases (empty strings, cap at 1.0), trajectory output shapes (60 without embeddings, 67 with), slope direction (negative for shrinking messages) |
-| **Classifier** | 12 | All 6 safety gates: Gate 1 (< 3 messages → keyword only), Gate 2 (crisis words force RED floor, FR + EN), Gate 4 (valid output range), Gate 5 (short convo cap), Gate 6 (crisis then positive still RED), output structure validation, empty message resilience |
+| **Classifier** | 16 | All 7 safety gates: Gate 1 (< 3 messages → keyword only), Gate 2 (crisis words force RED floor, FR + EN), Gate 4 (valid output range), Gate 5 (short convo cap), Gate 6 (crisis then positive still RED), Gate 7 (response delay bump), delay_bumped flag, output structure validation, empty message resilience |
 | **Response Modulator** | 23 | All 4 levels × 2 languages have prompts, Orange/Red prompts contain crisis resources (1-800-668-6868, 686868, 911), Green prompts don't mention 911, handoff steps 1-5 exist bilingual, step 1 has no resources (validation only), step 3 has all resources, counselor Alex prompt mentions ASIST, static fallback works for all levels |
 | **Session Tracker** | 21 | Session start/end lifecycle, alert logging with truncation, handoff step logging, withdrawal detection (no history, recent activity, closed session), longitudinal risk (all-green = 0.0, all-red = 1.0, escalating = "worsening", improving = "improving", max 7 sessions, consecutive high count) |
 
 ### How to Run
 
 ```bash
-pytest tests/test_unit.py -v                    # All 90 tests (~10 seconds)
+pytest tests/test_unit.py -v                    # All 94 tests (~10 seconds)
 pytest tests/test_unit.py -v -k "feature"       # Feature extractor only
 pytest tests/test_unit.py -v -k "classifier"    # Classifier gates only
 pytest tests/test_unit.py -v -k "Prompt"        # Response modulator only
@@ -833,7 +840,7 @@ While unit tests validate individual modules in isolation, integration tests val
 pytest tests/test_integration.py -v             # All 39 integration tests
 pytest tests/test_integration.py -v -k "Demo"   # Demo scenario validation
 pytest tests/test_integration.py -v -k "EdgeCase"  # Edge cases
-pytest tests/ -v                                 # All 129 tests (unit + integration)
+pytest tests/ -v                                 # All 133 tests (unit + integration)
 ```
 
 ---

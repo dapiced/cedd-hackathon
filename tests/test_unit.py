@@ -406,6 +406,69 @@ class TestGate6SafetyFloorEnforcement:
         assert result["level"] == 3, "Crisis word must keep RED even with positive follow-up"
 
 
+class TestGate7ResponseDelay:
+    """Gate 7: response delay bump — long delays escalate existing alerts."""
+
+    def test_no_delay_unchanged(self, clf):
+        """No delay parameter should not change the result."""
+        msgs = [
+            {"role": "user", "content": "Hello there"},
+            {"role": "assistant", "content": "Hi"},
+            {"role": "user", "content": "I feel a bit sad"},
+            {"role": "assistant", "content": "Tell me more"},
+            {"role": "user", "content": "Just tired I guess"},
+        ]
+        result_no_delay = clf.get_alert_level(msgs, response_delay_s=None)
+        result_zero = clf.get_alert_level(msgs, response_delay_s=0)
+        assert result_no_delay["level"] == result_zero["level"]
+
+    def test_severe_delay_bumps_yellow(self, clf):
+        """300s+ delay with Yellow+ should bump by 1."""
+        msgs = [
+            {"role": "user", "content": "I feel okay"},
+            {"role": "assistant", "content": "Good"},
+            {"role": "user", "content": "Actually I'm tired of everything"},
+            {"role": "assistant", "content": "I hear you"},
+            {"role": "user", "content": "I don't know what to do anymore"},
+            {"role": "assistant", "content": "Tell me more"},
+            {"role": "user", "content": "Nothing matters"},
+        ]
+        result_no_delay = clf.get_alert_level(msgs, response_delay_s=0)
+        result_delayed = clf.get_alert_level(msgs, response_delay_s=400)
+        if result_no_delay["level"] >= 1:
+            assert result_delayed["level"] >= result_no_delay["level"]
+            if result_no_delay["level"] < 3:
+                assert result_delayed["delay_bumped"] is True
+
+    def test_green_never_bumped(self, clf):
+        """Green level should never be bumped by delay alone."""
+        msgs = [
+            {"role": "user", "content": "Hey how are you?"},
+            {"role": "assistant", "content": "Great!"},
+            {"role": "user", "content": "I had a great day!"},
+            {"role": "assistant", "content": "Wonderful"},
+            {"role": "user", "content": "Thanks for chatting!"},
+            {"role": "assistant", "content": "Anytime"},
+            {"role": "user", "content": "See you later!"},
+        ]
+        result = clf.get_alert_level(msgs, response_delay_s=600)
+        if result["level"] == 0:
+            assert result["delay_bumped"] is False
+
+    def test_delay_bumped_flag_present(self, clf):
+        """delay_bumped field must always be present in output."""
+        msgs = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+            {"role": "user", "content": "Just chatting"},
+            {"role": "assistant", "content": "Sure"},
+            {"role": "user", "content": "Bye"},
+        ]
+        result = clf.get_alert_level(msgs)
+        assert "delay_bumped" in result
+        assert isinstance(result["delay_bumped"], bool)
+
+
 class TestClassifierOutput:
     """Test the structure and validity of get_alert_level() output."""
 
