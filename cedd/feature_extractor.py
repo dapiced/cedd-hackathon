@@ -139,6 +139,9 @@ NEGATION_PATTERNS_EN = [
     r"won'?t\s+get\s+better",                           # won't get better
 ]
 
+COMPILED_NEGATION_PATTERNS_FR = [re.compile(p) for p in NEGATION_PATTERNS_FR]
+COMPILED_NEGATION_PATTERNS_EN = [re.compile(p) for p in NEGATION_PATTERNS_EN]
+
 
 # ── Word-boundary matching helper ─────────────────────────────────────────────
 # Correspondance avec frontières de mots (évite les faux positifs de sous-chaîne)
@@ -242,10 +245,10 @@ def _negation_score(text: str) -> float:
         return 0.0
 
     count = 0
-    for pattern in NEGATION_PATTERNS_FR:
-        count += len(re.findall(pattern, text_lower))
-    for pattern in NEGATION_PATTERNS_EN:
-        count += len(re.findall(pattern, text_lower))
+    for pattern in COMPILED_NEGATION_PATTERNS_FR:
+        count += len(pattern.findall(text_lower))
+    for pattern in COMPILED_NEGATION_PATTERNS_EN:
+        count += len(pattern.findall(text_lower))
 
     return min(count / max(len(words), 1), 1.0)
 
