@@ -1354,7 +1354,7 @@ def main():
 
     # Propagate Streamlit secrets to environment for LLM providers
     # Propager les secrets Streamlit vers l'environnement pour les fournisseurs LLM
-    for key in ("GROQ_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
+    for key in ("COHERE_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
         if key not in os.environ:
             try:
                 os.environ[key] = st.secrets[key]
