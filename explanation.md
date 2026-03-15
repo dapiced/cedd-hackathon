@@ -794,8 +794,38 @@ pytest tests/test_unit.py -v -k "Longitudinal"  # Session tracker only
 
 The unit tests documented a gap in Gate 2: the keyword `"kill myself"` does not match the conjugated form `"killing myself"` because multi-word keyword matching uses exact substring comparison. The conjugated form slips through the safety keyword floor. The ML model and embeddings may still catch it, but the hard safety rule doesn't fire.
 
+### Integration Tests (39 tests across 7 categories)
+
+File: `tests/test_integration.py`
+
+While unit tests validate individual modules in isolation, integration tests validate everything a **jury might see during the live presentation**. They test the full pipeline with realistic conversations and edge cases.
+
+| Category | Tests | What it catches |
+|----------|------:|-----------------|
+| **Demo Scenarios** | 7 | 9-message autopilot runs without crash, shows escalation, reaches at least Yellow |
+| **Cross-Language Consistency** | 6 | Same crisis → RED in both FR and EN, normal → low, moderate distress within ±1 level |
+| **Bilingual String Completeness** | 5 | Every UI string key exists in both languages, no empty values, format placeholders match |
+| **End-to-End Integration** | 6 | Positive → Green, crisis → Red, gradual drift detected, 67-feature vector valid, distinct prompts |
+| **Edge Cases** | 7 | Emoji-only, very long messages, whitespace, mixed FR+EN, single characters, special characters |
+| **Feature Scores Output** | 5 | Explainability charts get valid data (name, raw_name, score — no NaN/Inf) |
+| **Session Tracker Integration** | 3 | Real classifier results flow into SQLite, longitudinal risk, handoff logging |
+
+**Key design decisions:**
+- `DEMO_SCENARIOS` and `STRINGS` are imported from `app.py` by mocking Streamlit at import time
+- Assertions test *properties* (escalation, minimum level) not exact values — robust against model retraining
+- Cross-language tolerance: ±1 level for equivalent distress, exact RED for direct crisis keywords
+- No LLM API calls — all tests use `clf.get_alert_level()` only, run offline
+
+```bash
+pytest tests/test_integration.py -v             # All 39 integration tests
+pytest tests/test_integration.py -v -k "Demo"   # Demo scenario validation
+pytest tests/test_integration.py -v -k "EdgeCase"  # Edge cases
+pytest tests/ -v                                 # All 129 tests (unit + integration)
+```
+
 ---
 
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
 *Updated: March 14, 2026 — Word-boundary keyword matching, profile trajectory labels, hackathon report and presentation deck*
 *Updated: March 15, 2026 — Unit testing (90 pytest tests across 4 modules), conjugated keyword gap documented*
+*Updated: March 15, 2026 — Integration testing (39 pytest tests across 7 categories) for presentation readiness*
