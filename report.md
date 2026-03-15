@@ -295,7 +295,7 @@ Adding these 120 adversarial conversations:
 
 ### Quality annotation (Annotation qualite)
 
-We built a Claude-based quality annotation pipeline (`annotate_data.py`) that scores each synthetic conversation on realism, label accuracy, and clinical plausibility. While filtering low-quality conversations hurt accuracy (removing edge cases the model needed to learn from), the annotation insights informed which adversarial archetypes to add.
+We built a Claude-based quality annotation pipeline that scored each synthetic conversation on realism, label accuracy, and clinical plausibility. While filtering low-quality conversations hurt accuracy (removing edge cases the model needed to learn from), the annotation insights informed which adversarial archetypes to add. The annotation scripts and intermediate data files were removed after serving their purpose.
 
 ### Bilingual integrity (Integrite bilingue)
 

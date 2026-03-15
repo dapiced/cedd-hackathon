@@ -460,7 +460,6 @@ cedd-hackathon/
 +-- train.py                        # Training: load -> cross-validate -> fit -> save
 +-- generate_synthetic_data.py      # Data generation via Claude API (FR + EN)
 +-- simulate_history.py             # Demo history simulation per user profile (FR + EN)
-+-- annotate_data.py                # Quality annotation tool (Claude-based)
 +-- requirements.txt                # Python dependencies
 |
 +-- cedd/                           # Main Python package
@@ -475,32 +474,15 @@ cedd-hackathon/
 |   +-- test_unit.py                # 94 pytest unit tests (4 modules: features, classifier, modulator, tracker)
 |   +-- test_integration.py         # 39 pytest integration tests (demo, cross-language, bilingual UI, edge cases)
 |   +-- test_cases_adversarial.json # 36 adversarial test cases across 20 categories (FR + EN)
-|   +-- results/
-|       +-- baseline_v1.json        # Original: 7/10 passed
-|       +-- post_data_expansion.json# 320 convos: 9/10 passed
-|       +-- post_keyword_fix.json   # Crisis keywords: 10/10 passed
-|       +-- post_negation_embeddings.json  # +Negation +Embeddings
-|       +-- post_features_456.json  # 67 features: 13/13 passed, 0 critical misses
-|       +-- post_480_convos.json    # 480 convos: 13/13 passed
-|       +-- post_600_convos.json    # 600 convos: 30/30 passed
-|       +-- post_word_boundary_fix.json  # Current: word-boundary fix, 36/36 passed
 |
 +-- data/
 |   +-- synthetic_conversations.json  # 600 labeled conversations (480 standard + 120 adversarial, FR + EN)
-|   +-- annotated_conversations.json  # Quality-annotated subset
-|   +-- filtered_conversations.json   # Post-annotation filtered
 |   +-- cedd_sessions.db              # SQLite database (auto-created)
 |
 +-- models/
 |   +-- cedd_model.joblib            # Trained model (created by train.py)
 |
-+-- demo/
-|   +-- demo_scenario.md             # FR demo: Felix, CEGEP, Green->Yellow->Orange
-|   +-- demo_scenario_en.md          # EN demo: Alex, university, Green->Yellow->Orange
-|
 +-- report.md                        # Formal hackathon report (required deliverable)
-+-- generate_slides.py               # Generates presentation .pptx (12 slides)
-+-- presentation_404HarmNotFound.pptx # Final presentation deck for March 23 finals
 ```
 
 ---
@@ -547,9 +529,6 @@ python tests/adversarial_suite.py --verbose
 
 # Filter by category
 python tests/adversarial_suite.py --category identity_conflict
-
-# Export results to JSON for tracking
-python tests/adversarial_suite.py --export tests/results/run_001.json
 ```
 
 #### Exit codes
@@ -560,8 +539,8 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 | `1` | Some tests failed (non-critical) |
 | `2` | **Critical miss** -- crisis predicted as Green/Yellow (safety regression, blocks merge) |
 
-> **Current (v9):** 36/36 passed, 0 critical misses -- see `tests/results/post_word_boundary_fix.json`
-> **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
+> **Current (v9):** 36/36 passed, 0 critical misses
+> **Original baseline (v1):** 7/10 passed
 
 #### Unit Tests (pytest)
 
@@ -963,7 +942,6 @@ cedd-hackathon/
 +-- train.py                        # Entrainement : chargement -> CV -> fit -> sauvegarde
 +-- generate_synthetic_data.py      # Generation via Claude API (FR + EN)
 +-- simulate_history.py             # Simulation d'historique par profil utilisateur (FR + EN)
-+-- annotate_data.py                # Outil d'annotation qualite (Claude)
 +-- requirements.txt                # Dependances Python
 |
 +-- cedd/                           # Package Python principal
@@ -978,7 +956,6 @@ cedd-hackathon/
 |   +-- test_unit.py                # 94 tests unitaires pytest (4 modules : features, classifier, modulator, tracker)
 |   +-- test_integration.py         # 39 tests d'integration pytest (demo, cross-langue, UI bilingue, cas limites)
 |   +-- test_cases_adversarial.json # 36 cas de test adversariaux, 20 categories (FR + EN)
-|   +-- results/                    # Historique des resultats
 |
 +-- data/
 |   +-- synthetic_conversations.json  # 600 conversations etiquetees (480 standard + 120 adversariaux)
@@ -987,9 +964,7 @@ cedd-hackathon/
 +-- models/
 |   +-- cedd_model.joblib            # Modele entraine (cree par train.py)
 |
-+-- demo/
-    +-- demo_scenario.md             # Scenario FR : Felix, CEGEP
-    +-- demo_scenario_en.md          # Scenario EN : Alex, universite
++-- report.md                        # Rapport formel de hackathon (livrable requis)
 ```
 
 ---
@@ -1033,7 +1008,7 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `1` | Certains tests echoues (non critique) |
 | `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
-> **Actuel (v9) :** 36/36 reussis, 0 crise manquee -- voir `tests/results/post_word_boundary_fix.json`
+> **Actuel (v9) :** 36/36 reussis, 0 crise manquee
 
 #### Tests unitaires (pytest)
 
