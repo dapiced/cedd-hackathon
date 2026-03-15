@@ -616,7 +616,7 @@ La detection repose sur une approche hybride :
 
 ```
 +-----------------------------------------------------------------+
-|            Interface Streamlit (app.py) -- FR / EN               |
+|            Interface Streamlit (app.py) -- FR / EN              |
 |  Chat  |  Jauge alerte  |  Probas  |  Features  |  Longitudinal |
 +--------+----------------------------------------------------+---+
          | messages utilisateur
