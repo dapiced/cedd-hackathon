@@ -665,9 +665,9 @@ User types: "nothing matters anymore"
 
 ---
 
-## Bonus: The 3 Data Files — synthetic vs annotated vs filtered
+## Bonus: The Data File — synthetic_conversations.json
 
-The `data/` folder contains 3 JSON files that represent **3 stages of the same data pipeline**:
+The `data/` folder contains the training data file:
 
 ### 1. `synthetic_conversations.json` — The training data (600 conversations)
 
@@ -678,66 +678,19 @@ This is what `generate_synthetic_data.py` produces. All 600 conversations genera
 - **Total: 600** (class distribution: Green=140, Yellow=160, Orange=160, Red=140)
 - Used by: `train.py`
 
-### 2. `annotated_conversations.json` — Quality-scored subset (320 conversations)
+### Why CEDD trains on the full 600, not a filtered subset
 
-This is what `annotate_data.py` produces. It takes conversations and sends each one BACK to Claude Haiku as a **quality evaluator**, asking: "Rate this conversation on 3 dimensions":
+During development, we experimented with Claude-based quality annotation and filtering of the training data. Filtering hurt accuracy because:
 
-| Dimension | Scale | What It Measures |
-|-----------|-------|-----------------|
-| `distress_level` | 0-3 | Claude's independent assessment — does it AGREE with the original label? |
-| `realism` | 1-5 | How natural and realistic does this conversation feel? |
-| `ambiguity` | 1-5 | How clear are the distress signals? (1=very clear, 5=very ambiguous) |
-| `justification` | text | 2 sentences explaining the assessment |
-| `agreement` | bool | Does Claude's `distress_level` match the original label? |
-
-Only has 320 conversations because it was run on an earlier version of the dataset (before the expansion to 480).
-
-- Used by: analysis only — not used for training
-
-### 3. `filtered_conversations.json` — Quality-filtered subset (304 conversations)
-
-Running `annotate_data.py --filter` drops conversations that fail quality checks:
-
-```
-KEEP if ALL of:
-  - Claude's distress_level is within ±1 of the original label
-  - Realism >= 3 (out of 5)
-  - Ambiguity <= 3 (out of 5)
-
-DROP if ANY of:
-  - Claude disagrees by more than 1 level
-  - Conversation feels unrealistic (realism < 3)
-  - Distress signals are too ambiguous (ambiguity > 3)
-```
-
-320 → 304 = 16 conversations dropped for being unrealistic, ambiguous, or mislabeled.
-
-- Used by: nothing — this was an experiment
-
-### Why CEDD trains on the raw 480, not the filtered 304
-
-The filtered dataset was tested but **hurt accuracy**:
-
-| Dataset | Size | Sample:Feature Ratio | Class Balance | Result |
-|---------|------|---------------------|---------------|--------|
-| Full (600) | 600 | 9.0:1 | Near-balanced (140/160/160/140) | **90.0% ± 1.6%** accuracy |
-| Standard only (480) | 480 | 7.2:1 | Balanced (120 per class) | 91.7% ± 4.4% accuracy |
-| Filtered (304) | 304 | 4.5:1 | Unbalanced (some classes lost more) | Lower accuracy |
-
-Three reasons filtering hurt:
-1. **Fewer samples** for 67 features (ratio drops from 9.0:1 to lower)
+1. **Fewer samples** for 67 features (sample:feature ratio drops)
 2. **Class balance broken** — some classes lost more conversations than others
 3. **Removing "ambiguous" examples removes edge cases** the model NEEDS to learn from
+
+The annotation and filtered data files were removed after serving their purpose — the key insight they provided was which adversarial archetypes to add.
 
 **Why 600 > 480:** The adversarial augmentation improved stability dramatically (±4.4% → ±1.5% variance) and diversified feature importance. The mean accuracy dropped 1.2% but fold-to-fold consistency improved — the model performs reliably regardless of which training fold it sees.
 
 **Conclusion:** Training uses the full 600 (standard + adversarial). More data with targeted adversarial examples beats slightly higher mean accuracy with high variance.
-
-```
-synthetic_conversations.json  ← TRAINING uses this (600: 480 standard + 120 adversarial)
-annotated_conversations.json  ← ANALYSIS only (320 + quality scores)
-filtered_conversations.json   ← EXPERIMENT that didn't help (304, unbalanced)
-```
 
 ---
 
@@ -752,27 +705,6 @@ Required submission deliverable. 14-section report structured around the 3 hacka
 - **Track 3: Synthetic Data Augmentation** — 600 conversations, 6 adversarial archetypes, bilingual
 
 Also covers architecture, metrics evolution (66.7% → 90.0%), UX, Canadian multicultural context, competitive analysis vs EmoAgent, limitations, and future work.
-
-### 2. `generate_slides.py` → `presentation_404HarmNotFound.pptx`
-
-12-slide PowerPoint deck for the March 23 finals presentation (5 minutes). Generated via `python-pptx`:
-
-| Slide | Content |
-|-------|---------|
-| 1 | Title — CEDD branding, team 404HarmNotFound |
-| 2 | The Problem — trajectory blindness, KHP stats |
-| 3 | Our Solution — 4 alert levels, Classic vs CEDD comparison table |
-| 4 | Architecture — 3-layer diagram, LLM fallback chain |
-| 5 | Feature Engineering — 10 features × 6 stats + 4 embedding + 3 coherence = 67 |
-| 6 | 7-Gate Safety Logic — all 7 gates with conditions/actions |
-| 7 | Track 1: Adversarial Testing — 7/10 → 36/36, 20 categories |
-| 8 | Track 2: Logic Hardening — negation, identity, somatization, embeddings, coherence |
-| 9 | Track 3: Data Augmentation — 480 standard + 120 adversarial, bilingual |
-| 10 | UX & Warm Handoff — 5-step flow, simulated counselor "Alex", research evidence |
-| 11 | Results & Metrics — baseline vs final table, top features, vs EmoAgent |
-| 12 | Impact & Next Steps — multicultural, LSTM, emergency resources |
-
-Re-generate anytime: `python generate_slides.py`
 
 ---
 
