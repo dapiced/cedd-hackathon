@@ -7,7 +7,7 @@ Do NOT skip steps. Do NOT combine multiple steps. One step per response.
 Read the actual source files before explaining each step to ensure accuracy.
 
 ### Wrap-up
-After all steps are complete, offer to create/update the `explanation.md` file with everything covered. Summarize what was learned.
+After all steps are complete, offer to create/update the `explanation.md` file if the file needs updates with everything covered. Summarize what was learned.
 
 ## Rules
 - Be thorough but use simple language — explain ML concepts with analogies
