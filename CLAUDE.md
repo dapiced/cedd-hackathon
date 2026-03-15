@@ -27,7 +27,7 @@ CEDD is a **real-time safety layer** that sits beside a youth mental health chat
 | Shuchita Singh | East Gwillimbury | ML / NLP Lead | AI Researcher, LLM fine-tuning, RAG, NLP, Responsible AI, DBA Gen AI (Synopsys) |
 | Amanda Wu | Toronto | UX / Presentation | Principal Product Designer (TD), 10 yrs FinTech UX, HCI Master (UCL) |
 | Priyanka Naga | Ottawa | Clinical / Strategy | Business Leader (Ottawa Hospital), Innovation Lead (CHEO), MSc Data Science, PMP |
-| Dominic D'Apice | Blainville | Infra / Code / ML | Dev II AI Infra Azure, 25+ yrs Linux/DevOps, Data Science cert (TELUQ), Kaggle |
+| Dominic D'Apice | Blainville | Infra / Code / ML | Dev II AI Infra Azure, 25+ yrs Linux/DevOps, Data Science cert (TÉLUQ), Kaggle |
 
 ---
 
@@ -210,7 +210,7 @@ python tests/adversarial_suite.py --verbose           # With probabilities + top
 python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).json
 ```
 
-**20 categories:** false_positive_physical, sarcasm, negation, code_switching, quebecois_slang, gradual_drift_no_keywords, direct_crisis, hidden_intent, manipulation_downplay, somatization, identity_conflict, sudden_escalation, active_bypass, rapid_recovery_manipulation, cultural_false_positive, neurodivergent_pattern, emoji_only, repeated_word, short_recovery, long_message, neutral_personne_fr, emoji_crisis
+**22 categories:** false_positive_physical, sarcasm, negation, code_switching, quebecois_slang, gradual_drift_no_keywords, direct_crisis, hidden_intent, manipulation_downplay, somatization, identity_conflict, sudden_escalation, active_bypass, rapid_recovery_manipulation, cultural_false_positive, neurodivergent_pattern, emoji_only, repeated_word, short_recovery, long_message, neutral_personne_fr, emoji_crisis
 
 **Critical rule:** Exit code `2` = safety regression = blocks merge.
 
