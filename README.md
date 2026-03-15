@@ -2,7 +2,7 @@
 
 ---
 
-## English Documentation
+## English Documentation (Francais par la suite)
 
 CEDD is a real-time monitoring system designed to detect **progressive emotional drift** in youth (16–22 years old) during conversations with an AI support chatbot. It combines lexical analysis, sentence embeddings, machine learning, and adaptive LLM modulation to deliver responses calibrated to the detected emotional state.
 
@@ -50,7 +50,7 @@ Detection relies on a hybrid approach:
 
 ```
 +-----------------------------------------------------------------+
-|              Streamlit Interface (app.py) -- FR / EN             |
+|              Streamlit Interface (app.py) -- FR / EN            |
 |  Chat  |  Alert gauge  |  Probas  |  Features  |  Longitudinal  |
 +--------+----------------------------------------------------+---+
          | user messages
