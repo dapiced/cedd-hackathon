@@ -268,6 +268,56 @@ def clf():
     return CEDDClassifier.load(MODEL_PATH)
 
 
+class TestClassifierSaveLoad:
+    """Test save and load methods of the classifier."""
+
+    def test_save_load_unfitted(self, tmp_path):
+        clf1 = CEDDClassifier(n_estimators=10)
+        path = str(tmp_path / "model_unfitted.joblib")
+        clf1.save(path)
+
+        assert os.path.exists(path)
+
+        clf2 = CEDDClassifier.load(path)
+        assert clf2.is_fitted == False
+        assert clf2.feature_names == clf1.feature_names
+        # check pipeline steps
+        assert "scaler" in clf2.pipeline.named_steps
+        assert "clf" in clf2.pipeline.named_steps
+
+    def test_save_load_fitted(self, tmp_path):
+        clf1 = CEDDClassifier(n_estimators=10)
+        X = np.random.rand(10, len(clf1.feature_names))
+        y = np.random.randint(0, 4, 10)
+        clf1.fit(X, y)
+
+        path = str(tmp_path / "model_fitted.joblib")
+        clf1.save(path)
+
+        assert os.path.exists(path)
+
+        clf2 = CEDDClassifier.load(path)
+        assert clf2.is_fitted == True
+        assert clf2.feature_names == clf1.feature_names
+
+        # Verify predictions match
+        X_test = np.random.rand(5, len(clf1.feature_names))
+        pred1 = clf1.predict_proba(X_test)
+        pred2 = clf2.predict_proba(X_test)
+        np.testing.assert_array_almost_equal(pred1, pred2)
+
+    def test_save_creates_directory(self, tmp_path):
+        clf1 = CEDDClassifier(n_estimators=10)
+        # Subdirectory that doesn't exist yet
+        path = str(tmp_path / "new_dir" / "nested" / "model.joblib")
+        clf1.save(path)
+
+        assert os.path.exists(path)
+
+        clf2 = CEDDClassifier.load(path)
+        assert clf2.is_fitted == False
+
+
 class TestGate1InsufficientContext:
     """Gate 1: < 3 user messages → keyword rules only, no ML."""
 
