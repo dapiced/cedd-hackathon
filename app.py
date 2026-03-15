@@ -830,7 +830,7 @@ def reset_conversation():
 
 # ─── UI components / Composants UI ──────────────────────────────────────────────
 
-def render_chat(S: dict, theme: str = "light", messages: list = None):
+def render_chat(S: dict, theme: str = "light", messages: list | None = None):
     """Display chat bubbles. / Affiche les bulles de conversation."""
     t = THEMES[theme]
     if messages is None:
