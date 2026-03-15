@@ -72,7 +72,11 @@ THEMES = {
 def get_theme_css(theme: str) -> str:
     t = THEMES[theme]
     return f"""
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <style>
+    .stApp {{
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }}
     .stApp, [data-testid="stAppViewContainer"],
     .main .block-container {{
         background-color: {t['bg_main']} !important;
@@ -230,6 +234,24 @@ def get_theme_css(theme: str) -> str:
     }}
     [data-baseweb="popover"] li:hover {{
         background-color: {t['bg_input']} !important;
+    }}
+    .proba-bar-track {{
+        background: {t['border']}44 !important;
+    }}
+    [data-testid="stMetricValue"] {{
+        font-size: 1.6rem !important;
+        font-weight: 700 !important;
+    }}
+    [data-testid="stMetricLabel"] {{
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: var(--fs-xs) !important;
+    }}
+    hr {{
+        margin: 8px 0 !important;
+    }}
+    [data-testid="stFormSubmitButton"] > button {{
+        border-radius: 20px !important;
     }}
 </style>
 """
@@ -516,81 +538,159 @@ st.set_page_config(
 # ─── Static CSS (layout only — colors handled by get_theme_css) ─────────────────
 st.markdown("""
 <style>
+    :root {
+        --fs-xs: 0.72rem;
+        --fs-sm: 0.8rem;
+        --fs-base: 0.92rem;
+        --fs-md: 1.0rem;
+        --fs-lg: 1.15rem;
+        --fs-xl: 1.3rem;
+        --spacing-xs: 4px;
+        --spacing-sm: 8px;
+        --spacing-md: 12px;
+        --spacing-lg: 16px;
+        --spacing-xl: 24px;
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 16px;
+        --radius-bubble: 18px;
+    }
     .main { padding-top: 1rem; }
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        max-height: 480px;
+        padding: var(--spacing-md);
+        border-radius: var(--radius-lg);
+        margin-bottom: var(--spacing-md);
+    }
     .chat-bubble-user {
-        border-radius: 18px 18px 4px 18px;
-        padding: 10px 14px;
-        margin: 6px 0 6px 40px;
+        border-radius: var(--radius-bubble) var(--radius-bubble) 4px var(--radius-bubble);
+        padding: var(--spacing-md) 14px;
+        margin: var(--spacing-xs) 0 var(--spacing-xs) 15%;
         max-width: 85%;
-        float: right;
-        clear: both;
-        font-size: 0.95rem;
+        align-self: flex-end;
+        font-size: var(--fs-base);
+        line-height: 1.5;
+        word-wrap: break-word;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chat-bubble-user:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
     }
     .chat-bubble-assistant {
-        border-radius: 18px 18px 18px 4px;
-        padding: 10px 14px;
-        margin: 6px 40px 6px 0;
+        border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) 4px;
+        padding: var(--spacing-md) 14px;
+        margin: var(--spacing-xs) 15% var(--spacing-xs) 0;
         max-width: 85%;
-        float: left;
-        clear: both;
-        font-size: 0.95rem;
+        align-self: flex-start;
+        font-size: var(--fs-base);
+        line-height: 1.5;
+        word-wrap: break-word;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    .chat-container {
-        overflow-y: auto;
-        max-height: 420px;
-        padding: 10px;
-        border-radius: 12px;
-        margin-bottom: 12px;
+    .chat-bubble-assistant:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+    }
+    .chat-bubble-counselor {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .chat-bubble-counselor:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
     .chat-time-user {
-        font-size: 0.68rem;
+        font-size: var(--fs-xs);
         opacity: 0.5;
         text-align: right;
-        margin: -2px 0 4px 0;
-        clear: both;
+        margin: -2px 0 var(--spacing-xs) 0;
+        align-self: flex-end;
     }
     .chat-time-assistant {
-        font-size: 0.68rem;
+        font-size: var(--fs-xs);
         opacity: 0.5;
         text-align: left;
-        margin: -2px 0 4px 0;
-        clear: both;
+        margin: -2px 0 var(--spacing-xs) 0;
+        align-self: flex-start;
     }
     .llm-badge {
-        font-size: 0.68rem;
+        font-size: var(--fs-xs);
         opacity: 0.7;
         display: block;
         margin-top: 2px;
     }
     .alert-dot {
-        font-size: 0.68rem;
+        font-size: var(--fs-xs);
         display: inline-block;
-        clear: both;
-        float: left;
-        margin: 2px 0 6px 0;
+        align-self: flex-start;
+        margin: 2px 0 var(--spacing-sm) 0;
     }
-    .clearfix::after { content: ""; display: table; clear: both; }
     .alert-badge {
-        padding: 6px 16px;
+        padding: var(--spacing-sm) var(--spacing-lg);
         border-radius: 20px;
         font-weight: bold;
-        font-size: 1.1rem;
+        font-size: var(--fs-lg);
         display: inline-block;
     }
     .metric-card {
         border: 1px solid;
-        border-radius: 10px;
-        padding: 12px;
-        margin: 6px 0;
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md);
+        margin: var(--spacing-sm) 0;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .feature-pill {
         border: 1px solid;
-        border-radius: 12px;
-        padding: 4px 10px;
-        font-size: 0.82rem;
+        border-radius: var(--radius-md);
+        padding: var(--spacing-xs) var(--spacing-md);
+        font-size: var(--fs-sm);
         display: inline-block;
         margin: 2px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
+    .feature-pill:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .status-card {
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--radius-sm);
+        margin: var(--spacing-xs) 0;
+        border-left: 4px solid;
+    }
+    .welcome-card {
+        text-align: center;
+        margin: 30px var(--spacing-lg);
+    }
+    .welcome-card-inner {
+        border-radius: 14px;
+        padding: var(--spacing-xl) 20px;
+        display: inline-block;
+        max-width: 380px;
+        border: 1px solid;
+    }
+    .welcome-card-icon { font-size: 2rem; margin-bottom: var(--spacing-sm); }
+    .welcome-card-title { font-size: var(--fs-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
+    .welcome-card-text { font-size: 0.88rem; opacity: 0.85; margin-bottom: var(--spacing-md); }
+    .welcome-card-cta { font-size: var(--fs-sm); opacity: 0.7; }
+    .welcome-card-profiles-title { font-size: 0.78rem; font-weight: 600; opacity: 0.8; margin-bottom: var(--spacing-xs); }
+    .welcome-card-profiles { font-size: var(--fs-xs); opacity: 0.7; line-height: 1.6; }
+    .counselor-banner {
+        background: linear-gradient(135deg, #1a5276, #2980b9);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-md) var(--spacing-lg);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+    }
+    .counselor-banner-icon { font-size: 1.4rem; }
+    .counselor-banner-name { color: #fff; font-weight: 700; font-size: 14px; }
+    .counselor-banner-sub { color: #aed6f1; font-size: 12px; }
     @keyframes alert-flash {
         0%   { opacity: 0; transform: translateY(-10px); }
         15%  { opacity: 1; transform: translateY(0); }
@@ -604,15 +704,30 @@ st.markdown("""
         left: 50%;
         transform: translateX(-50%);
         z-index: 9999;
-        padding: 10px 24px;
-        border-radius: 24px;
+        padding: var(--spacing-md) var(--spacing-xl);
+        border-radius: var(--spacing-xl);
         font-weight: 700;
-        font-size: 0.95rem;
+        font-size: var(--fs-base);
         box-shadow: 0 4px 16px rgba(0,0,0,0.2);
         pointer-events: none;
     }
-    h1 { font-size: 1.4rem !important; }
-    h3 { font-size: 1.05rem !important; margin-bottom: 0.4rem !important; }
+    @keyframes pulse-red {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+        50% { box-shadow: 0 0 0 8px rgba(231, 76, 60, 0); }
+    }
+    .alert-badge-pulse {
+        animation: pulse-red 2s ease-in-out infinite;
+    }
+    /* Custom scrollbar for chat / Barre de défilement personnalisée */
+    .chat-container::-webkit-scrollbar { width: 6px; }
+    .chat-container::-webkit-scrollbar-track { background: transparent; }
+    .chat-container::-webkit-scrollbar-thumb {
+        background: rgba(128, 128, 128, 0.3);
+        border-radius: 3px;
+    }
+    .chat-container::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.5); }
+    h1 { font-size: var(--fs-xl) !important; letter-spacing: -0.02em; }
+    h3 { font-size: 1.05rem !important; margin-bottom: 0.4rem !important; letter-spacing: -0.01em; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -686,23 +801,22 @@ def render_chat(S: dict, theme: str = "light", messages: list = None):
     t = THEMES[theme]
     if messages is None:
         messages = st.session_state.messages
-    msgs_html = '<div class="chat-container"><div class="clearfix">'
+    msgs_html = '<div class="chat-container">'
     if not messages:
         msgs_html += (
-            f'<div style="text-align:center;margin:30px 16px;">'
-            f'<div style="background:{t["bg_card"]};border:1px solid {t["border"]};'
-            f'border-radius:14px;padding:24px 20px;display:inline-block;max-width:380px;">'
-            f'<div style="font-size:2rem;margin-bottom:6px;">🧠</div>'
-            f'<div style="font-size:1.1rem;font-weight:700;color:{t["text_main"]};margin-bottom:8px;">'
+            f'<div class="welcome-card">'
+            f'<div class="welcome-card-inner" style="background:{t["bg_card"]};border-color:{t["border"]};">'
+            f'<div class="welcome-card-icon">🧠</div>'
+            f'<div class="welcome-card-title" style="color:{t["text_main"]};">'
             f'{S["welcome_title"]}</div>'
-            f'<div style="font-size:0.88rem;color:{t["text_main"]};opacity:0.85;margin-bottom:12px;">'
+            f'<div class="welcome-card-text" style="color:{t["text_main"]};">'
             f'{S["welcome_text"]}</div>'
-            f'<div style="font-size:0.8rem;color:{t["text_muted"]};opacity:0.7;">'
+            f'<div class="welcome-card-cta" style="color:{t["text_muted"]};">'
             f'{S["welcome_cta"]}</div>'
             f'<hr style="border:none;border-top:1px solid {t["border"]};margin:14px 0 10px;">'
-            f'<div style="font-size:0.78rem;font-weight:600;color:{t["text_main"]};opacity:0.8;margin-bottom:4px;">'
+            f'<div class="welcome-card-profiles-title" style="color:{t["text_main"]};">'
             f'{S["welcome_profiles"]}</div>'
-            f'<div style="font-size:0.72rem;color:{t["text_muted"]};opacity:0.7;line-height:1.6;">'
+            f'<div class="welcome-card-profiles" style="color:{t["text_muted"]};">'
             f'{S["welcome_profile_list"]}</div>'
             f'</div></div>'
         )
@@ -754,7 +868,7 @@ def render_chat(S: dict, theme: str = "light", messages: list = None):
                         f'<div class="chat-time-assistant" style="color:{t["text_muted"]};">'
                         f'{" &nbsp;·&nbsp; ".join(meta_parts)}</div>'
                     )
-    msgs_html += '</div></div>'
+    msgs_html += '</div>'
     st.markdown(msgs_html, unsafe_allow_html=True)
 
 
@@ -815,8 +929,7 @@ def render_proba_bars(probabilities: dict, S: dict, level: int = 0):
         label = S["level_labels"][level]
         st.markdown(S["proba_header"])
         st.markdown(
-            f'<div style="background:{color}22;border-left:4px solid {color};'
-            f'padding:6px 10px;border-radius:4px;margin:4px 0;">'
+            f'<div class="status-card" style="background:{color}22;border-left-color:{color};">'
             f'{emoji} <b>{label}</b> — safety rule override</div>',
             unsafe_allow_html=True,
         )
@@ -832,7 +945,7 @@ def render_proba_bars(probabilities: dict, S: dict, level: int = 0):
             f'<div style="margin:3px 0;">'
             f'{emoji} <b>{display_name}</b> '
             f'<span style="float:right">{proba:.0%}</span>'
-            f'<div style="background:#eee;border-radius:4px;height:8px;margin-top:2px;">'
+            f'<div class="proba-bar-track" style="border-radius:4px;height:8px;margin-top:2px;">'
             f'<div style="background:{color};width:{bar_width}%;height:8px;border-radius:4px;"></div>'
             f'</div></div>',
             unsafe_allow_html=True,
@@ -907,8 +1020,7 @@ def render_longitudinal_section(tracker: SessionTracker, user_id: str, S: dict, 
     rc = rec_color_map.get(rec_key, "#6b7280")
     text_color = "#000000" if theme == "light" else "#ffffff"
     st.markdown(
-        f'<div style="background:{rc}22;border-left:4px solid {rc};'
-        f'padding:6px 10px;border-radius:4px;margin:4px 0;color:{text_color};">'
+        f'<div class="status-card" style="background:{rc}22;border-left-color:{rc};color:{text_color};">'
         f'<b>{rec_display}</b></div>',
         unsafe_allow_html=True,
     )
@@ -1168,8 +1280,9 @@ def main():
         t_emoji = LEVEL_EMOJIS[toast_level]
         t_label = S["level_labels"][toast_level]
         toast_msg = S["alert_toast_up"].format(emoji=t_emoji, label=t_label)
+        pulse_cls = " alert-badge-pulse" if toast_level == 3 else ""
         st.markdown(
-            f'<div class="alert-toast" style="background:{t_color};color:#fff;">'
+            f'<div class="alert-toast{pulse_cls}" style="background:{t_color};color:#fff;">'
             f'{toast_msg}</div>',
             unsafe_allow_html=True,
         )
@@ -1347,14 +1460,11 @@ def main():
         # Counselor banner / Bannière d'intervenant Alex
         if st.session_state.chat_mode == "human_mode":
             st.markdown(
-                f'<div style="background:linear-gradient(135deg,#1a5276,#2980b9);border-radius:12px;'
-                f'padding:12px 18px;display:flex;align-items:center;gap:12px;margin-bottom:16px;">'
-                f'<span style="font-size:1.4rem;">🟢</span>'
+                f'<div class="counselor-banner">'
+                f'<span class="counselor-banner-icon">🟢</span>'
                 f'<div>'
-                f'<div style="color:#fff;font-weight:700;font-size:14px;">'
-                f'{S["counselor_banner_name"]}</div>'
-                f'<div style="color:#aed6f1;font-size:12px;">'
-                f'{S["counselor_banner_sub"]}</div>'
+                f'<div class="counselor-banner-name">{S["counselor_banner_name"]}</div>'
+                f'<div class="counselor-banner-sub">{S["counselor_banner_sub"]}</div>'
                 f'</div></div>',
                 unsafe_allow_html=True,
             )
@@ -1601,8 +1711,6 @@ def main():
         # Class probabilities / Probabilités par classe
         render_proba_bars(alert.get("probabilities", {}), S, level)
 
-        st.divider()
-
         # Active signals / Signaux actifs
         st.markdown(S["signals_header"])
         if st.session_state.withdrawal_detected:
@@ -1631,8 +1739,6 @@ def main():
         # In-session history / Historique des niveaux
         st.markdown(S["history_header"])
         render_history_chart(S, theme)
-
-        st.divider()
 
         # Cross-session longitudinal history / Historique longitudinal inter-sessions
         st.markdown(S["longitudinal_header"])
@@ -1674,8 +1780,7 @@ def main():
         emoji = LEVEL_EMOJIS[level]
         text_color = "#000000" if theme == "light" else "#ffffff"
         st.markdown(
-            f'<div style="background:{color}22;border-left:4px solid {color};'
-            f'padding:8px 12px;border-radius:4px;margin:4px 0;color:{text_color};">'
+            f'<div class="status-card" style="background:{color}22;border-left-color:{color};color:{text_color};">'
             f'{emoji} <b>{mode_desc}</b></div>',
             unsafe_allow_html=True,
         )
@@ -1694,8 +1799,7 @@ def main():
 
             st.markdown(f"**{handoff_title}**")
             st.markdown(
-                f'<div style="background:{step_color}22;border-left:4px solid {step_color};'
-                f'padding:8px 12px;border-radius:4px;margin:4px 0;color:{text_color};">'
+                f'<div class="status-card" style="background:{step_color}22;border-left-color:{step_color};color:{text_color};">'
                 f'{handoff_label}</div>',
                 unsafe_allow_html=True,
             )
@@ -1712,8 +1816,6 @@ def main():
                 f'{prompt_text.replace("<", "&lt;").replace(">", "&gt;")}</div>',
                 unsafe_allow_html=True,
             )
-
-        st.divider()
 
         # Session statistics / Statistiques de session
         st.markdown(S["stats_header"])

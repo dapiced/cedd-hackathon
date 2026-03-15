@@ -403,22 +403,22 @@ def load_tracker(): ...
 ### Layout
 
 - **Header row** — Title + subtitle with inline team badge (SVG shield + gradient pill for "404HarmNotFound"), profile selector (5 demo users with trajectory labels), language toggle, theme toggle, reset button
-- `col_chat (60%)` — Welcome card (empty state) or chat bubbles with timestamps, LLM source badges, and alert level badges + input form
-- `col_dash (40%)` — Alert gauge, probabilities, signals, history chart, longitudinal chart, LLM selector, response mode, warm handoff progress, system prompt, session stats
+- `col_chat (60%)` — Welcome card (empty state, `.welcome-card` CSS class) or flexbox chat bubbles with timestamps, LLM source badges, alert level badges, hover lift animations + input form with rounded submit button
+- `col_dash (40%)` — Alert gauge, probabilities (theme-aware bar tracks), signals (hoverable pills), history chart, longitudinal chart, LLM selector, response mode (`.status-card`), warm handoff progress, system prompt, session stats (bold values, uppercase labels). Streamlined with fewer dividers for cleaner visual flow
 
 ### Chat UX Details
 
-- **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, a call-to-action, and a **profile legend** listing all 5 demo profiles with their trajectory types (🟢 stable, 🟡 improving, 🔀 fluctuating, 🔴 escalating, ✨ new). Judges see all available scenarios without clicking the dropdown. Styled with theme colors (works in both light and dark mode).
+- **Welcome card:** When the chat is empty, a branded card appears with brain emoji, bilingual title ("Welcome to CEDD" / "Bienvenue sur CEDD"), a description of what CEDD does, a call-to-action, and a **profile legend** listing all 5 demo profiles with their trajectory types (🟢 stable, 🟡 improving, 🔀 fluctuating, 🔴 escalating, ✨ new). Judges see all available scenarios without clicking the dropdown. Uses CSS classes (`.welcome-card`, `.welcome-card-inner`, `.welcome-card-title`, etc.) with theme colors (works in both light and dark mode).
 - **Timestamps:** Each message shows `HH:MM` in small muted text — right-aligned for user bubbles, left-aligned for assistant bubbles.
 - **LLM source badge:** Each assistant bubble shows which LLM generated it (e.g. "🔵 Cohere") as a small coloured badge inside the bubble, using `LLM_SOURCE_INDICATOR` and `LLM_DISPLAY_NAMES`.
 - **Alert level badge:** Each assistant message shows a coloured alert dot (e.g. "🟢 Green") below the bubble, indicating the CEDD classification at that point in the conversation.
 - **Demo autopilot:** "Play Demo" button auto-plays the Félix (FR) or Alex (EN) scenario — 9 messages showing Green → Yellow → Orange drift. The LLM response time provides natural pacing between messages. Judges can sit back and watch the full drift unfold live. A "Stop" button cancels mid-demo.
 - **About CEDD panel:** Collapsible info panel toggled via ℹ️ button. Explains what CEDD does, how it works (67 features, 6 safety gates, warm handoff), and what each dashboard component shows. Bilingual content stored in `ABOUT_CEDD` dict.
 - **Export transcript:** Download button (visible when messages exist) exports the full conversation + alert history as a JSON file. Includes messages with timestamps, LLM sources, alert levels, dominant features, peak alert, session metadata.
-- **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
+- **Alert transition toast:** CSS-animated notification that appears at the top of the screen when the alert level increases. Uses `@keyframes alert-flash` for a 3-second fade-in/out animation. Red-level toasts also receive a pulsing glow via `@keyframes pulse-red` (`.alert-badge-pulse` class) to draw attention to crisis detection. The toast level is stored in `st.session_state["_alert_toast"]` and consumed via `.pop()` on the next rerun (fires exactly once per transition).
 - **Compare mode:** "🔀 Compare" toggle splits the chat into two columns. Left = "Without CEDD" (raw LLM, empty system prompt via `system_prompt_override=""`), Right = "With CEDD" (LLM with CEDD adaptive system prompt). Same user input feeds both. Two API calls per message. Best for extreme messages ("I have a gun") where the contrast is stark. Demo autopilot is disabled in compare mode (18 API calls too slow, and gradual drift doesn't show enough difference). Separate `compare_messages` list in session state tracks the left side conversation.
 - **Feature radar chart:** Plotly `go.Scatterpolar` in a collapsible expander showing the 10 per-message features for the latest user message, normalized to 0-1. Each axis = one base feature (Length, Punctuation, Questions, Negative, Finality, Hope, Δ Length, Negation, Identity, Somatization). The polygon is colored by alert level. After 3+ messages, a green ghost overlay of Msg 1 shows the "healthy baseline" for comparison — judges see the shape distort as drift happens. Zero extra compute: calls `extract_features()` which is pure word counting (no ML, no embeddings). Bilingual axis labels via `_RADAR_NAMES`.
-- **Counselor handoff ("Alex"):** At Red alert, CEDD offers to connect the user with a simulated KHP counselor named Alex. Two buttons replace the chat input: "Yes, connect me" / "No thank you". If accepted, a 2-second spinner simulates connection, then Alex's intro message appears in a blue gradient bubble with 🧑‍⚕️ avatar. A blue gradient banner at the top of the chat shows "Alex — Jeunesse, J'écoute / Kids Help Phone · Online now". All subsequent messages bypass the CEDD classifier and use the ASIST counselor persona. Source badge shows "Alex — KHP". Only Reset exits counselor mode — clinically, disconnecting from a counselor mid-crisis to return to a chatbot would be harmful.
+- **Counselor handoff ("Alex"):** At Red alert, CEDD offers to connect the user with a simulated KHP counselor named Alex. Two buttons replace the chat input: "Yes, connect me" / "No thank you". If accepted, a 2-second spinner simulates connection, then Alex's intro message appears in a blue gradient bubble with 🧑‍⚕️ avatar and stronger box-shadow. A blue gradient banner (`.counselor-banner` CSS class) at the top of the chat shows "Alex — Jeunesse, J'écoute / Kids Help Phone · Online now". All subsequent messages bypass the CEDD classifier and use the ASIST counselor persona. Source badge shows "Alex — KHP". Only Reset exits counselor mode — clinically, disconnecting from a counselor mid-crisis to return to a chatbot would be harmful.
 
 ### Core Loop (what happens when you send a message)
 
@@ -450,9 +450,20 @@ def load_tracker(): ...
 5. `st.rerun()`
 6. Only Reset exits this mode (no way to go back to normal mid-conversation)
 
-### Themes
+### CSS Architecture
 
-Light and dark themes via CSS injection. `THEMES` dictionary defines colors for every UI element. `get_theme_css()` generates CSS, injected via `st.markdown(css, unsafe_allow_html=True)`. All `st.expander` boxes (feature radar, system prompt, detected signals) use theme-matching borders via CSS targeting `[data-testid="stExpander"]` and its `details` child. The system prompt display uses `st.markdown()` with `white-space:pre-wrap` for proper word wrapping (not `st.code()` which truncates long prompts). Counselor bubbles use a dedicated `.chat-bubble-counselor` CSS class with `!important` overrides to ensure white text on the blue gradient background.
+The UI uses a two-layer CSS system:
+
+1. **Static CSS block** — Layout rules injected once at page load. Defines CSS custom properties (`:root` design tokens for font sizes `--fs-xs` to `--fs-xl`, spacing `--spacing-xs` to `--spacing-xl`, border radii `--radius-sm` to `--radius-bubble`), reusable component classes (`.status-card`, `.welcome-card`, `.counselor-banner`, `.feature-pill`), flexbox chat layout, micro-interactions (hover transitions on bubbles and pills), custom scrollbar (6px WebKit), and animations (`@keyframes alert-flash`, `@keyframes pulse-red`).
+
+2. **Theme CSS block** — Dynamic CSS generated by `get_theme_css()` using the `THEMES` dictionary. Injects theme-aware colors for all UI elements. Also loads the **Inter** font via Google Fonts `<link>` tag (falls back to system fonts if offline), applies `.stApp` font-family, adds `.proba-bar-track` with theme-aware background (fixes a dark-mode bug where `#eee` bar tracks were invisible), and overrides Streamlit widget styles (larger metric values, uppercase metric labels, rounded form submit button, reduced `hr` margins).
+
+All `st.expander` boxes use theme-matching borders via CSS targeting `[data-testid="stExpander"]` and its `details` child. The system prompt display uses `st.markdown()` with `white-space:pre-wrap` for proper word wrapping. Counselor bubbles use `.chat-bubble-counselor` with stronger shadow and `!important` color overrides.
+
+**Key design decisions:**
+- **Flexbox over floats:** Chat bubbles use `align-self: flex-end/start` on a flex-column container instead of `float: right/left` + `clear: both`. Eliminates the `.clearfix` hack and is more robust.
+- **CSS classes over inline styles:** Repeated patterns (status cards, welcome card, counselor banner) extracted into reusable CSS classes. Only dynamic values (colors) remain inline.
+- **Micro-interactions:** Bubbles and pills have `transition: transform 0.15s ease, box-shadow 0.15s ease` and lift 1px on hover with a subtle shadow. Red-level alert toasts pulse with a glowing animation.
 
 ### Visualizations (Plotly)
 

@@ -287,6 +287,7 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 - **Variable names**: English
 - **Error handling**: LLM fallback chain (Cohere → Groq → Gemini → Claude → static text)
 - **No secrets in code**: API keys via environment variables only
+- **CSS architecture**: Design tokens via CSS custom properties (`:root` variables for font sizes, spacing, radii). Flexbox layout for chat bubbles. Reusable CSS classes (`.status-card`, `.welcome-card`, `.counselor-banner`) instead of inline styles. Theme-aware styling via `get_theme_css()` for dark/light mode
 
 ---
 
@@ -316,4 +317,4 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 
 ---
 
-*Last updated: March 15, 2026*
+*Last updated: March 15, 2026 (UI polish pass: flexbox chat, CSS custom properties, Inter font, micro-interactions, dark-mode fixes)*
