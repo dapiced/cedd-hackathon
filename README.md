@@ -213,10 +213,11 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 
   At Red, CEDD also offers to connect with **Alex**, a simulated KHP counselor using ASIST active listening techniques. If the user accepts, the chat switches to a counselor persona with distinct visual styling (blue bubbles, 🧑‍⚕️ avatar, counselor banner). The counselor mode bypasses CEDD classification and uses `HUMAN_COUNSELOR_PROMPT` via the same LLM fallback chain. Only Reset exits counselor mode.
 
-**LLM hierarchy with automatic fallback:**
+**LLM hierarchy with automatic fallback (15s timeout per model):**
 ```
 cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> static text
 ```
+Each LLM client has a 25-second timeout. If a model hangs or is slow, the chain automatically falls through to the next provider without freezing the UI. The full conversation history is passed to each model, so switching mid-conversation is seamless.
 
 | Model              | Requires            | Indicator |
 |--------------------|---------------------|-----------|
@@ -280,7 +281,7 @@ Two-column interface with real-time updates after each message. Professional UI 
 | **Level history**          | Plotly line chart: alert level history for the current session             |
 | **Longitudinal history**   | Per-session bar chart + trend + recommendation (SQLite data)               |
 | **LLM selector**           | 5 buttons to choose/force the conversational model                         |
-| **Active system prompt**   | Description of the current mode + expander showing the full prompt (word-wrapped, theme-styled) |
+| **Active system prompt**   | Description of the current mode + expander showing the full prompt (word-wrapped, theme-styled). Expander summaries use forced `background-color` + JS MutationObserver to prevent Streamlit's default dark header in light mode |
 | **Status cards**           | Reusable `.status-card` CSS class for response mode, recommendations, and handoff progress indicators |
 | **Session stats**          | Counters: messages, exchanges, alert peak (bold 1.6rem values, uppercase labels) |
 
@@ -797,7 +798,9 @@ Quatre niveaux de prompts systeme distincts, disponibles en **francais et en ang
 
 Au niveau Rouge, CEDD propose aussi de connecter l'utilisateur avec **Alex**, un·e intervenant·e simule·e de JJE utilisant les techniques d'ecoute active ASIST. Si l'utilisateur accepte, le chat bascule vers un persona d'intervenant avec un style visuel distinct (bulles bleues, avatar 🧑‍⚕️, banniere d'intervenant). Le mode intervenant contourne le classificateur CEDD et utilise `HUMAN_COUNSELOR_PROMPT` via la meme chaine de fallback LLM. Seul le bouton Reinitialiser quitte le mode intervenant.
 
-Hierarchie LLM : `cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
+Hierarchie LLM (timeout de 15s par modele) : `cohere -> groq (Llama 3.3 70B) -> gemini-flash (Gemini 2.5 Flash) -> claude-haiku -> sans llm`
+
+Chaque client LLM a un timeout de 25 secondes. Si un modele est lent ou bloque, la chaine passe automatiquement au fournisseur suivant sans geler l'interface. L'historique complet de la conversation est transmis a chaque modele, donc le changement en cours de conversation est transparent.
 
 #### 4. Session Tracker -- `cedd/session_tracker.py`
 

@@ -123,8 +123,13 @@ def get_theme_css(theme: str) -> str:
     [data-testid="stExpander"] details {{
         border: 1px solid {t['border']} !important;
     }}
-    [data-testid="stExpander"] summary {{
+    [data-testid="stExpander"] summary,
+    [data-testid="stExpander"] details[open] > summary,
+    [data-testid="stExpander"] summary:hover,
+    [data-testid="stExpander"] details[open] > summary:hover {{
         border: none !important;
+        background-color: {t['bg_card']} !important;
+        color: {t['text_main']} !important;
     }}
     [data-testid="stExpanderDetails"] {{
         background-color: {t['bg_card']} !important;
@@ -254,6 +259,27 @@ def get_theme_css(theme: str) -> str:
         border-radius: 20px !important;
     }}
 </style>
+<script>
+(function() {{
+    const TEXT_COLOR = "{t['text_main']}";
+    const BG_COLOR = "{t['bg_card']}";
+    function fixExpanders() {{
+        document.querySelectorAll('[data-testid="stExpander"] summary').forEach(function(s) {{
+            s.style.setProperty('color', TEXT_COLOR, 'important');
+            s.style.setProperty('background-color', BG_COLOR, 'important');
+            s.querySelectorAll('*').forEach(function(el) {{
+                if (el.tagName === 'svg') {{
+                    el.style.setProperty('fill', TEXT_COLOR, 'important');
+                }}
+                el.style.setProperty('color', TEXT_COLOR, 'important');
+            }});
+        }});
+    }}
+    fixExpanders();
+    var obs = new MutationObserver(fixExpanders);
+    obs.observe(document.body, {{ childList: true, subtree: true, attributes: true }});
+}})();
+</script>
 """
 
 LLM_SOURCE_INDICATOR = {
@@ -426,6 +452,7 @@ STRINGS = {
         "about_title":         "À propos de CEDD",
         "export_btn":          "📥 Exporter",
         "alert_toast_up":      "⚠️ Niveau d'alerte augmenté : {emoji} {label}",
+        "llm_fallback_toast":  "🔄 {failed} a échoué (timeout) → basculé sur {active}",
         "compare_btn":         "🔀 Comparer",
         "compare_btn_off":     "🔀 Mode normal",
         "compare_left_header": "### 💬 Sans CEDD",
@@ -504,6 +531,7 @@ STRINGS = {
         "about_title":         "About CEDD",
         "export_btn":          "📥 Export",
         "alert_toast_up":      "⚠️ Alert level increased: {emoji} {label}",
+        "llm_fallback_toast":  "🔄 {failed} failed (timeout) → switched to {active}",
         "compare_btn":         "🔀 Compare",
         "compare_btn_off":     "🔀 Single mode",
         "compare_left_header": "### 💬 Without CEDD",
@@ -1287,6 +1315,20 @@ def main():
             unsafe_allow_html=True,
         )
 
+    # LLM fallback toast (rendered once, cleared after display)
+    # Toast de basculement LLM (affiché une fois, effacé après)
+    fallback_info = st.session_state.pop("_llm_fallback_toast", None)
+    if fallback_info:
+        toast_msg = S["llm_fallback_toast"].format(
+            failed=fallback_info["failed"],
+            active=fallback_info["active"],
+        )
+        st.markdown(
+            f'<div class="alert-toast" style="background:#e67e22;color:#fff;">'
+            f'{toast_msg}</div>',
+            unsafe_allow_html=True,
+        )
+
     # Start a session if needed (first visit or after reset)
     # Démarrer une session si nécessaire (première visite ou après reset)
     if st.session_state.session_id is None:
@@ -1519,6 +1561,11 @@ def main():
                         "alert_level": 3,
                     })
                     st.session_state.last_llm_source = result["source"]
+                    if result.get("failed_models"):
+                        st.session_state["_llm_fallback_toast"] = {
+                            "failed": ", ".join(result["failed_models"]),
+                            "active": result["source"],
+                        }
                 st.rerun()
 
         # ── Connecting to counselor / Connexion à l'intervenant ───────────────
@@ -1576,6 +1623,11 @@ def main():
                             force_model=st.session_state.selected_llm,
                         )
                     st.session_state.last_llm_source = result["source"]
+                    if result.get("failed_models"):
+                        st.session_state["_llm_fallback_toast"] = {
+                            "failed": ", ".join(result["failed_models"]),
+                            "active": result["source"],
+                        }
                     if result["content"]:
                         st.session_state.messages.append({
                             "role": "assistant",
@@ -1684,6 +1736,11 @@ def main():
                             handoff_step=st.session_state.handoff_step,
                         )
                     st.session_state.last_llm_source = result["source"]
+                    if result.get("failed_models"):
+                        st.session_state["_llm_fallback_toast"] = {
+                            "failed": ", ".join(result["failed_models"]),
+                            "active": result["source"],
+                        }
 
                     if result["content"]:
                         st.session_state.messages.append({

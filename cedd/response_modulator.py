@@ -363,6 +363,9 @@ def get_llm_response(
         else ["cohere", "groq", "gemini-flash", "claude-haiku"]
     )
 
+    # Track failed models for UI warning / Suivi des modèles échoués
+    failed_models = []
+
     for model in models_to_try:
 
         if model == "groq":
@@ -370,15 +373,16 @@ def get_llm_response(
             if api_key:
                 try:
                     from groq import Groq
-                    client = Groq(api_key=api_key)
+                    client = Groq(api_key=api_key, timeout=25.0)
                     groq_messages = [{"role": "system", "content": system_prompt}] + clean_messages
                     response = client.chat.completions.create(
                         model="llama-3.3-70b-versatile",
                         messages=groq_messages,
                         max_tokens=300,
                     )
-                    return {"content": response.choices[0].message.content, "source": "groq"}
+                    return {"content": response.choices[0].message.content, "source": "groq", "failed_models": failed_models}
                 except Exception as e:
+                    failed_models.append(model)
                     print(f"Groq API failed: {e}")
 
         elif model == "gemini-flash":
@@ -413,9 +417,13 @@ def get_llm_response(
                         gemini_history.append({"role": role, "parts": [msg["content"]]})
 
                     chat = gemini_model.start_chat(history=gemini_history)
-                    response = chat.send_message(clean_messages[-1]["content"])
-                    return {"content": response.text, "source": "gemini-flash"}
+                    response = chat.send_message(
+                        clean_messages[-1]["content"],
+                        request_options={"timeout": 25},
+                    )
+                    return {"content": response.text, "source": "gemini-flash", "failed_models": failed_models}
                 except Exception as e:
+                    failed_models.append(model)
                     print(f"Gemini API failed: {e}")
 
         elif model == "claude-haiku":
@@ -423,15 +431,16 @@ def get_llm_response(
             if api_key:
                 try:
                     import anthropic
-                    client = anthropic.Anthropic(api_key=api_key)
+                    client = anthropic.Anthropic(api_key=api_key, timeout=25.0)
                     response = client.messages.create(
                         model="claude-haiku-4-5-20251001",
                         max_tokens=300,
                         system=system_prompt,
                         messages=clean_messages,
                     )
-                    return {"content": response.content[0].text, "source": "claude-haiku"}
+                    return {"content": response.content[0].text, "source": "claude-haiku", "failed_models": failed_models}
                 except Exception as e:
+                    failed_models.append(model)
                     print(f"Claude API failed: {e}")
 
         elif model == "cohere":
@@ -439,19 +448,20 @@ def get_llm_response(
             if api_key:
                 try:
                     import cohere
-                    client = cohere.ClientV2(api_key=api_key)
+                    client = cohere.ClientV2(api_key=api_key, timeout=25.0)
                     cohere_messages = [{"role": "system", "content": system_prompt}] + clean_messages
                     response = client.chat(
                         model="command-a-03-2025",
                         messages=cohere_messages,
                         max_tokens=300,
                     )
-                    return {"content": response.message.content[0].text, "source": "cohere"}
+                    return {"content": response.message.content[0].text, "source": "cohere", "failed_models": failed_models}
                 except Exception as e:
+                    failed_models.append(model)
                     print(f"Cohere API failed: {e}")
 
     # All models failed — return static fallback / Tous les modèles ont échoué
-    return {"content": fallback_msg, "source": "fallback-statique"}
+    return {"content": fallback_msg, "source": "fallback-statique", "failed_models": failed_models}
 
 
 # ── Simulated counselor prompt — Bilingual / Prompt d'intervenant simulé ───
