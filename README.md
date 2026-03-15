@@ -42,7 +42,7 @@ Detection relies on a hybrid approach:
 - **Lexical and structural features** (10 per-message features with bilingual lexicons) — zero latency, full explainability
 - **Multilingual sentence embeddings** (`paraphrase-multilingual-MiniLM-L12-v2`) — semantic understanding that catches synonyms, paraphrases, and sarcasm
 - **Conversational coherence features** — behavioral withdrawal patterns like short responses and topic avoidance
-- **GradientBoosting classifier** with 6-gate safety logic — safety rules that can never be overridden by ML
+- **GradientBoosting classifier** with 7-gate safety logic — safety rules that can never be overridden by ML
 
 ---
 
@@ -167,7 +167,7 @@ Behavioral withdrawal patterns computed at conversation level:
 StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 ```
 
-**6-Gate Safety Logic:**
+**7-Gate Safety Logic:**
 
 | Gate | Condition | Action |
 |------|-----------|--------|
@@ -177,6 +177,7 @@ StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)
 | 4 | ML confidence < 0.45 | Default to Yellow (precautionary principle) |
 | 5 | < 6 user messages | Cap ML at Orange max (trajectory features noisy on short convos) |
 | 6 | ML < safety minimum | Enforce safety floor: ML can never go below keyword-based level |
+| 7 | Response delay >= 300s AND Yellow+ | Bump +1 level (cap at Red). 120s+ AND Orange+ also bumps. Green never bumped. |
 
 **Safety rules (lexical override):**
 
@@ -427,9 +428,9 @@ Results on the 600-conversation bilingual dataset (480 standard + 120 adversaria
 | Top feature               | `word_count_max` (0.192)      |
 | 2nd feature               | `word_count_slope` (0.179)    |
 | 3rd feature               | `word_count_last` (0.138)     |
-| 4th feature               | `length_delta_mean` (0.075)   |
+| 4th feature               | `finality_score_mean` (0.066) |
 | Adversarial tests         | **36/36 passing**             |
-| Unit tests (pytest)       | **90/90 passing**             |
+| Unit tests (pytest)       | **94/94 passing**             |
 | Integration tests (pytest)| **39/39 passing**             |
 | Critical misses           | **0**                         |
 | Languages                 | French + English (bilingual)  |
@@ -445,7 +446,8 @@ Results on the 600-conversation bilingual dataset (480 standard + 120 adversaria
 | March 12 | +Identity + Somatization + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
 | March 12 | Data expansion to 480 convos (60/class) | 91.7% +/- 4.4% | 13/13 |
 | March 13 | Adversarial augmentation to 600 convos (6 new archetypes) | 90.5% +/- 1.5% | 30/30 |
-| March 14 | Word-boundary fix + 6 new tests (regex `\b`, context-aware "personne", feminine forms) | **90.0% +/- 1.6%** | **36/36** |
+| March 14 | Word-boundary fix + 6 new tests (regex `\b`, context-aware "personne", feminine forms) | 90.0% +/- 1.6% | 36/36 |
+| March 15 | +Gate 7 response delay bump (67 features, 7 gates) | **90.0% +/- 1.6%** | **36/36** |
 
 ---
 
@@ -463,13 +465,13 @@ cedd-hackathon/
 +-- cedd/                           # Main Python package
 |   +-- __init__.py
 |   +-- feature_extractor.py        # 10 features/msg + embeddings + coherence -> 67D
-|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 6-gate safety)
+|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 7-gate safety)
 |   +-- response_modulator.py       # Adaptive prompts (FR + EN) + LLM fallback chain
 |   +-- session_tracker.py          # Cross-session SQLite longitudinal tracking
 |
 +-- tests/                          # Test suites (Track 1)
 |   +-- adversarial_suite.py        # CLI test runner (--verbose, --category, --export)
-|   +-- test_unit.py                # 90 pytest unit tests (4 modules: features, classifier, modulator, tracker)
+|   +-- test_unit.py                # 94 pytest unit tests (4 modules: features, classifier, modulator, tracker)
 |   +-- test_integration.py         # 39 pytest integration tests (demo, cross-language, bilingual UI, edge cases)
 |   +-- test_cases_adversarial.json # 36 adversarial test cases across 20 categories (FR + EN)
 |   +-- results/
@@ -562,17 +564,17 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 
 #### Unit Tests (pytest)
 
-90 automated tests covering the 4 core modules:
+94 automated tests covering the 4 core modules:
 
 | Module | Tests | Coverage |
 |--------|------:|----------|
 | Feature Extractor | 34 | All 10 features (FR + EN), edge cases, trajectory shapes, slope direction |
-| Classifier | 12 | All 6 safety gates, crisis keywords (FR + EN), safety floor enforcement |
+| Classifier | 16 | All 7 safety gates including Gate 7 response delay, crisis keywords (FR + EN), safety floor, delay_bumped flag |
 | Response Modulator | 23 | Prompt selection, crisis resources in Orange/Red, handoff steps 1-5, counselor Alex, static fallback |
 | Session Tracker | 21 | Session lifecycle, withdrawal detection, longitudinal risk (trends, consecutive high) |
 
 ```bash
-pytest tests/test_unit.py -v                    # All 90 tests
+pytest tests/test_unit.py -v                    # All 94 tests
 pytest tests/test_unit.py -v -k "feature"       # Feature extractor only
 pytest tests/test_unit.py -v -k "Gate"           # Classifier gates only
 ```
@@ -588,7 +590,7 @@ pytest tests/test_unit.py -v -k "Gate"           # Classifier gates only
 | Demo Scenarios | 7 | Demo freezing, wrong alert levels, crash during autopilot |
 | Cross-Language Consistency | 6 | FR and EN producing wildly different results |
 | Bilingual String Completeness | 5 | Missing translations, broken format placeholders |
-| End-to-End Integration | 6 | Pipeline producing wrong results, model file issues |
+| End-to-End Integration | 6 | Pipeline producing wrong results, model file issues  |
 | Edge Cases | 7 | Crash on emoji, long messages, whitespace, mixed languages |
 | Feature Scores Output | 5 | Explainability chart showing empty/broken data |
 | Session Tracker Integration | 3 | Session logging failing with real classifier results |
@@ -596,7 +598,7 @@ pytest tests/test_unit.py -v -k "Gate"           # Classifier gates only
 ```bash
 pytest tests/test_integration.py -v             # All 39 integration tests
 pytest tests/test_integration.py -v -k "Demo"   # Demo scenario validation
-pytest tests/ -v                                 # All 129 tests (unit + integration)
+pytest tests/ -v                                 # All 133 tests (unit + integration)
 ```
 
 ---
@@ -663,7 +665,7 @@ La detection repose sur une approche hybride :
 - **Features lexicales et structurelles** (10 features par message avec lexiques bilingues) -- latence nulle, explicabilite complete
 - **Embeddings de phrases multilingues** (`paraphrase-multilingual-MiniLM-L12-v2`) -- comprehension semantique qui detecte synonymes, paraphrases et sarcasme
 - **Features de coherence conversationnelle** -- patterns de retrait comportemental (reponses courtes, evitement thematique)
-- **Classifieur GradientBoosting** avec logique de securite a 6 portes -- les regles de securite ne peuvent jamais etre outrepassees par le ML
+- **Classifieur GradientBoosting** avec logique de securite a 7 portes -- les regles de securite ne peuvent jamais etre outrepassees par le ML
 
 ---
 
@@ -770,7 +772,7 @@ Patterns de retrait comportemental au niveau conversation :
 
 Pipeline : `StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_depth=3)`
 
-**Logique de securite a 6 portes :**
+**Logique de securite a 7 portes :**
 
 | Porte | Condition | Action |
 |-------|-----------|--------|
@@ -780,6 +782,7 @@ Pipeline : `StandardScaler -> GradientBoostingClassifier(n_estimators=200, max_d
 | 4 | Confiance ML < 0.45 | Defaut a Jaune (principe de precaution) |
 | 5 | < 6 messages utilisateur | Plafonner ML a Orange max |
 | 6 | ML < minimum securite | Appliquer plancher de securite |
+| 7 | Delai de reponse >= 300s ET Jaune+ | Hausse +1 niveau (plafond Rouge). 120s+ ET Orange+ aussi. Vert jamais hausse. |
 
 Mots-cles de crise etendus (arme, pistolet, couteau, gun, knife, shoot...) declenchent **Rouge immediatement** a tout moment. En cas d'override de securite, les barres de probabilite sont remplacees par un badge "mot de crise detecte".
 
@@ -929,9 +932,9 @@ Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adve
 | Top feature               | `word_count_max` (0.192)       |
 | 2e feature                | `word_count_slope` (0.179)     |
 | 3e feature                | `word_count_last` (0.138)      |
-| 4e feature                | `length_delta_mean` (0.075)    |
+| 4e feature                | `finality_score_mean` (0.066)  |
 | Tests adversariaux        | **36/36 reussis**              |
-| Tests unitaires (pytest)  | **90/90 reussis**              |
+| Tests unitaires (pytest)  | **94/94 reussis**              |
 | Tests d'integration (pytest) | **39/39 reussis**           |
 | Crises manquees           | **0**                          |
 
@@ -946,7 +949,8 @@ Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adve
 | Mars 12 | +Identite + Somatisation + Coherence (67 features) | 92.5% +/- 1.5% | 13/13 |
 | Mars 12 | Expansion donnees a 480 convos (60/classe) | 91.7% +/- 4.4% | 13/13 |
 | Mars 13 | Augmentation adversariale a 600 convos (6 nouveaux archetypes) | 90.5% +/- 1.5% | 30/30 |
-| Mars 14 | Correctif frontieres de mots + 6 nouveaux tests (regex `\b`, "personne" contextuel, formes feminines) | **90.0% +/- 1.6%** | **36/36** |
+| Mars 14 | Correctif frontieres de mots + 6 nouveaux tests (regex `\b`, "personne" contextuel, formes feminines) | 90.0% +/- 1.6% | 36/36 |
+| Mars 15 | +Porte 7 delai de reponse (67 features, 7 portes) | **90.0% +/- 1.6%** | **36/36** |
 
 ---
 
@@ -964,13 +968,13 @@ cedd-hackathon/
 +-- cedd/                           # Package Python principal
 |   +-- __init__.py
 |   +-- feature_extractor.py        # 10 features/msg + embeddings + coherence -> 67D
-|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 6 portes securite)
+|   +-- classifier.py               # CEDDClassifier (GradientBoosting + 7 portes securite)
 |   +-- response_modulator.py       # Prompts adaptatifs FR + EN + chaine LLM
 |   +-- session_tracker.py          # Suivi longitudinal inter-sessions SQLite
 |
 +-- tests/                          # Suites de tests (Track 1)
 |   +-- adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
-|   +-- test_unit.py                # 90 tests unitaires pytest (4 modules : features, classifier, modulator, tracker)
+|   +-- test_unit.py                # 94 tests unitaires pytest (4 modules : features, classifier, modulator, tracker)
 |   +-- test_integration.py         # 39 tests d'integration pytest (demo, cross-langue, UI bilingue, cas limites)
 |   +-- test_cases_adversarial.json # 36 cas de test adversariaux, 20 categories (FR + EN)
 |   +-- results/                    # Historique des resultats
@@ -1032,17 +1036,17 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 
 #### Tests unitaires (pytest)
 
-90 tests automatises couvrant les 4 modules principaux :
+94 tests automatises couvrant les 4 modules principaux :
 
 | Module | Tests | Couverture |
 |--------|------:|------------|
 | Feature Extractor | 34 | Les 10 features (FR + EN), cas limites, forme trajectoire, direction pente |
-| Classifier | 12 | Les 6 portes de securite, mots-cles de crise (FR + EN), plancher de securite |
+| Classifier | 16 | Les 7 portes de securite dont Porte 7 delai reponse, mots-cles de crise (FR + EN), plancher de securite, flag delay_bumped |
 | Response Modulator | 23 | Selection de prompts, ressources de crise Orange/Rouge, etapes transfert 1-5, intervenant Alex, fallback statique |
 | Session Tracker | 21 | Cycle de vie session, detection de retrait, risque longitudinal (tendances, sessions consecutives) |
 
 ```bash
-pytest tests/test_unit.py -v                    # Les 90 tests
+pytest tests/test_unit.py -v                    # Les 94 tests
 pytest tests/test_unit.py -v -k "feature"       # Feature extractor seulement
 pytest tests/test_unit.py -v -k "Gate"           # Portes du classifier seulement
 ```
@@ -1066,7 +1070,7 @@ pytest tests/test_unit.py -v -k "Gate"           # Portes du classifier seulemen
 ```bash
 pytest tests/test_integration.py -v             # Les 39 tests d'integration
 pytest tests/test_integration.py -v -k "Demo"   # Validation scenarios demo
-pytest tests/ -v                                 # Les 129 tests (unitaires + integration)
+pytest tests/ -v                                 # Les 133 tests (unitaires + integration)
 ```
 
 ---

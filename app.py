@@ -355,7 +355,7 @@ ABOUT_CEDD = {
 **Comment ça fonctionne :**
 - Analyse **67 caractéristiques** par conversation (lexicales, sémantiques, comportementales)
 - Surveille la **trajectoire** émotionnelle — pas juste un message, mais l'évolution complète
-- **6 portes de sécurité** : les mots-clés de crise surpassent toujours le ML
+- **7 portes de sécurité** : les mots-clés de crise surpassent toujours le ML + détection de délai de réponse
 - **Transfert accompagné** en 5 étapes vers Jeunesse, J'écoute au niveau Rouge
 
 **Ce que vous voyez à droite :**
@@ -370,7 +370,7 @@ ABOUT_CEDD = {
 **How it works:**
 - Analyzes **67 features** per conversation (lexical, semantic, behavioral)
 - Monitors the emotional **trajectory** — not just one message, but the full evolution
-- **6 safety gates**: crisis keywords always override ML predictions
+- **7 safety gates**: crisis keywords always override ML + response delay detection
 - **5-step warm handoff** to Kids Help Phone at Red level
 
 **What you see on the right:**
@@ -464,6 +464,7 @@ STRINGS = {
         "counselor_banner_name": "Alex — Jeunesse, J'écoute / Kids Help Phone",
         "counselor_banner_sub":  "Conseiller·ère humain·e • En ligne maintenant",
         "counselor_connecting":  "Connexion avec Alex en cours...",
+        "delay_badge":           "⏱️ Délai de réponse élevé",
     },
     "en": {
         "lang_btn":            "🇫🇷 Français",
@@ -543,6 +544,7 @@ STRINGS = {
         "counselor_banner_name": "Alex — Jeunesse, J'écoute / Kids Help Phone",
         "counselor_banner_sub":  "Human Counselor • Online now",
         "counselor_connecting":  "Connecting you with Alex...",
+        "delay_badge":           "⏱️ High response delay",
     },
 }
 
@@ -1556,7 +1558,7 @@ def main():
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": result["content"],
-                        "timestamp": datetime.now().strftime("%H:%M"),
+                        "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                         "source": result["source"],
                         "alert_level": 3,
                     })
@@ -1576,7 +1578,7 @@ def main():
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": intro,
-                "timestamp": datetime.now().strftime("%H:%M"),
+                "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                 "source": "counselor",
                 "alert_level": 3,
                 "is_counselor": True,
@@ -1612,7 +1614,7 @@ def main():
 
                 # Add user message / Ajouter le message utilisateur
                 now = datetime.now().strftime("%H:%M")
-                st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now})
+                st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now, "timestamp_dt": datetime.now()})
 
                 # ── Human counselor mode: bypass CEDD, use Alex persona ───────
                 if st.session_state.chat_mode == "human_mode":
@@ -1632,7 +1634,7 @@ def main():
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": result["content"],
-                            "timestamp": datetime.now().strftime("%H:%M"),
+                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                             "source": "counselor",
                             "alert_level": 3,
                             "is_counselor": True,
@@ -1649,9 +1651,18 @@ def main():
                     # Suivre le niveau précédent pour l'animation de transition
                     prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
 
+                    # Compute response delay (time since last assistant message)
+                    # Calcul du délai de réponse (temps depuis le dernier message assistant)
+                    response_delay_s = None
+                    for m in reversed(st.session_state.messages):
+                        if m["role"] == "assistant" and "timestamp_dt" in m:
+                            response_delay_s = (datetime.now() - m["timestamp_dt"]).total_seconds()
+                            break
+
                     # Analyse with CEDD before generating the LLM response
                     # Analyser avec CEDD avant de générer la réponse
-                    alert = clf.get_alert_level(st.session_state.messages, lang=lang)
+                    alert = clf.get_alert_level(st.session_state.messages, lang=lang,
+                                                response_delay_s=response_delay_s)
                     st.session_state.current_alert = alert
                     st.session_state.alert_history.append(alert)
 
@@ -1701,7 +1712,7 @@ def main():
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": offer_msg,
-                            "timestamp": datetime.now().strftime("%H:%M"),
+                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                             "source": "cedd-system",
                             "alert_level": 3,
                         })
@@ -1724,7 +1735,7 @@ def main():
                                 st.session_state.compare_messages.append({
                                     "role": "assistant",
                                     "content": plain_result["content"],
-                                    "timestamp": datetime.now().strftime("%H:%M"),
+                                    "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                                 })
 
                         # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
@@ -1746,7 +1757,7 @@ def main():
                         st.session_state.messages.append({
                             "role": "assistant",
                             "content": result["content"],
-                            "timestamp": datetime.now().strftime("%H:%M"),
+                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                             "source": result["source"],
                             "alert_level": alert["level"],
                         })
@@ -1774,6 +1785,12 @@ def main():
             st.markdown(
                 f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
                 f'⏰ {S["withdrawal_badge"]}</span>',
+                unsafe_allow_html=True,
+            )
+        if alert.get("delay_bumped"):
+            st.markdown(
+                f'<span class="feature-pill" style="background:#e67e2233;border-color:#e67e22;color:#e67e22;">'
+                f'{S["delay_badge"]}</span>',
                 unsafe_allow_html=True,
             )
         render_dominant_features(alert.get("dominant_features", []), S)

@@ -44,7 +44,7 @@ generate_synthetic_data.py  →  data/synthetic_conversations.json (600 convos)
 PHASE 2: LIVE APP (runs per user chat)
 app.py loads saved model → user sends message
   → feature_extractor.py  →  67 features (10/msg × 6 stats + 4 embedding + 3 coherence)
-  → classifier.py  →  6-gate decision logic → alert level (0-3)
+  → classifier.py  →  7-gate decision logic → alert level (0-3)
   → response_modulator.py  →  adaptive system prompt → LLM response
        ↘ if Red + user accepts → counselor "Alex" mode (ASIST prompt, blue UI)
   → session_tracker.py  →  SQLite for longitudinal tracking + withdrawal detection
@@ -82,7 +82,7 @@ Bilingual lexicons: `FINALITY_WORDS`, `HOPE_WORDS`, `NEGATIVE_WORDS`, `PHYSICAL_
 
 **ML Pipeline:** `StandardScaler` → `GradientBoostingClassifier` (200 trees, max_depth=3, lr=0.1)
 
-**6-Gate Safety Logic** (`get_alert_level()`):
+**7-Gate Safety Logic** (`get_alert_level()`):
 ```
 Gate 1: < 3 user messages? → return Green (not enough data)
 Gate 2: Safety keyword floor — crisis words → force Red/Orange regardless of ML
@@ -90,6 +90,7 @@ Gate 3: ML prediction — run model on 67D vector
 Gate 4: Low confidence (< 45%)? → default to Yellow (cautious)
 Gate 5: Short conversation cap (< 6 msgs)? → cap at Orange max
 Gate 6: Safety floor enforcement — ML can never go below keyword level
+Gate 7: Response delay bump — 300s+ & Yellow+ → +1, 120s+ & Orange+ → +1 (Green never bumped)
 ```
 
 **Design philosophy:** Asymmetric errors — false positives (over-alerting) are always preferable to false negatives (missing a crisis).
@@ -147,7 +148,7 @@ Claude Haiku API: 480 standard (60/class × 4 × 2 langs) + 120 adversarial (6 a
 | Training conversations | **600 (480 standard + 120 adversarial, FR + EN)** |
 | Sample:feature ratio | **9.0:1** (ideal is 10:1) |
 | Adversarial tests | **36/36 passing · 0 critical misses** |
-| Unit tests (pytest) | **90/90 passing** (feature extractor, classifier, response modulator, session tracker) |
+| Unit tests (pytest) | **94/94 passing** (feature extractor, classifier, response modulator, session tracker) |
 | Integration tests (pytest) | **39/39 passing** (demo scenarios, cross-language, bilingual UI, end-to-end, edge cases, feature scores, session tracker) |
 
 ---
@@ -177,10 +178,11 @@ streamlit run app.py     # Test with sample conversation
 ### After modifying `classifier.py`:
 ```bash
 python train.py
-# CRITICAL: Test all 6 safety gates:
+# CRITICAL: Test all 7 safety gates:
 #   Gate 2: "je veux mourir" MUST trigger Orange/Red floor
 #   Gate 4: Low confidence MUST default to Yellow
 #   Gate 6: ML MUST NOT go below keyword safety floor
+#   Gate 7: Response delay bump (300s+ Yellow+ → +1, 120s+ Orange+ → +1)
 # Edge cases: empty msg → no crash, 1 msg → Green, 3 msgs + crisis → Red
 ```
 
@@ -208,16 +210,16 @@ print('Smoke test PASSED')
 
 ### Unit Tests (pytest):
 ```bash
-pytest tests/test_unit.py -v                          # 90 tests across 4 modules
+pytest tests/test_unit.py -v                          # 94 tests across 4 modules
 pytest tests/test_unit.py -v -k "feature"             # Feature extractor only
 pytest tests/test_unit.py -v -k "classifier"          # Classifier gates only
 pytest tests/test_unit.py -v -k "Prompt"              # Response modulator only
 pytest tests/test_unit.py -v -k "Longitudinal"        # Session tracker only
 ```
 
-**4 modules covered (90 tests):**
+**4 modules covered (94 tests):**
 - **Feature Extractor (34):** All 10 features (FR + EN), edge cases, trajectory shapes, slope direction
-- **Classifier (12):** All 6 safety gates, crisis keywords (FR + EN), safety floor, output structure
+- **Classifier (16):** All 7 safety gates including Gate 7 response delay, crisis keywords (FR + EN), safety floor, delay_bumped flag, output structure
 - **Response Modulator (23):** Prompt selection, crisis resources in Orange/Red, handoff steps, counselor Alex, static fallback
 - **Session Tracker (21):** Session lifecycle, withdrawal detection, longitudinal risk (trends, consecutive high)
 
@@ -229,7 +231,7 @@ pytest tests/test_integration.py -v                   # 39 tests across 7 catego
 pytest tests/test_integration.py -v -k "Demo"         # Demo scenario validation
 pytest tests/test_integration.py -v -k "Bilingual"    # Bilingual string completeness
 pytest tests/test_integration.py -v -k "EdgeCase"     # Edge cases (emoji, long msgs, etc.)
-pytest tests/ -v                                       # All 129 tests (unit + integration)
+pytest tests/ -v                                       # All 133 tests (unit + integration)
 ```
 
 **7 categories covered (39 tests):**
@@ -296,7 +298,7 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 1. **Safety-critical application for youth mental health.** Never weaken safety gates, lower alert thresholds, or remove crisis resources from prompts.
 2. **All data must be synthetic.** No real PII ever. Strict hackathon rule.
 3. **Asymmetric error philosophy:** Over-alerting always preferable to missing a crisis.
-4. **The 6-gate logic in `classifier.py` is deliberate.** Safety keyword rules override ML by design.
+4. **The 7-gate logic in `classifier.py` is deliberate.** Safety keyword rules override ML by design. Gate 7 adds response delay detection at runtime.
 5. **Bilingual is required.** Any new feature/prompt/UI element must work in both FR and EN.
 6. **4 team members with different expertise.** Code changes may need discussion.
 7. **Dominic (repo owner) is learning ML/DS.** Explain the *why* — ML concepts, algorithm choices, hyperparameter reasoning.
@@ -317,4 +319,4 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 
 ---
 
-*Last updated: March 15, 2026 (LLM 25s timeouts, expander light-mode background fix, .bashrc restored with API keys)*
+*Last updated: March 15, 2026 (Gate 7 response delay bump, 6→7 gates)*
