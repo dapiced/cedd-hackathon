@@ -108,7 +108,7 @@ Gate 6: Safety floor enforcement — ML can never go below keyword level
 ### Response Modulator (`cedd/response_modulator.py`)
 
 - Swaps LLM system prompt based on alert level (4 distinct prompts, FR and EN)
-- LLM fallback chain: Cohere → Groq → Gemini → Claude → static emergency text
+- LLM fallback chain: Cohere → Groq → Gemini → Claude → static emergency text (25s timeout per model)
 - Orange/Red prompts include Kids Help Phone resources
 - **Counselor "Alex"**: ASIST-trained KHP persona via `HUMAN_COUNSELOR_PROMPT` + `get_llm_response_as_counselor()`
 
@@ -285,9 +285,9 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 - **Bilingual throughout**: all user-facing strings have FR and EN versions
 - **Comments**: bilingual (FR + EN, separated by `/`)
 - **Variable names**: English
-- **Error handling**: LLM fallback chain (Cohere → Groq → Gemini → Claude → static text)
+- **Error handling**: LLM fallback chain (Cohere → Groq → Gemini → Claude → static text) with 25s timeout per model
 - **No secrets in code**: API keys via environment variables only
-- **CSS architecture**: Design tokens via CSS custom properties (`:root` variables for font sizes, spacing, radii). Flexbox layout for chat bubbles. Reusable CSS classes (`.status-card`, `.welcome-card`, `.counselor-banner`) instead of inline styles. Theme-aware styling via `get_theme_css()` for dark/light mode
+- **CSS architecture**: Design tokens via CSS custom properties (`:root` variables for font sizes, spacing, radii). Flexbox layout for chat bubbles. Reusable CSS classes (`.status-card`, `.welcome-card`, `.counselor-banner`) instead of inline styles. Theme-aware styling via `get_theme_css()` for dark/light mode. Expander summaries use forced `background-color` + JS `MutationObserver` to override Streamlit's default dark header on open/non-hovered state
 
 ---
 
@@ -317,4 +317,4 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 
 ---
 
-*Last updated: March 15, 2026 (UI polish pass: flexbox chat, CSS custom properties, Inter font, micro-interactions, dark-mode fixes)*
+*Last updated: March 15, 2026 (LLM 25s timeouts, expander light-mode background fix, .bashrc restored with API keys)*
