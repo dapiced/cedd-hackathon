@@ -613,8 +613,8 @@ User types: "nothing matters anymore"
     │ Level 3 + handoff step 1   │
     │ → Empathetic validation    │
     │   system prompt            │
-    │ → LLM API call (Cohere /  │
-    │   Groq / Gemini / Claude) │
+    │ → LLM API call (Cohere /   │
+    │   Groq / Gemini / Claude)  │
     │ = "I hear you, what you're │
     │   feeling is real..."      │
     └────────────┬───────────────┘
@@ -625,7 +625,7 @@ User types: "nothing matters anymore"
     │ Update last_activity       │
     └────────────┬───────────────┘
                  ↓
-    ┌─── app.py (Streamlit) ─────┐
+    ┌─── app.py (Streamlit) ──────┐
     │ Display assistant response  │
     │ Update gauge → RED          │
     │ Show "crisis word detected" │
