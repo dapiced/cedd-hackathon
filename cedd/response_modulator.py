@@ -12,6 +12,9 @@ Inclut le persona d'intervenant simulé « Alex » pour le transfert accompagné
 
 import json
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # ── System prompts — French / Français ───────────────────────────────────────
 _SYSTEM_PROMPTS_FR = {
@@ -314,6 +317,86 @@ def get_level_description(alert_level: int, lang: str = "fr") -> str:
     return _LEVEL_DESCRIPTIONS.get(lang, _LEVEL_DESCRIPTIONS["fr"])[level]
 
 
+def _handle_groq(system_prompt: str, clean_messages: list) -> str:
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return None
+    from groq import Groq
+    client = Groq(api_key=api_key, timeout=25.0)
+    groq_messages = [{"role": "system", "content": system_prompt}] + clean_messages
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=groq_messages,
+        max_tokens=300,
+    )
+    return response.choices[0].message.content
+
+
+def _handle_gemini_flash(system_prompt: str, clean_messages: list) -> str:
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    import google.generativeai as genai
+    genai.configure(api_key=api_key)
+
+    # Safety filters off — this is a mental health support app that
+    # must discuss crisis topics without being blocked.
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+
+    gemini_model = genai.GenerativeModel(
+        "gemini-2.5-flash",
+        system_instruction=system_prompt,
+        safety_settings=safety_settings,
+    )
+
+    gemini_history = []
+    for msg in clean_messages[:-1]:
+        role = "model" if msg["role"] == "assistant" else "user"
+        gemini_history.append({"role": role, "parts": [msg["content"]]})
+
+    chat = gemini_model.start_chat(history=gemini_history)
+    response = chat.send_message(
+        clean_messages[-1]["content"],
+        request_options={"timeout": 25},
+    )
+    return response.text
+
+
+def _handle_claude_haiku(system_prompt: str, clean_messages: list) -> str:
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return None
+    import anthropic
+    client = anthropic.Anthropic(api_key=api_key, timeout=25.0)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        system=system_prompt,
+        messages=clean_messages,
+    )
+    return response.content[0].text
+
+
+def _handle_cohere(system_prompt: str, clean_messages: list) -> str:
+    api_key = os.environ.get("COHERE_API_KEY")
+    if not api_key:
+        return None
+    import cohere
+    client = cohere.ClientV2(api_key=api_key, timeout=25.0)
+    cohere_messages = [{"role": "system", "content": system_prompt}] + clean_messages
+    response = client.chat(
+        model="command-a-03-2025",
+        messages=cohere_messages,
+        max_tokens=300,
+    )
+    return response.message.content[0].text
+
+
 def get_llm_response(
     messages: list,
     alert_level: int,
@@ -366,99 +449,23 @@ def get_llm_response(
     # Track failed models for UI warning / Suivi des modèles échoués
     failed_models = []
 
+    _MODEL_HANDLERS = {
+        "groq": _handle_groq,
+        "gemini-flash": _handle_gemini_flash,
+        "claude-haiku": _handle_claude_haiku,
+        "cohere": _handle_cohere,
+    }
+
     for model in models_to_try:
-
-        if model == "groq":
-            api_key = os.environ.get("GROQ_API_KEY")
-            if api_key:
-                try:
-                    from groq import Groq
-                    client = Groq(api_key=api_key, timeout=25.0)
-                    groq_messages = [{"role": "system", "content": system_prompt}] + clean_messages
-                    response = client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        messages=groq_messages,
-                        max_tokens=300,
-                    )
-                    return {"content": response.choices[0].message.content, "source": "groq", "failed_models": failed_models}
-                except Exception as e:
-                    failed_models.append(model)
-                    print(f"Groq API failed: {e}")
-
-        elif model == "gemini-flash":
-            api_key = os.environ.get("GEMINI_API_KEY")
-            if api_key:
-                try:
-                    import google.generativeai as genai
-                    genai.configure(api_key=api_key)
-
-                    # Safety filters off — this is a mental health support app that
-                    # must discuss crisis topics without being blocked.
-                    # Filtres de sécurité désactivés — appli de santé mentale qui
-                    # doit pouvoir discuter de sujets de crise sans blocage.
-                    safety_settings = [
-                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                    ]
-
-                    gemini_model = genai.GenerativeModel(
-                        "gemini-2.5-flash",
-                        system_instruction=system_prompt,
-                        safety_settings=safety_settings,
-                    )
-
-                    # Convert to Gemini format: "assistant" → "model"
-                    # Conversion au format Gemini : "assistant" → "model"
-                    gemini_history = []
-                    for msg in clean_messages[:-1]:
-                        role = "model" if msg["role"] == "assistant" else "user"
-                        gemini_history.append({"role": role, "parts": [msg["content"]]})
-
-                    chat = gemini_model.start_chat(history=gemini_history)
-                    response = chat.send_message(
-                        clean_messages[-1]["content"],
-                        request_options={"timeout": 25},
-                    )
-                    return {"content": response.text, "source": "gemini-flash", "failed_models": failed_models}
-                except Exception as e:
-                    failed_models.append(model)
-                    print(f"Gemini API failed: {e}")
-
-        elif model == "claude-haiku":
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
-            if api_key:
-                try:
-                    import anthropic
-                    client = anthropic.Anthropic(api_key=api_key, timeout=25.0)
-                    response = client.messages.create(
-                        model="claude-haiku-4-5-20251001",
-                        max_tokens=300,
-                        system=system_prompt,
-                        messages=clean_messages,
-                    )
-                    return {"content": response.content[0].text, "source": "claude-haiku", "failed_models": failed_models}
-                except Exception as e:
-                    failed_models.append(model)
-                    print(f"Claude API failed: {e}")
-
-        elif model == "cohere":
-            api_key = os.environ.get("COHERE_API_KEY")
-            if api_key:
-                try:
-                    import cohere
-                    client = cohere.ClientV2(api_key=api_key, timeout=25.0)
-                    cohere_messages = [{"role": "system", "content": system_prompt}] + clean_messages
-                    response = client.chat(
-                        model="command-a-03-2025",
-                        messages=cohere_messages,
-                        max_tokens=300,
-                    )
-                    return {"content": response.message.content[0].text, "source": "cohere", "failed_models": failed_models}
-                except Exception as e:
-                    failed_models.append(model)
-                    print(f"Cohere API failed: {e}")
+        handler = _MODEL_HANDLERS.get(model)
+        if handler:
+            try:
+                content = handler(system_prompt, clean_messages)
+                if content is not None:
+                    return {"content": content, "source": model, "failed_models": failed_models}
+            except Exception as e:
+                failed_models.append(model)
+                logger.exception(f"{model.capitalize()} API failed: {e}")
 
     # All models failed — return static fallback / Tous les modèles ont échoué
     return {"content": fallback_msg, "source": "fallback-statique", "failed_models": failed_models}
