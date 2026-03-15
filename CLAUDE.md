@@ -247,7 +247,6 @@ pytest tests/ -v                                       # All 133 tests (unit + i
 ```bash
 python tests/adversarial_suite.py                    # 36 cases, exit code 2 = critical miss
 python tests/adversarial_suite.py --verbose           # With probabilities + top features
-python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).json
 ```
 
 **22 categories:** false_positive_physical, sarcasm, negation, code_switching, quebecois_slang, gradual_drift_no_keywords, direct_crisis, hidden_intent, manipulation_downplay, somatization, identity_conflict, sudden_escalation, active_bypass, rapid_recovery_manipulation, cultural_false_positive, neurodivergent_pattern, emoji_only, repeated_word, short_recovery, long_message, neutral_personne_fr, emoji_crisis
