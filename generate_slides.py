@@ -531,7 +531,7 @@ def build_slide_04_architecture(prs):
     p.alignment = PP_ALIGN.CENTER
 
     chain_items = [
-        "1. Cohere Command A",
+        "1. Cohere",
         "2. Groq (Llama 3.3 70B)",
         "3. Gemini 2.5 Flash",
         "4. Claude Haiku",

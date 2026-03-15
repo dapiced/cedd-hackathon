@@ -292,7 +292,7 @@ All prompts are hardcoded strings — never AI-generated (safety-critical).
 ### LLM Fallback Chain
 
 ```
-1. cohere         (Cohere API, Command A — default)
+1. cohere         (Cohere API, default)
        ↓ fails?
 2. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
        ↓ fails?
@@ -613,8 +613,8 @@ User types: "nothing matters anymore"
     │ Level 3 + handoff step 1   │
     │ → Empathetic validation    │
     │   system prompt            │
-    │ → LLM API call (Cohere /  │
-    │   Groq / Gemini / Claude) │
+    │ → LLM API call (Cohere /   │
+    │   Groq / Gemini / Claude)  │
     │ = "I hear you, what you're │
     │   feeling is real..."      │
     └────────────┬───────────────┘
@@ -625,7 +625,7 @@ User types: "nothing matters anymore"
     │ Update last_activity       │
     └────────────┬───────────────┘
                  ↓
-    ┌─── app.py (Streamlit) ─────┐
+    ┌─── app.py (Streamlit) ──────┐
     │ Display assistant response  │
     │ Update gauge → RED          │
     │ Show "crisis word detected" │

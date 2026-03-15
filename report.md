@@ -317,19 +317,19 @@ Every conversation is generated in its target language with authentic regional e
 |  +------------------+    +------------------+    +----------------+  |
 |  | Feature Extractor|    |    Classifier    |    |   Response     |  |
 |  |                  |--->|                  |--->|   Modulator    |  |
-|  | 10 features/msg  |    | 6-gate safety   |    |                |  |
+|  | 10 features/msg  |    | 6-gate safety    |    |                |  |
 |  | 67 trajectory    |    | GradientBoosting |    | Adaptive       |  |
 |  | Bilingual NLP    |    | StandardScaler   |    | system prompts |  |
 |  | Embeddings       |    |                  |    | LLM fallback   |  |
 |  +------------------+    +------------------+    +----------------+  |
 |                                                         |            |
-|  +------------------+                           +-------v--------+  |
-|  | Session Tracker  |                           | LLM Chain      |  |
-|  | SQLite           |                           | Cohere         |  |
-|  | Cross-session    |                           | Groq           |  |
-|  | Withdrawal       |                           | Gemini         |  |
-|  | detection        |                           | Claude         |  |
-|  +------------------+                           | Static text    |  |
+|  +------------------+                           +-------v--------+   |
+|  | Session Tracker  |                           | LLM Chain      |   |
+|  | SQLite           |                           | Cohere         |   |
+|  | Cross-session    |                           | Groq           |   |
+|  | Withdrawal       |                           | Gemini         |   |
+|  | detection        |                           | Claude         |   |
+|  +------------------+                           | Static text    |   |
 |                                                  +----------------+  |
 +---------------------------------------------------------------------+
                               |
@@ -351,7 +351,7 @@ Every conversation is generated in its target language with authentic regional e
 
 To ensure 24/7 availability for a crisis service, CEDD uses a 5-step fallback chain:
 
-1. **Cohere** (Command A) --- primary
+1. **Cohere** --- primary
 2. **Groq** (Llama 3.3 70B Versatile) --- fastest inference
 3. **Google Gemini** (2.5 Flash) --- tertiary
 4. **Anthropic Claude** (Haiku) --- quaternary
