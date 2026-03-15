@@ -407,6 +407,8 @@ STRINGS = {
         "signals_waiting":     "En attente d'analyse...",
         "history_header":      "**Évolution du niveau**",
         "history_waiting":     "Historique disponible après 2 messages.",
+        "streamgraph_header":  "**Flux émotionnel**",
+        "streamgraph_waiting": "Flux disponible après 2 messages.",
         "longitudinal_header": "### 📊 Historique longitudinal",
         "longitudinal_empty":  "Aucun historique — complétez des sessions pour voir la tendance.",
         "trend_stable":        "→ Stable",
@@ -489,6 +491,8 @@ STRINGS = {
         "signals_waiting":     "Waiting for analysis...",
         "history_header":      "**Alert level history**",
         "history_waiting":     "History available after 2 messages.",
+        "streamgraph_header":  "**Emotional flow**",
+        "streamgraph_waiting": "Flow available after 2 messages.",
         "longitudinal_header": "### 📊 Longitudinal history",
         "longitudinal_empty":  "No history yet — complete sessions to see the trend.",
         "trend_stable":        "→ Stable",
@@ -1098,6 +1102,69 @@ def render_history_chart(S: dict, theme: str = "light"):
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
+def render_streamgraph(S: dict, theme: str = "light"):
+    """Stacked area chart of class probabilities over time. / Graphique de flux émotionnel."""
+    history = st.session_state.alert_history
+    if len(history) < 2:
+        st.caption(S["streamgraph_waiting"])
+        return
+
+    font_color = "#000000" if theme == "light" else "#ffffff"
+    grid_color = "#9bb5cc" if theme == "light" else "#2d3748"
+    x = list(range(1, len(history) + 1))
+
+    classes = ["green", "yellow", "orange", "red"]
+    series = {c: [] for c in classes}
+    for h in history:
+        probas = h.get("probabilities", {})
+        if probas:
+            for c in classes:
+                series[c].append(probas.get(c, 0.0))
+        else:
+            level = h["level"]
+            for i, c in enumerate(classes):
+                series[c].append(1.0 if i == level else 0.0)
+
+    is_fr = S.get("lang_btn", "").startswith("\U0001f1ec\U0001f1e7")
+    display = {"green": ("Green", "Vert"), "yellow": ("Yellow", "Jaune"),
+               "orange": ("Orange", "Orange"), "red": ("Red", "Rouge")}
+
+    def hex_to_rgba(hex_color, alpha=0.5):
+        r, g, b = int(hex_color[1:3], 16), int(hex_color[3:5], 16), int(hex_color[5:7], 16)
+        return f"rgba({r},{g},{b},{alpha})"
+
+    fig = go.Figure()
+    for c in classes:
+        label = display[c][1 if is_fr else 0]
+        color = LEVEL_COLORS[classes.index(c)]
+        fig.add_trace(go.Scatter(
+            x=x, y=series[c],
+            mode="lines",
+            line=dict(width=0.5, color=color),
+            fillcolor=hex_to_rgba(color, 0.5),
+            stackgroup="one",
+            name=label,
+            hovertemplate=f"{label}: %{{y:.0%}}<extra></extra>",
+        ))
+    fig.update_layout(
+        height=160,
+        margin=dict(t=10, b=30, l=30, r=10),
+        yaxis=dict(range=[0, 1], tickformat=".0%",
+                   tickfont=dict(size=10, color=font_color)),
+        xaxis=dict(title="Msg", tickfont=dict(size=10, color=font_color),
+                   title_font=dict(color=font_color)),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center",
+                    x=0.5, font=dict(size=9, color=font_color)),
+        font=dict(color=font_color),
+    )
+    fig.update_xaxes(showgrid=True, gridcolor=grid_color)
+    fig.update_yaxes(showgrid=True, gridcolor=grid_color)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+
 def render_dominant_features(features: list, S: dict):
     """Display dominant features as pills. / Affiche les features dominantes en pills."""
     if not features:
@@ -1471,7 +1538,7 @@ def main():
                 }
                 st.download_button(
                     S["export_btn"],
-                    data=json.dumps(export_data, indent=2, ensure_ascii=False),
+                    data=json.dumps(export_data, indent=2, ensure_ascii=False, default=str),
                     file_name=f"cedd_transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                     mime="application/json",
                     use_container_width=True,
@@ -1802,17 +1869,22 @@ def main():
             with st.expander(S["feature_chart_title"]):
                 render_feature_chart(feature_scores, S, theme)
 
-        # Radar chart (visible when at least 1 user message exists)
-        # Graphique radar (visible dès qu'il y a au moins 1 message utilisateur)
-        if st.session_state.messages:
-            with st.expander(S["radar_title"]):
+        # Radar chart / Graphique radar
+        with st.expander(S["radar_title"]):
+            if st.session_state.messages:
                 render_radar_chart(st.session_state.messages, S, theme, lang)
+            else:
+                st.caption(S["history_waiting"])
 
         st.divider()
 
         # In-session history / Historique des niveaux
         st.markdown(S["history_header"])
         render_history_chart(S, theme)
+
+        # Emotional flow streamgraph / Flux émotionnel
+        with st.expander(S["streamgraph_header"]):
+            render_streamgraph(S, theme)
 
         # Cross-session longitudinal history / Historique longitudinal inter-sessions
         st.markdown(S["longitudinal_header"])

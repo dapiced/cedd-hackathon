@@ -290,6 +290,7 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 - **Error handling**: LLM fallback chain (Cohere → Groq → Gemini → Claude → static text) with 25s timeout per model
 - **No secrets in code**: API keys via environment variables only
 - **CSS architecture**: Design tokens via CSS custom properties (`:root` variables for font sizes, spacing, radii). Flexbox layout for chat bubbles. Reusable CSS classes (`.status-card`, `.welcome-card`, `.counselor-banner`) instead of inline styles. Theme-aware styling via `get_theme_css()` for dark/light mode. Expander summaries use forced `background-color` + JS `MutationObserver` to override Streamlit's default dark header on open/non-hovered state
+- **Dashboard visualizations**: Circular gauge, probability bars, feature importance chart, feature radar (spider chart), **streamgraph** (stacked area of class probabilities over time), alert level history, longitudinal bar chart. All Plotly with transparent bg, theme fonts, `displayModeBar: False`
 
 ---
 
@@ -319,4 +320,4 @@ python tests/adversarial_suite.py --export tests/results/run_$(date +%Y%m%d).jso
 
 ---
 
-*Last updated: March 15, 2026 (Gate 7 response delay bump, 6→7 gates)*
+*Last updated: March 15, 2026 (Streamgraph emotional flow, radar always-visible expander)*
