@@ -198,7 +198,7 @@ class CEDDClassifier:
         return self.pipeline.predict(X)
 
     def get_alert_level(self, conversation_messages: list, lang: str = "fr",
-                         response_delay_s: float = None) -> dict:
+                         response_delay_s: float | None = None) -> dict:
         """
         Analyse a full conversation and return the alert level.
         Analyse une conversation complète et retourne le niveau d'alerte.
