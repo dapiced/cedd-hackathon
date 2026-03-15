@@ -570,200 +570,12 @@ st.set_page_config(
 )
 
 # ─── Static CSS (layout only — colors handled by get_theme_css) ─────────────────
-st.markdown("""
-<style>
-    :root {
-        --fs-xs: 0.72rem;
-        --fs-sm: 0.8rem;
-        --fs-base: 0.92rem;
-        --fs-md: 1.0rem;
-        --fs-lg: 1.15rem;
-        --fs-xl: 1.3rem;
-        --spacing-xs: 4px;
-        --spacing-sm: 8px;
-        --spacing-md: 12px;
-        --spacing-lg: 16px;
-        --spacing-xl: 24px;
-        --radius-sm: 6px;
-        --radius-md: 10px;
-        --radius-lg: 16px;
-        --radius-bubble: 18px;
-    }
-    .main { padding-top: 1rem; }
-    .chat-container {
-        display: flex;
-        flex-direction: column;
-        overflow-y: auto;
-        max-height: 480px;
-        padding: var(--spacing-md);
-        border-radius: var(--radius-lg);
-        margin-bottom: var(--spacing-md);
-    }
-    .chat-bubble-user {
-        border-radius: var(--radius-bubble) var(--radius-bubble) 4px var(--radius-bubble);
-        padding: var(--spacing-md) 14px;
-        margin: var(--spacing-xs) 0 var(--spacing-xs) 15%;
-        max-width: 85%;
-        align-self: flex-end;
-        font-size: var(--fs-base);
-        line-height: 1.5;
-        word-wrap: break-word;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .chat-bubble-user:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    }
-    .chat-bubble-assistant {
-        border-radius: var(--radius-bubble) var(--radius-bubble) var(--radius-bubble) 4px;
-        padding: var(--spacing-md) 14px;
-        margin: var(--spacing-xs) 15% var(--spacing-xs) 0;
-        max-width: 85%;
-        align-self: flex-start;
-        font-size: var(--fs-base);
-        line-height: 1.5;
-        word-wrap: break-word;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .chat-bubble-assistant:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-    }
-    .chat-bubble-counselor {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-    .chat-bubble-counselor:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .chat-time-user {
-        font-size: var(--fs-xs);
-        opacity: 0.5;
-        text-align: right;
-        margin: -2px 0 var(--spacing-xs) 0;
-        align-self: flex-end;
-    }
-    .chat-time-assistant {
-        font-size: var(--fs-xs);
-        opacity: 0.5;
-        text-align: left;
-        margin: -2px 0 var(--spacing-xs) 0;
-        align-self: flex-start;
-    }
-    .llm-badge {
-        font-size: var(--fs-xs);
-        opacity: 0.7;
-        display: block;
-        margin-top: 2px;
-    }
-    .alert-dot {
-        font-size: var(--fs-xs);
-        display: inline-block;
-        align-self: flex-start;
-        margin: 2px 0 var(--spacing-sm) 0;
-    }
-    .alert-badge {
-        padding: var(--spacing-sm) var(--spacing-lg);
-        border-radius: 20px;
-        font-weight: bold;
-        font-size: var(--fs-lg);
-        display: inline-block;
-    }
-    .metric-card {
-        border: 1px solid;
-        border-radius: var(--radius-md);
-        padding: var(--spacing-md);
-        margin: var(--spacing-sm) 0;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-    .feature-pill {
-        border: 1px solid;
-        border-radius: var(--radius-md);
-        padding: var(--spacing-xs) var(--spacing-md);
-        font-size: var(--fs-sm);
-        display: inline-block;
-        margin: 2px;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    .feature-pill:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-    .status-card {
-        padding: var(--spacing-sm) var(--spacing-md);
-        border-radius: var(--radius-sm);
-        margin: var(--spacing-xs) 0;
-        border-left: 4px solid;
-    }
-    .welcome-card {
-        text-align: center;
-        margin: 30px var(--spacing-lg);
-    }
-    .welcome-card-inner {
-        border-radius: 14px;
-        padding: var(--spacing-xl) 20px;
-        display: inline-block;
-        max-width: 380px;
-        border: 1px solid;
-    }
-    .welcome-card-icon { font-size: 2rem; margin-bottom: var(--spacing-sm); }
-    .welcome-card-title { font-size: var(--fs-lg); font-weight: 700; margin-bottom: var(--spacing-sm); }
-    .welcome-card-text { font-size: 0.88rem; opacity: 0.85; margin-bottom: var(--spacing-md); }
-    .welcome-card-cta { font-size: var(--fs-sm); opacity: 0.7; }
-    .welcome-card-profiles-title { font-size: 0.78rem; font-weight: 600; opacity: 0.8; margin-bottom: var(--spacing-xs); }
-    .welcome-card-profiles { font-size: var(--fs-xs); opacity: 0.7; line-height: 1.6; }
-    .counselor-banner {
-        background: linear-gradient(135deg, #1a5276, #2980b9);
-        border-radius: var(--radius-md);
-        padding: var(--spacing-md) var(--spacing-lg);
-        display: flex;
-        align-items: center;
-        gap: var(--spacing-md);
-        margin-bottom: var(--spacing-lg);
-    }
-    .counselor-banner-icon { font-size: 1.4rem; }
-    .counselor-banner-name { color: #fff; font-weight: 700; font-size: 14px; }
-    .counselor-banner-sub { color: #aed6f1; font-size: 12px; }
-    @keyframes alert-flash {
-        0%   { opacity: 0; transform: translateY(-10px); }
-        15%  { opacity: 1; transform: translateY(0); }
-        85%  { opacity: 1; transform: translateY(0); }
-        100% { opacity: 0; transform: translateY(-10px); }
-    }
-    .alert-toast {
-        animation: alert-flash 3s ease-in-out forwards;
-        position: fixed;
-        top: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9999;
-        padding: var(--spacing-md) var(--spacing-xl);
-        border-radius: var(--spacing-xl);
-        font-weight: 700;
-        font-size: var(--fs-base);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        pointer-events: none;
-    }
-    @keyframes pulse-red {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
-        50% { box-shadow: 0 0 0 8px rgba(231, 76, 60, 0); }
-    }
-    .alert-badge-pulse {
-        animation: pulse-red 2s ease-in-out infinite;
-    }
-    /* Custom scrollbar for chat / Barre de défilement personnalisée */
-    .chat-container::-webkit-scrollbar { width: 6px; }
-    .chat-container::-webkit-scrollbar-track { background: transparent; }
-    .chat-container::-webkit-scrollbar-thumb {
-        background: rgba(128, 128, 128, 0.3);
-        border-radius: 3px;
-    }
-    .chat-container::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 128, 0.5); }
-    h1 { font-size: var(--fs-xl) !important; letter-spacing: -0.02em; }
-    h3 { font-size: 1.05rem !important; margin-bottom: 0.4rem !important; letter-spacing: -0.01em; }
-</style>
-""", unsafe_allow_html=True)
+try:
+    with open("assets/style.css", "r") as f:
+        static_css = f.read()
+    st.markdown(f"<style>{static_css}</style>", unsafe_allow_html=True)
+except Exception as e:
+    st.warning("Could not load assets/style.css")
 
 
 # ─── Model & tracker loading ────────────────────────────────────────────────────
@@ -1839,48 +1651,48 @@ def main():
         level = alert["level"]
 
         # Circular gauge / Jauge circulaire
-        render_gauge(level, alert.get("confidence", 0.0), S, theme)
-
-        st.divider()
+        with st.container(border=True):
+            render_gauge(level, alert.get("confidence", 0.0), S, theme)
 
         # Class probabilities / Probabilités par classe
-        render_proba_bars(alert.get("probabilities", {}), S, level)
+        with st.container(border=True):
+            render_proba_bars(alert.get("probabilities", {}), S, level)
 
         # Active signals / Signaux actifs
-        st.markdown(S["signals_header"])
-        if st.session_state.withdrawal_detected:
-            st.markdown(
-                f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
-                f'⏰ {S["withdrawal_badge"]}</span>',
-                unsafe_allow_html=True,
-            )
-        if alert.get("delay_bumped"):
-            st.markdown(
-                f'<span class="feature-pill" style="background:#e67e2233;border-color:#e67e22;color:#e67e22;">'
-                f'{S["delay_badge"]}</span>',
-                unsafe_allow_html=True,
-            )
-        render_dominant_features(alert.get("dominant_features", []), S)
+        with st.container(border=True):
+            st.markdown(S["signals_header"])
+            if st.session_state.withdrawal_detected:
+                st.markdown(
+                    f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
+                    f'⏰ {S["withdrawal_badge"]}</span>',
+                    unsafe_allow_html=True,
+                )
+            if alert.get("delay_bumped"):
+                st.markdown(
+                    f'<span class="feature-pill" style="background:#e67e2233;border-color:#e67e22;color:#e67e22;">'
+                    f'{S["delay_badge"]}</span>',
+                    unsafe_allow_html=True,
+                )
+            render_dominant_features(alert.get("dominant_features", []), S)
 
-        # Feature importance chart (Yellow+ only, not on safety override)
-        # Graphique d'importance des signaux (Jaune+ seulement, pas sur override)
-        feature_scores = alert.get("feature_scores", [])
-        if level >= 1 and feature_scores:
-            with st.expander(S["feature_chart_title"]):
-                render_feature_chart(feature_scores, S, theme)
+            # Feature importance chart (Yellow+ only, not on safety override)
+            # Graphique d'importance des signaux (Jaune+ seulement, pas sur override)
+            feature_scores = alert.get("feature_scores", [])
+            if level >= 1 and feature_scores:
+                with st.expander(S["feature_chart_title"]):
+                    render_feature_chart(feature_scores, S, theme)
 
-        # Radar chart / Graphique radar
-        with st.expander(S["radar_title"]):
-            if st.session_state.messages:
-                render_radar_chart(st.session_state.messages, S, theme, lang)
-            else:
-                st.caption(S["history_waiting"])
-
-        st.divider()
+            # Radar chart / Graphique radar
+            with st.expander(S["radar_title"]):
+                if st.session_state.messages:
+                    render_radar_chart(st.session_state.messages, S, theme, lang)
+                else:
+                    st.caption(S["history_waiting"])
 
         # In-session history / Historique des niveaux
-        st.markdown(S["history_header"])
-        render_history_chart(S, theme)
+        with st.container(border=True):
+            st.markdown(S["history_header"])
+            render_history_chart(S, theme)
 
         # Emotional flow streamgraph / Flux émotionnel
         with st.expander(S["streamgraph_header"]):

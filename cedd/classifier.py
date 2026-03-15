@@ -12,9 +12,9 @@ import os
 import re
 import numpy as np
 import joblib
-from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+import xgboost as xgb
 
 from .feature_extractor import (
     extract_features,
@@ -122,19 +122,22 @@ def _keyword_match(keyword, text):
 class CEDDClassifier:
     """
     Conversational emotional drift classifier.
-    Wraps a GradientBoosting sklearn pipeline with feature preprocessing.
+    Wraps an XGBoost sklearn pipeline with feature preprocessing.
 
     Classifieur de dérive émotionnelle conversationnelle.
-    Encapsule un GradientBoosting sklearn avec preprocessing des features.
+    Encapsule un XGBoost sklearn avec preprocessing des features.
     """
 
     def __init__(self, n_estimators: int = 200, random_state: int = 42):
         self.pipeline = Pipeline([
             ("scaler", StandardScaler()),
-            ("clf", GradientBoostingClassifier(
+            ("clf", xgb.XGBClassifier(
                 n_estimators=n_estimators,
                 max_depth=3,
+                learning_rate=0.1,
                 random_state=random_state,
+                use_label_encoder=False,
+                eval_metric="mlogloss",
             )),
         ])
         self.is_fitted = False
