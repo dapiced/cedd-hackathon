@@ -63,6 +63,61 @@ CREATE TABLE IF NOT EXISTS last_activity (
 """
 
 
+def _compute_risk_score(levels: list[int]) -> float:
+    """Compute weighted average of alert levels (recent = higher weight)."""
+    n = len(levels)
+    if n == 0:
+        return 0.0
+    weights = list(range(1, n + 1))
+    weighted_sum = sum(lvl * w for lvl, w in zip(levels, weights))
+    return min(weighted_sum / (sum(weights) * 3), 1.0)
+
+
+def _count_consecutive_high_sessions(levels: list[int]) -> int:
+    """Count consecutive high-level sessions (>= Orange) from the most recent."""
+    consecutive_high = 0
+    for lvl in reversed(levels):
+        if lvl >= 2:
+            consecutive_high += 1
+        else:
+            break
+    return consecutive_high
+
+
+def _compute_trend(levels: list[int]) -> str:
+    """Determine trend: worsening, improving, or stable."""
+    n = len(levels)
+    if n >= 6:
+        recent_avg = sum(levels[-3:]) / 3
+        older_avg = sum(levels[-6:-3]) / 3
+        if recent_avg > older_avg + 0.3:
+            return "worsening"
+        elif recent_avg < older_avg - 0.3:
+            return "improving"
+        else:
+            return "stable"
+    elif n >= 2:
+        if levels[-1] > levels[0]:
+            return "worsening"
+        elif levels[-1] < levels[0]:
+            return "improving"
+        else:
+            return "stable"
+    return "stable"
+
+
+def _determine_recommendation(risk_score: float, consecutive_high: int) -> str:
+    """Determine clinical recommendation based on risk and consecutive high sessions."""
+    if consecutive_high >= 3 or risk_score > 0.8:
+        return "Priority intervention recommended"
+    elif risk_score > 0.6:
+        return "Professional consultation suggested"
+    elif risk_score > 0.3:
+        return "Sustained attention recommended"
+    else:
+        return "Normal monitoring"
+
+
 class SessionTracker:
     """
     Cross-session CEDD alert level tracker using SQLite.
@@ -278,52 +333,10 @@ class SessionTracker:
 
         levels = [s["max_alert_level"] for s in sessions]
 
-        # Weighted average (recent sessions have higher weight)
-        # Moyenne pondérée (sessions récentes = poids plus élevé)
-        weights = list(range(1, n + 1))
-        weighted_sum = sum(lvl * w for lvl, w in zip(levels, weights))
-        risk_score = min(weighted_sum / (sum(weights) * 3), 1.0)
-
-        # Consecutive high-level sessions from the most recent
-        # Sessions consécutives haute (>= Orange) depuis la plus récente
-        consecutive_high = 0
-        for lvl in reversed(levels):
-            if lvl >= 2:
-                consecutive_high += 1
-            else:
-                break
-
-        # Trend: average of last 3 vs previous 3
-        # Tendance : moyenne des 3 dernières vs 3 précédentes
-        if n >= 6:
-            recent_avg = sum(levels[-3:]) / 3
-            older_avg  = sum(levels[-6:-3]) / 3
-            if recent_avg > older_avg + 0.3:
-                trend = "worsening"
-            elif recent_avg < older_avg - 0.3:
-                trend = "improving"
-            else:
-                trend = "stable"
-        elif n >= 2:
-            if levels[-1] > levels[0]:
-                trend = "worsening"
-            elif levels[-1] < levels[0]:
-                trend = "improving"
-            else:
-                trend = "stable"
-        else:
-            trend = "stable"
-
-        # Recommendation (internal English key — translated in the UI layer)
-        # Recommandation (clé interne en anglais, traduite dans l'interface)
-        if consecutive_high >= 3 or risk_score > 0.8:
-            recommendation = "Priority intervention recommended"
-        elif risk_score > 0.6:
-            recommendation = "Professional consultation suggested"
-        elif risk_score > 0.3:
-            recommendation = "Sustained attention recommended"
-        else:
-            recommendation = "Normal monitoring"
+        risk_score = _compute_risk_score(levels)
+        consecutive_high = _count_consecutive_high_sessions(levels)
+        trend = _compute_trend(levels)
+        recommendation = _determine_recommendation(risk_score, consecutive_high)
 
         return {
             "risk_score": round(risk_score, 3),
