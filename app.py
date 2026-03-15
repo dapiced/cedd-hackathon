@@ -1348,12 +1348,9 @@ def render_radar_chart(messages: list, S: dict, theme: str = "light", lang: str 
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
-# ─── Main application / Application principale ──────────────────────────────────
-def main():
-    init_state()
-
-    # Propagate Streamlit secrets to environment for LLM providers
-    # Propager les secrets Streamlit vers l'environnement pour les fournisseurs LLM
+# ─── Helper functions for main / Fonctions utilitaires pour main ────────────────
+def _setup_api_keys():
+    """Propagate Streamlit secrets to environment for LLM providers."""
     for key in ("COHERE_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"):
         if key not in os.environ:
             try:
@@ -1361,54 +1358,8 @@ def main():
             except (KeyError, FileNotFoundError):
                 pass
 
-    clf     = load_model()
-    tracker = load_tracker()
-    lang    = st.session_state.lang
-    theme   = st.session_state.theme
-    S       = STRINGS[lang]
-
-    st.markdown(get_theme_css(theme), unsafe_allow_html=True)
-
-    # Alert transition toast (rendered once, cleared after display)
-    # Toast de transition d'alerte (affiché une fois, effacé après)
-    toast_level = st.session_state.pop("_alert_toast", None)
-    if toast_level is not None:
-        t_color = LEVEL_COLORS[toast_level]
-        t_emoji = LEVEL_EMOJIS[toast_level]
-        t_label = S["level_labels"][toast_level]
-        toast_msg = S["alert_toast_up"].format(emoji=t_emoji, label=t_label)
-        pulse_cls = " alert-badge-pulse" if toast_level == 3 else ""
-        st.markdown(
-            f'<div class="alert-toast{pulse_cls}" style="background:{t_color};color:#fff;">'
-            f'{toast_msg}</div>',
-            unsafe_allow_html=True,
-        )
-
-    # LLM fallback toast (rendered once, cleared after display)
-    # Toast de basculement LLM (affiché une fois, effacé après)
-    fallback_info = st.session_state.pop("_llm_fallback_toast", None)
-    if fallback_info:
-        toast_msg = S["llm_fallback_toast"].format(
-            failed=fallback_info["failed"],
-            active=fallback_info["active"],
-        )
-        st.markdown(
-            f'<div class="alert-toast" style="background:#e67e22;color:#fff;">'
-            f'{toast_msg}</div>',
-            unsafe_allow_html=True,
-        )
-
-    # Start a session if needed (first visit or after reset)
-    # Démarrer une session si nécessaire (première visite ou après reset)
-    if st.session_state.session_id is None:
-        # Check for withdrawal risk before starting new session
-        # Vérifier le risque d'abandon avant de démarrer une nouvelle session
-        withdrawal = tracker.check_withdrawal_risk(st.session_state.user_id)
-        if withdrawal["is_withdrawal"]:
-            st.session_state.withdrawal_detected = True
-        st.session_state.session_id = tracker.start_session(st.session_state.user_id)
-
-    # ── Header ─────────────────────────────────────────────────────────────────
+def _render_header(tracker, lang: str, theme: str, S: dict):
+    """Renders the top header row (title, profile selector, lang, theme, reset)."""
     col_title, col_profile, col_lang, col_theme, col_reset = st.columns([3, 1.5, 1, 1, 1])
     with col_title:
         st.markdown(f"# {S['app_title']}")
@@ -1488,491 +1439,551 @@ def main():
             st.session_state.session_id = None
             st.rerun()
 
-    st.divider()
+def _render_toasts(S: dict):
+    """Renders alert transition and LLM fallback toasts if present in session state."""
+    # Alert transition toast (rendered once, cleared after display)
+    toast_level = st.session_state.pop("_alert_toast", None)
+    if toast_level is not None:
+        t_color = LEVEL_COLORS[toast_level]
+        t_emoji = LEVEL_EMOJIS[toast_level]
+        t_label = S["level_labels"][toast_level]
+        toast_msg = S["alert_toast_up"].format(emoji=t_emoji, label=t_label)
+        pulse_cls = " alert-badge-pulse" if toast_level == 3 else ""
+        st.markdown(
+            f'<div class="alert-toast{pulse_cls}" style="background:{t_color};color:#fff;">'
+            f'{toast_msg}</div>',
+            unsafe_allow_html=True,
+        )
 
-    # ── Main layout: Chat | Dashboard ──────────────────────────────────────────
-    col_chat, col_dash = st.columns([3, 2], gap="medium")
+    # LLM fallback toast (rendered once, cleared after display)
+    fallback_info = st.session_state.pop("_llm_fallback_toast", None)
+    if fallback_info:
+        toast_msg = S["llm_fallback_toast"].format(
+            failed=fallback_info["failed"],
+            active=fallback_info["active"],
+        )
+        st.markdown(
+            f'<div class="alert-toast" style="background:#e67e22;color:#fff;">'
+            f'{toast_msg}</div>',
+            unsafe_allow_html=True,
+        )
 
-    # ── LEFT: Chat interface / GAUCHE : Interface de chat ─────────────────────
-    with col_chat:
-        st.markdown(S["chat_header"])
+def _ensure_session_started(tracker):
+    """Start a session if needed (first visit or after reset) and check withdrawal risk."""
+    if st.session_state.session_id is None:
+        withdrawal = tracker.check_withdrawal_risk(st.session_state.user_id)
+        if withdrawal["is_withdrawal"]:
+            st.session_state.withdrawal_detected = True
+        st.session_state.session_id = tracker.start_session(st.session_state.user_id)
 
-        # Action buttons row: Demo, About, Export, Compare / Boutons d'action
-        btn_cols = st.columns([1, 1, 1, 1, 2])
-        with btn_cols[0]:
-            if st.session_state.compare_mode:
-                st.button(S["demo_btn"], use_container_width=True, disabled=True)
-            elif st.session_state.demo_running:
-                if st.button(S["demo_stop_btn"], use_container_width=True):
-                    st.session_state.demo_running = False
-                    st.session_state.demo_step = 0
-                    st.rerun()
-            else:
-                if st.button(S["demo_btn"], use_container_width=True):
-                    reset_conversation()
-                    st.session_state.demo_running = True
-                    st.session_state.demo_step = 0
-                    st.rerun()
-        with btn_cols[1]:
-            if st.button(S["about_btn"], use_container_width=True):
-                st.session_state["show_about"] = not st.session_state.get("show_about", False)
+def _render_chat_interface(clf, tracker, lang: str, theme: str, S: dict):
+    """Renders the left-hand column: action buttons, chat history, and handles user input/LLM calls."""
+    st.markdown(S["chat_header"])
+
+    # Action buttons row: Demo, About, Export, Compare / Boutons d'action
+    btn_cols = st.columns([1, 1, 1, 1, 2])
+    with btn_cols[0]:
+        if st.session_state.compare_mode:
+            st.button(S["demo_btn"], use_container_width=True, disabled=True)
+        elif st.session_state.demo_running:
+            if st.button(S["demo_stop_btn"], use_container_width=True):
+                st.session_state.demo_running = False
+                st.session_state.demo_step = 0
                 st.rerun()
-        with btn_cols[2]:
-            if st.session_state.messages:
-                export_data = {
-                    "session_id": st.session_state.session_id,
-                    "user_id": st.session_state.user_id,
-                    "language": lang,
-                    "exported_at": datetime.now().isoformat(),
-                    "messages": st.session_state.messages,
-                    "alert_history": [
-                        {
-                            "level": a["level"],
-                            "label": a.get("label", ""),
-                            "confidence": a.get("confidence", 0),
-                            "dominant_features": a.get("dominant_features", []),
-                        }
-                        for a in st.session_state.alert_history
-                    ],
-                    "peak_alert": max((a["level"] for a in st.session_state.alert_history), default=0),
-                }
-                st.download_button(
-                    S["export_btn"],
-                    data=json.dumps(export_data, indent=2, ensure_ascii=False, default=str),
-                    file_name=f"cedd_transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                )
-
-        with btn_cols[3]:
-            compare_label = S["compare_btn_off"] if st.session_state.compare_mode else S["compare_btn"]
-            if st.button(compare_label, use_container_width=True):
-                new_mode = not st.session_state.compare_mode
+        else:
+            if st.button(S["demo_btn"], use_container_width=True):
                 reset_conversation()
-                st.session_state.compare_mode = new_mode
+                st.session_state.demo_running = True
+                st.session_state.demo_step = 0
                 st.rerun()
+    with btn_cols[1]:
+        if st.button(S["about_btn"], use_container_width=True):
+            st.session_state["show_about"] = not st.session_state.get("show_about", False)
+            st.rerun()
+    with btn_cols[2]:
+        if st.session_state.messages:
+            export_data = {
+                "session_id": st.session_state.session_id,
+                "user_id": st.session_state.user_id,
+                "language": lang,
+                "exported_at": datetime.now().isoformat(),
+                "messages": st.session_state.messages,
+                "alert_history": [
+                    {
+                        "level": a["level"],
+                        "label": a.get("label", ""),
+                        "confidence": a.get("confidence", 0),
+                        "dominant_features": a.get("dominant_features", []),
+                    }
+                    for a in st.session_state.alert_history
+                ],
+                "peak_alert": max((a["level"] for a in st.session_state.alert_history), default=0),
+            }
+            st.download_button(
+                S["export_btn"],
+                data=json.dumps(export_data, indent=2, ensure_ascii=False, default=str),
+                file_name=f"cedd_transcript_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                use_container_width=True,
+            )
 
-        # About CEDD panel / Panneau À propos de CEDD
-        if st.session_state.get("show_about", False):
-            with st.expander(S["about_title"], expanded=True):
-                st.markdown(ABOUT_CEDD[lang])
+    with btn_cols[3]:
+        compare_label = S["compare_btn_off"] if st.session_state.compare_mode else S["compare_btn"]
+        if st.button(compare_label, use_container_width=True):
+            new_mode = not st.session_state.compare_mode
+            reset_conversation()
+            st.session_state.compare_mode = new_mode
+            st.rerun()
 
-        # Demo running banner / Bannière de démo en cours
+    # About CEDD panel / Panneau À propos de CEDD
+    if st.session_state.get("show_about", False):
+        with st.expander(S["about_title"], expanded=True):
+            st.markdown(ABOUT_CEDD[lang])
+
+    # Demo running banner / Bannière de démo en cours
+    if st.session_state.demo_running:
+        scenario = DEMO_SCENARIOS[lang]
+        step = st.session_state.demo_step
+        char_key = "demo_character_fr" if lang == "fr" else "demo_character_en"
+        st.info(f"🎬 {S[char_key]} — {S['demo_running'].format(n=step + 1)}")
+
+    # Withdrawal banner / Bannière de retour après absence
+    if st.session_state.withdrawal_detected and not st.session_state.messages:
+        st.info(S["withdrawal_banner"])
+
+    # Counselor banner / Bannière d'intervenant Alex
+    if st.session_state.chat_mode == "human_mode":
+        st.markdown(
+            f'<div class="counselor-banner">'
+            f'<span class="counselor-banner-icon">🟢</span>'
+            f'<div>'
+            f'<div class="counselor-banner-name">{S["counselor_banner_name"]}</div>'
+            f'<div class="counselor-banner-sub">{S["counselor_banner_sub"]}</div>'
+            f'</div></div>',
+            unsafe_allow_html=True,
+        )
+
+    # Compare mode: show two chat columns / Mode comparaison : deux colonnes de chat
+    if st.session_state.compare_mode:
+        cmp_left, cmp_right = st.columns(2, gap="small")
+        with cmp_left:
+            st.markdown(S["compare_left_header"])
+            st.caption(S["compare_left_sub"])
+            render_chat(S, theme, messages=st.session_state.compare_messages)
+        with cmp_right:
+            st.markdown(S["compare_right_header"])
+            st.caption(S["compare_right_sub"])
+            render_chat(S, theme)
+    else:
+        render_chat(S, theme)
+
+    # ── Handoff offer buttons / Boutons de proposition de transfert ─────────
+    if st.session_state.chat_mode == "handoff_offered":
+        col_yes, col_no = st.columns(2)
+        if col_yes.button(
+            "💙 " + S["handoff_offer_yes"],
+            key="handoff_yes",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.chat_mode = "connecting"
+            st.rerun()
+        if col_no.button(
+            S["handoff_offer_no"],
+            key="handoff_no",
+            use_container_width=True,
+        ):
+            st.session_state.chat_mode = "normal"
+            # Generate normal Red-level response for declined handoff
+            # Générer une réponse normale niveau Rouge si le transfert est refusé
+            with st.spinner("..."):
+                result = get_llm_response(
+                    st.session_state.messages,
+                    3,
+                    force_model=st.session_state.selected_llm,
+                    lang=lang,
+                    handoff_step=st.session_state.handoff_step,
+                )
+            if result["content"]:
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": result["content"],
+                    "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
+                    "source": result["source"],
+                    "alert_level": 3,
+                })
+                st.session_state.last_llm_source = result["source"]
+                if result.get("failed_models"):
+                    st.session_state["_llm_fallback_toast"] = {
+                        "failed": ", ".join(result["failed_models"]),
+                        "active": result["source"],
+                    }
+            st.rerun()
+
+    # ── Connecting to counselor / Connexion à l'intervenant ───────────────
+    elif st.session_state.chat_mode == "connecting":
+        with st.spinner(S["counselor_connecting"]):
+            time.sleep(2)
+        intro = get_counselor_intro(lang)
+        st.session_state.messages.append({
+            "role": "assistant",
+            "content": intro,
+            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
+            "source": "counselor",
+            "alert_level": 3,
+            "is_counselor": True,
+        })
+        st.session_state.chat_mode = "human_mode"
+        st.rerun()
+
+    # ── Normal / Human mode input / Saisie normale ou mode intervenant ────
+    else:
+        # Input form / Zone de saisie
+        with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
+            user_input = st.text_input(
+                S["input_placeholder"],
+                placeholder=S["input_placeholder"],
+                label_visibility="collapsed",
+            )
+            submitted = st.form_submit_button(S["send_btn"], use_container_width=True)
+
+        # Demo autopilot: inject next message / Démo automatique : injecter le prochain message
         if st.session_state.demo_running:
             scenario = DEMO_SCENARIOS[lang]
             step = st.session_state.demo_step
-            char_key = "demo_character_fr" if lang == "fr" else "demo_character_en"
-            st.info(f"🎬 {S[char_key]} — {S['demo_running'].format(n=step + 1)}")
+            if step < len(scenario):
+                user_msg = scenario[step]
+                submitted = True
+                user_input = user_msg
+                st.session_state.demo_step += 1
+                if st.session_state.demo_step >= len(scenario):
+                    st.session_state.demo_running = False
 
-        # Withdrawal banner / Bannière de retour après absence
-        if st.session_state.withdrawal_detected and not st.session_state.messages:
-            st.info(S["withdrawal_banner"])
+        if submitted and user_input.strip():
+            user_msg = user_input.strip()
 
-        # Counselor banner / Bannière d'intervenant Alex
-        if st.session_state.chat_mode == "human_mode":
-            st.markdown(
-                f'<div class="counselor-banner">'
-                f'<span class="counselor-banner-icon">🟢</span>'
-                f'<div>'
-                f'<div class="counselor-banner-name">{S["counselor_banner_name"]}</div>'
-                f'<div class="counselor-banner-sub">{S["counselor_banner_sub"]}</div>'
-                f'</div></div>',
-                unsafe_allow_html=True,
-            )
+            # Add user message / Ajouter le message utilisateur
+            now = datetime.now().strftime("%H:%M")
+            st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now, "timestamp_dt": datetime.now()})
 
-        # Compare mode: show two chat columns / Mode comparaison : deux colonnes de chat
-        if st.session_state.compare_mode:
-            cmp_left, cmp_right = st.columns(2, gap="small")
-            with cmp_left:
-                st.markdown(S["compare_left_header"])
-                st.caption(S["compare_left_sub"])
-                render_chat(S, theme, messages=st.session_state.compare_messages)
-            with cmp_right:
-                st.markdown(S["compare_right_header"])
-                st.caption(S["compare_right_sub"])
-                render_chat(S, theme)
-        else:
-            render_chat(S, theme)
-
-        # ── Handoff offer buttons / Boutons de proposition de transfert ─────────
-        if st.session_state.chat_mode == "handoff_offered":
-            col_yes, col_no = st.columns(2)
-            if col_yes.button(
-                "💙 " + S["handoff_offer_yes"],
-                key="handoff_yes",
-                type="primary",
-                use_container_width=True,
-            ):
-                st.session_state.chat_mode = "connecting"
-                st.rerun()
-            if col_no.button(
-                S["handoff_offer_no"],
-                key="handoff_no",
-                use_container_width=True,
-            ):
-                st.session_state.chat_mode = "normal"
-                # Generate normal Red-level response for declined handoff
-                # Générer une réponse normale niveau Rouge si le transfert est refusé
+            # ── Human counselor mode: bypass CEDD, use Alex persona ───────
+            if st.session_state.chat_mode == "human_mode":
                 with st.spinner("..."):
+                    result = get_llm_response_as_counselor(
+                        st.session_state.messages,
+                        lang=lang,
+                        force_model=st.session_state.selected_llm,
+                    )
+                st.session_state.last_llm_source = result["source"]
+                if result.get("failed_models"):
+                    st.session_state["_llm_fallback_toast"] = {
+                        "failed": ", ".join(result["failed_models"]),
+                        "active": result["source"],
+                    }
+                if result["content"]:
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": result["content"],
+                        "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
+                        "source": "counselor",
+                        "alert_level": 3,
+                        "is_counselor": True,
+                    })
+                st.rerun()
+
+            # ── Normal CEDD mode ──────────────────────────────────────────
+            else:
+                # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
+                if st.session_state.compare_mode:
+                    st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
+
+                # Track previous alert level for transition animation
+                # Suivre le niveau précédent pour l'animation de transition
+                prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
+
+                # Compute response delay (time since last assistant message)
+                # Calcul du délai de réponse (temps depuis le dernier message assistant)
+                response_delay_s = None
+                for m in reversed(st.session_state.messages):
+                    if m["role"] == "assistant" and "timestamp_dt" in m:
+                        response_delay_s = (datetime.now() - m["timestamp_dt"]).total_seconds()
+                        break
+
+                # Analyse with CEDD before generating the LLM response
+                # Analyser avec CEDD avant de générer la réponse
+                alert = clf.get_alert_level(st.session_state.messages, lang=lang,
+                                            response_delay_s=response_delay_s)
+                st.session_state.current_alert = alert
+                st.session_state.alert_history.append(alert)
+
+                # Alert transition toast / Toast de transition d'alerte
+                if alert["level"] > prev_level:
+                    st.session_state["_alert_toast"] = alert["level"]
+
+                # Log alert to cross-session tracker / Enregistrer dans le tracker
+                tracker.log_alert(
+                    st.session_state.user_id,
+                    st.session_state.session_id,
+                    alert["level"],
+                    alert["confidence"],
+                    user_msg,
+                )
+
+                # Update last activity for withdrawal detection / MAJ activité pour détection d'abandon
+                tracker.update_last_activity(st.session_state.user_id, st.session_state.session_id)
+
+                # Warm handoff step management / Gestion des étapes de transfert accompagné
+                if alert["level"] == 3:
+                    if st.session_state.handoff_step == 0:
+                        # First Red detection — start handoff at step 1
+                        # Première détection Rouge — démarrer le transfert à l'étape 1
+                        st.session_state.handoff_step = 1
+                    elif st.session_state.handoff_step < 5:
+                        # Advance to next step / Avancer à l'étape suivante
+                        st.session_state.handoff_step += 1
+                    # If already at step 5, stay at step 5 (continued presence)
+                    # Si déjà à l'étape 5, rester à 5 (présence continue)
+
+                    # Log handoff step / Enregistrer l'étape de transfert
+                    tracker.log_handoff_step(
+                        st.session_state.user_id,
+                        st.session_state.session_id,
+                        st.session_state.handoff_step,
+                        alert["level"],
+                    )
+                # If level drops below Red, keep handoff_step as-is (crisis may not be over)
+                # Si le niveau descend sous Rouge, garder handoff_step tel quel
+
+                # ── Counselor handoff offer at RED / Proposition de transfert au ROUGE ──
+                if alert["level"] == 3 and not st.session_state.handoff_offered:
+                    st.session_state.chat_mode = "handoff_offered"
+                    st.session_state.handoff_offered = True
+                    offer_msg = get_handoff_offer_message(lang)
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": offer_msg,
+                        "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
+                        "source": "cedd-system",
+                        "alert_level": 3,
+                    })
+                    st.rerun()
+
+                # Generate assistant responses / Générer les réponses de l'assistant
+                with st.spinner("..."):
+                    # Compare mode: generate "without CEDD" response first (always Green prompt)
+                    # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
+                    if st.session_state.compare_mode:
+                        plain_result = get_llm_response(
+                            st.session_state.compare_messages,
+                            0,
+                            force_model=st.session_state.selected_llm,
+                            lang=lang,
+                            handoff_step=0,
+                            system_prompt_override="",  # No instructions — raw LLM response
+                        )
+                        if plain_result["content"]:
+                            st.session_state.compare_messages.append({
+                                "role": "assistant",
+                                "content": plain_result["content"],
+                                "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
+                            })
+
+                    # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
                     result = get_llm_response(
                         st.session_state.messages,
-                        3,
+                        alert["level"],
                         force_model=st.session_state.selected_llm,
                         lang=lang,
                         handoff_step=st.session_state.handoff_step,
                     )
+                st.session_state.last_llm_source = result["source"]
+                if result.get("failed_models"):
+                    st.session_state["_llm_fallback_toast"] = {
+                        "failed": ", ".join(result["failed_models"]),
+                        "active": result["source"],
+                    }
+
                 if result["content"]:
                     st.session_state.messages.append({
                         "role": "assistant",
                         "content": result["content"],
                         "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
                         "source": result["source"],
-                        "alert_level": 3,
+                        "alert_level": alert["level"],
                     })
-                    st.session_state.last_llm_source = result["source"]
-                    if result.get("failed_models"):
-                        st.session_state["_llm_fallback_toast"] = {
-                            "failed": ", ".join(result["failed_models"]),
-                            "active": result["source"],
-                        }
+
                 st.rerun()
 
-        # ── Connecting to counselor / Connexion à l'intervenant ───────────────
-        elif st.session_state.chat_mode == "connecting":
-            with st.spinner(S["counselor_connecting"]):
-                time.sleep(2)
-            intro = get_counselor_intro(lang)
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": intro,
-                "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
-                "source": "counselor",
-                "alert_level": 3,
-                "is_counselor": True,
-            })
-            st.session_state.chat_mode = "human_mode"
+def _render_dashboard(tracker, lang: str, theme: str, S: dict):
+    """Renders the right-hand column: CEDD dashboard with metrics and charts."""
+    st.markdown(S["dashboard_header"])
+
+    alert = st.session_state.current_alert
+    level = alert["level"]
+
+    # Circular gauge / Jauge circulaire
+    render_gauge(level, alert.get("confidence", 0.0), S, theme)
+
+    st.divider()
+
+    # Class probabilities / Probabilités par classe
+    render_proba_bars(alert.get("probabilities", {}), S, level)
+
+    # Active signals / Signaux actifs
+    st.markdown(S["signals_header"])
+    if st.session_state.withdrawal_detected:
+        st.markdown(
+            f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
+            f'⏰ {S["withdrawal_badge"]}</span>',
+            unsafe_allow_html=True,
+        )
+    if alert.get("delay_bumped"):
+        st.markdown(
+            f'<span class="feature-pill" style="background:#e67e2233;border-color:#e67e22;color:#e67e22;">'
+            f'{S["delay_badge"]}</span>',
+            unsafe_allow_html=True,
+        )
+    render_dominant_features(alert.get("dominant_features", []), S)
+
+    # Feature importance chart (Yellow+ only, not on safety override)
+    # Graphique d'importance des signaux (Jaune+ seulement, pas sur override)
+    feature_scores = alert.get("feature_scores", [])
+    if level >= 1 and feature_scores:
+        with st.expander(S["feature_chart_title"]):
+            render_feature_chart(feature_scores, S, theme)
+
+    # Radar chart / Graphique radar
+    with st.expander(S["radar_title"]):
+        if st.session_state.messages:
+            render_radar_chart(st.session_state.messages, S, theme, lang)
+        else:
+            st.caption(S["history_waiting"])
+
+    st.divider()
+
+    # In-session history / Historique des niveaux
+    st.markdown(S["history_header"])
+    render_history_chart(S, theme)
+
+    # Emotional flow streamgraph / Flux émotionnel
+    with st.expander(S["streamgraph_header"]):
+        render_streamgraph(S, theme)
+
+    # Cross-session longitudinal history / Historique longitudinal inter-sessions
+    st.markdown(S["longitudinal_header"])
+    render_longitudinal_section(tracker, st.session_state.user_id, S, theme)
+
+    st.divider()
+
+    # LLM selector / Sélecteur LLM
+    st.markdown(S["llm_header"])
+    llm_cols = st.columns(5)
+    for col, (src, (emoji, _)) in zip(llm_cols, LLM_SOURCE_INDICATOR.items()):
+        is_selected = st.session_state.selected_llm == src
+        btn_label = S["llm_fallback"] if src == "fallback-statique" else LLM_DISPLAY_NAMES.get(src, src)
+        if col.button(
+            f"{emoji} {btn_label}",
+            key=f"llm_btn_{src}",
+            type="primary" if is_selected else "secondary",
+            use_container_width=True,
+        ):
+            st.session_state.selected_llm = src
             st.rerun()
 
-        # ── Normal / Human mode input / Saisie normale ou mode intervenant ────
-        else:
-            # Input form / Zone de saisie
-            with st.form(key=f"chat_form_{st.session_state.input_key}", clear_on_submit=True):
-                user_input = st.text_input(
-                    S["input_placeholder"],
-                    placeholder=S["input_placeholder"],
-                    label_visibility="collapsed",
-                )
-                submitted = st.form_submit_button(S["send_btn"], use_container_width=True)
-
-            # Demo autopilot: inject next message / Démo automatique : injecter le prochain message
-            if st.session_state.demo_running:
-                scenario = DEMO_SCENARIOS[lang]
-                step = st.session_state.demo_step
-                if step < len(scenario):
-                    user_msg = scenario[step]
-                    submitted = True
-                    user_input = user_msg
-                    st.session_state.demo_step += 1
-                    if st.session_state.demo_step >= len(scenario):
-                        st.session_state.demo_running = False
-
-            if submitted and user_input.strip():
-                user_msg = user_input.strip()
-
-                # Add user message / Ajouter le message utilisateur
-                now = datetime.now().strftime("%H:%M")
-                st.session_state.messages.append({"role": "user", "content": user_msg, "timestamp": now, "timestamp_dt": datetime.now()})
-
-                # ── Human counselor mode: bypass CEDD, use Alex persona ───────
-                if st.session_state.chat_mode == "human_mode":
-                    with st.spinner("..."):
-                        result = get_llm_response_as_counselor(
-                            st.session_state.messages,
-                            lang=lang,
-                            force_model=st.session_state.selected_llm,
-                        )
-                    st.session_state.last_llm_source = result["source"]
-                    if result.get("failed_models"):
-                        st.session_state["_llm_fallback_toast"] = {
-                            "failed": ", ".join(result["failed_models"]),
-                            "active": result["source"],
-                        }
-                    if result["content"]:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": result["content"],
-                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
-                            "source": "counselor",
-                            "alert_level": 3,
-                            "is_counselor": True,
-                        })
-                    st.rerun()
-
-                # ── Normal CEDD mode ──────────────────────────────────────────
-                else:
-                    # Compare mode: also add user message to left side / Mode comparaison : ajouter aussi à gauche
-                    if st.session_state.compare_mode:
-                        st.session_state.compare_messages.append({"role": "user", "content": user_msg, "timestamp": now})
-
-                    # Track previous alert level for transition animation
-                    # Suivre le niveau précédent pour l'animation de transition
-                    prev_level = st.session_state.alert_history[-1]["level"] if st.session_state.alert_history else 0
-
-                    # Compute response delay (time since last assistant message)
-                    # Calcul du délai de réponse (temps depuis le dernier message assistant)
-                    response_delay_s = None
-                    for m in reversed(st.session_state.messages):
-                        if m["role"] == "assistant" and "timestamp_dt" in m:
-                            response_delay_s = (datetime.now() - m["timestamp_dt"]).total_seconds()
-                            break
-
-                    # Analyse with CEDD before generating the LLM response
-                    # Analyser avec CEDD avant de générer la réponse
-                    alert = clf.get_alert_level(st.session_state.messages, lang=lang,
-                                                response_delay_s=response_delay_s)
-                    st.session_state.current_alert = alert
-                    st.session_state.alert_history.append(alert)
-
-                    # Alert transition toast / Toast de transition d'alerte
-                    if alert["level"] > prev_level:
-                        st.session_state["_alert_toast"] = alert["level"]
-
-                    # Log alert to cross-session tracker / Enregistrer dans le tracker
-                    tracker.log_alert(
-                        st.session_state.user_id,
-                        st.session_state.session_id,
-                        alert["level"],
-                        alert["confidence"],
-                        user_msg,
-                    )
-
-                    # Update last activity for withdrawal detection / MAJ activité pour détection d'abandon
-                    tracker.update_last_activity(st.session_state.user_id, st.session_state.session_id)
-
-                    # Warm handoff step management / Gestion des étapes de transfert accompagné
-                    if alert["level"] == 3:
-                        if st.session_state.handoff_step == 0:
-                            # First Red detection — start handoff at step 1
-                            # Première détection Rouge — démarrer le transfert à l'étape 1
-                            st.session_state.handoff_step = 1
-                        elif st.session_state.handoff_step < 5:
-                            # Advance to next step / Avancer à l'étape suivante
-                            st.session_state.handoff_step += 1
-                        # If already at step 5, stay at step 5 (continued presence)
-                        # Si déjà à l'étape 5, rester à 5 (présence continue)
-
-                        # Log handoff step / Enregistrer l'étape de transfert
-                        tracker.log_handoff_step(
-                            st.session_state.user_id,
-                            st.session_state.session_id,
-                            st.session_state.handoff_step,
-                            alert["level"],
-                        )
-                    # If level drops below Red, keep handoff_step as-is (crisis may not be over)
-                    # Si le niveau descend sous Rouge, garder handoff_step tel quel
-
-                    # ── Counselor handoff offer at RED / Proposition de transfert au ROUGE ──
-                    if alert["level"] == 3 and not st.session_state.handoff_offered:
-                        st.session_state.chat_mode = "handoff_offered"
-                        st.session_state.handoff_offered = True
-                        offer_msg = get_handoff_offer_message(lang)
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": offer_msg,
-                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
-                            "source": "cedd-system",
-                            "alert_level": 3,
-                        })
-                        st.rerun()
-
-                    # Generate assistant responses / Générer les réponses de l'assistant
-                    with st.spinner("..."):
-                        # Compare mode: generate "without CEDD" response first (always Green prompt)
-                        # Mode comparaison : générer d'abord la réponse "sans CEDD" (toujours prompt Vert)
-                        if st.session_state.compare_mode:
-                            plain_result = get_llm_response(
-                                st.session_state.compare_messages,
-                                0,
-                                force_model=st.session_state.selected_llm,
-                                lang=lang,
-                                handoff_step=0,
-                                system_prompt_override="",  # No instructions — raw LLM response
-                            )
-                            if plain_result["content"]:
-                                st.session_state.compare_messages.append({
-                                    "role": "assistant",
-                                    "content": plain_result["content"],
-                                    "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
-                                })
-
-                        # "With CEDD" response (adaptive prompt) / Réponse "avec CEDD" (prompt adaptatif)
-                        result = get_llm_response(
-                            st.session_state.messages,
-                            alert["level"],
-                            force_model=st.session_state.selected_llm,
-                            lang=lang,
-                            handoff_step=st.session_state.handoff_step,
-                        )
-                    st.session_state.last_llm_source = result["source"]
-                    if result.get("failed_models"):
-                        st.session_state["_llm_fallback_toast"] = {
-                            "failed": ", ".join(result["failed_models"]),
-                            "active": result["source"],
-                        }
-
-                    if result["content"]:
-                        st.session_state.messages.append({
-                            "role": "assistant",
-                            "content": result["content"],
-                            "timestamp": datetime.now().strftime("%H:%M"), "timestamp_dt": datetime.now(),
-                            "source": result["source"],
-                            "alert_level": alert["level"],
-                        })
-
-                    st.rerun()
-
-    # ── RIGHT: CEDD Dashboard / DROITE : Dashboard CEDD ───────────────────────
-    with col_dash:
-        st.markdown(S["dashboard_header"])
-
-        alert = st.session_state.current_alert
-        level = alert["level"]
-
-        # Circular gauge / Jauge circulaire
-        render_gauge(level, alert.get("confidence", 0.0), S, theme)
-
-        st.divider()
-
-        # Class probabilities / Probabilités par classe
-        render_proba_bars(alert.get("probabilities", {}), S, level)
-
-        # Active signals / Signaux actifs
-        st.markdown(S["signals_header"])
-        if st.session_state.withdrawal_detected:
-            st.markdown(
-                f'<span class="feature-pill" style="background:#e74c3c22;border-color:#e74c3c;color:#e74c3c;">'
-                f'⏰ {S["withdrawal_badge"]}</span>',
-                unsafe_allow_html=True,
-            )
-        if alert.get("delay_bumped"):
-            st.markdown(
-                f'<span class="feature-pill" style="background:#e67e2233;border-color:#e67e22;color:#e67e22;">'
-                f'{S["delay_badge"]}</span>',
-                unsafe_allow_html=True,
-            )
-        render_dominant_features(alert.get("dominant_features", []), S)
-
-        # Feature importance chart (Yellow+ only, not on safety override)
-        # Graphique d'importance des signaux (Jaune+ seulement, pas sur override)
-        feature_scores = alert.get("feature_scores", [])
-        if level >= 1 and feature_scores:
-            with st.expander(S["feature_chart_title"]):
-                render_feature_chart(feature_scores, S, theme)
-
-        # Radar chart / Graphique radar
-        with st.expander(S["radar_title"]):
-            if st.session_state.messages:
-                render_radar_chart(st.session_state.messages, S, theme, lang)
-            else:
-                st.caption(S["history_waiting"])
-
-        st.divider()
-
-        # In-session history / Historique des niveaux
-        st.markdown(S["history_header"])
-        render_history_chart(S, theme)
-
-        # Emotional flow streamgraph / Flux émotionnel
-        with st.expander(S["streamgraph_header"]):
-            render_streamgraph(S, theme)
-
-        # Cross-session longitudinal history / Historique longitudinal inter-sessions
-        st.markdown(S["longitudinal_header"])
-        render_longitudinal_section(tracker, st.session_state.user_id, S, theme)
-
-        st.divider()
-
-        # LLM selector / Sélecteur LLM
-        st.markdown(S["llm_header"])
-        llm_cols = st.columns(5)
-        for col, (src, (emoji, _)) in zip(llm_cols, LLM_SOURCE_INDICATOR.items()):
-            is_selected = st.session_state.selected_llm == src
-            btn_label = S["llm_fallback"] if src == "fallback-statique" else LLM_DISPLAY_NAMES.get(src, src)
-            if col.button(
-                f"{emoji} {btn_label}",
-                key=f"llm_btn_{src}",
-                type="primary" if is_selected else "secondary",
-                use_container_width=True,
-            ):
-                st.session_state.selected_llm = src
-                st.rerun()
-
-        # Last call source / Source du dernier appel
-        last = st.session_state.get("last_llm_source")
-        if last and last != st.session_state.selected_llm:
-            _, last_color = LLM_SOURCE_INDICATOR.get(last, ("", "#6b7280"))
-            st.caption(
-                f'{S["llm_last_call"]} '
-                f'<span style="color:{last_color}"><code>{last}</code></span>',
-                unsafe_allow_html=True,
-            )
-
-        st.divider()
-
-        # Active response mode / Mode de réponse actif
-        st.markdown(S["mode_header"])
-        mode_desc = get_level_description(level, lang=lang)
-        color = LEVEL_COLORS[level]
-        emoji = LEVEL_EMOJIS[level]
-        text_color = "#000000" if theme == "light" else "#ffffff"
-        st.markdown(
-            f'<div class="status-card" style="background:{color}22;border-left-color:{color};color:{text_color};">'
-            f'{emoji} <b>{mode_desc}</b></div>',
+    # Last call source / Source du dernier appel
+    last = st.session_state.get("last_llm_source")
+    if last and last != st.session_state.selected_llm:
+        _, last_color = LLM_SOURCE_INDICATOR.get(last, ("", "#6b7280"))
+        st.caption(
+            f'{S["llm_last_call"]} '
+            f'<span style="color:{last_color}"><code>{last}</code></span>',
             unsafe_allow_html=True,
         )
 
-        # Warm handoff progress indicator / Indicateur de transfert accompagné
-        if st.session_state.handoff_step > 0:
-            step = st.session_state.handoff_step
-            step_desc = get_handoff_description(step, lang=lang)
-            progress = step / 5
+    st.divider()
 
-            step_colors = {1: "#e74c3c", 2: "#e67e22", 3: "#f1c40f", 4: "#27ae60", 5: "#2ecc71"}
-            step_color = step_colors.get(step, "#e74c3c")
+    # Active response mode / Mode de réponse actif
+    st.markdown(S["mode_header"])
+    mode_desc = get_level_description(level, lang=lang)
+    color = LEVEL_COLORS[level]
+    emoji = LEVEL_EMOJIS[level]
+    text_color = "#000000" if theme == "light" else "#ffffff"
+    st.markdown(
+        f'<div class="status-card" style="background:{color}22;border-left-color:{color};color:{text_color};">'
+        f'{emoji} <b>{mode_desc}</b></div>',
+        unsafe_allow_html=True,
+    )
 
-            handoff_title = S["handoff_title"]
-            handoff_label = S["handoff_step_label"].format(step=step, desc=step_desc)
+    # Warm handoff progress indicator / Indicateur de transfert accompagné
+    if st.session_state.handoff_step > 0:
+        step = st.session_state.handoff_step
+        step_desc = get_handoff_description(step, lang=lang)
+        progress = step / 5
 
-            st.markdown(f"**{handoff_title}**")
-            st.markdown(
-                f'<div class="status-card" style="background:{step_color}22;border-left-color:{step_color};color:{text_color};">'
-                f'{handoff_label}</div>',
-                unsafe_allow_html=True,
-            )
-            st.progress(progress)
-            st.divider()
+        step_colors = {1: "#e74c3c", 2: "#e67e22", 3: "#f1c40f", 4: "#27ae60", 5: "#2ecc71"}
+        step_color = step_colors.get(step, "#e74c3c")
 
-        # System prompt expander / Affichage du prompt
-        with st.expander(S["prompt_expander"]):
-            prompt_text = get_system_prompt(level, lang=lang, handoff_step=st.session_state.handoff_step)
-            st.markdown(
-                f'<div style="white-space:pre-wrap;word-wrap:break-word;font-size:0.85rem;'
-                f'line-height:1.5;padding:10px 12px;border-radius:6px;'
-                f'background:{THEMES[theme]["bg_input"]};color:{THEMES[theme]["text_main"]};">'
-                f'{prompt_text.replace("<", "&lt;").replace(">", "&gt;")}</div>',
-                unsafe_allow_html=True,
-            )
+        handoff_title = S["handoff_title"]
+        handoff_label = S["handoff_step_label"].format(step=step, desc=step_desc)
 
-        # Session statistics / Statistiques de session
-        st.markdown(S["stats_header"])
-        n_user    = sum(1 for m in st.session_state.messages if m["role"] == "user")
-        n_total   = len(st.session_state.messages)
-        max_level = max((h["level"] for h in st.session_state.alert_history), default=0)
-        c1, c2, c3 = st.columns(3)
-        c1.metric(S["stat_messages"], n_user)
-        c2.metric(S["stat_exchanges"], n_total // 2)
-        c3.metric(S["stat_peak"], LEVEL_EMOJIS[max_level])
+        st.markdown(f"**{handoff_title}**")
+        st.markdown(
+            f'<div class="status-card" style="background:{step_color}22;border-left-color:{step_color};color:{text_color};">'
+            f'{handoff_label}</div>',
+            unsafe_allow_html=True,
+        )
+        st.progress(progress)
+        st.divider()
 
+    # System prompt expander / Affichage du prompt
+    with st.expander(S["prompt_expander"]):
+        prompt_text = get_system_prompt(level, lang=lang, handoff_step=st.session_state.handoff_step)
+        st.markdown(
+            f'<div style="white-space:pre-wrap;word-wrap:break-word;font-size:0.85rem;'
+            f'line-height:1.5;padding:10px 12px;border-radius:6px;'
+            f'background:{THEMES[theme]["bg_input"]};color:{THEMES[theme]["text_main"]};">'
+            f'{prompt_text.replace("<", "&lt;").replace(">", "&gt;")}</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Session statistics / Statistiques de session
+    st.markdown(S["stats_header"])
+    n_user    = sum(1 for m in st.session_state.messages if m["role"] == "user")
+    n_total   = len(st.session_state.messages)
+    max_level = max((h["level"] for h in st.session_state.alert_history), default=0)
+    c1, c2, c3 = st.columns(3)
+    c1.metric(S["stat_messages"], n_user)
+    c2.metric(S["stat_exchanges"], n_total // 2)
+    c3.metric(S["stat_peak"], LEVEL_EMOJIS[max_level])
+
+
+# ─── Main application / Application principale ──────────────────────────────────
+def main():
+    init_state()
+    _setup_api_keys()
+
+    clf     = load_model()
+    tracker = load_tracker()
+    lang    = st.session_state.lang
+    theme   = st.session_state.theme
+    S       = STRINGS[lang]
+
+    st.markdown(get_theme_css(theme), unsafe_allow_html=True)
+
+    _render_toasts(S)
+    _ensure_session_started(tracker)
+
+    _render_header(tracker, lang, theme, S)
+
+    st.divider()
+
+    col_chat, col_dash = st.columns([3, 2], gap="medium")
+
+    with col_chat:
+        _render_chat_interface(clf, tracker, lang, theme, S)
+
+    with col_dash:
+        _render_dashboard(tracker, lang, theme, S)
 
 if __name__ == "__main__":
     main()
