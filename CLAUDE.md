@@ -147,6 +147,8 @@ Claude Haiku API: 480 standard (60/class × 4 × 2 langs) + 120 adversarial (6 a
 | Training conversations | **600 (480 standard + 120 adversarial, FR + EN)** |
 | Sample:feature ratio | **9.0:1** (ideal is 10:1) |
 | Adversarial tests | **36/36 passing · 0 critical misses** |
+| Unit tests (pytest) | **90/90 passing** (feature extractor, classifier, response modulator, session tracker) |
+| Integration tests (pytest) | **39/39 passing** (demo scenarios, cross-language, bilingual UI, end-to-end, edge cases, feature scores, session tracker) |
 
 ---
 
@@ -158,6 +160,7 @@ Claude Haiku API: 480 standard (60/class × 4 × 2 langs) + 120 adversarial (6 a
 - Identity conflict detection is phrase-based (may miss coded/indirect distress)
 - Somatization relies on word co-occurrence, not clinical reasoning
 - Word-boundary `\b` regex improved but idioms like "mort de rire" still match finality lexicon
+- Conjugated crisis words ("killing myself") don't match keyword list ("kill myself") — Gate 2 floor doesn't fire
 
 ---
 
@@ -202,6 +205,41 @@ assert level >= 2, f'SAFETY FAILURE: crisis message got level {level}'
 print('Smoke test PASSED')
 "
 ```
+
+### Unit Tests (pytest):
+```bash
+pytest tests/test_unit.py -v                          # 90 tests across 4 modules
+pytest tests/test_unit.py -v -k "feature"             # Feature extractor only
+pytest tests/test_unit.py -v -k "classifier"          # Classifier gates only
+pytest tests/test_unit.py -v -k "Prompt"              # Response modulator only
+pytest tests/test_unit.py -v -k "Longitudinal"        # Session tracker only
+```
+
+**4 modules covered (90 tests):**
+- **Feature Extractor (34):** All 10 features (FR + EN), edge cases, trajectory shapes, slope direction
+- **Classifier (12):** All 6 safety gates, crisis keywords (FR + EN), safety floor, output structure
+- **Response Modulator (23):** Prompt selection, crisis resources in Orange/Red, handoff steps, counselor Alex, static fallback
+- **Session Tracker (21):** Session lifecycle, withdrawal detection, longitudinal risk (trends, consecutive high)
+
+**Known gap documented:** `"killing myself"` does not match keyword `"kill myself"` (conjugated form). Gate 2 keyword floor does not fire, but ML + embeddings may still catch it.
+
+### Integration Tests (pytest):
+```bash
+pytest tests/test_integration.py -v                   # 39 tests across 7 categories
+pytest tests/test_integration.py -v -k "Demo"         # Demo scenario validation
+pytest tests/test_integration.py -v -k "Bilingual"    # Bilingual string completeness
+pytest tests/test_integration.py -v -k "EdgeCase"     # Edge cases (emoji, long msgs, etc.)
+pytest tests/ -v                                       # All 129 tests (unit + integration)
+```
+
+**7 categories covered (39 tests):**
+- **Demo Scenarios (7):** 9-message autopilot runs without crash, escalation verified, final level >= Yellow
+- **Cross-Language Consistency (6):** Crisis → RED in both FR/EN, normal → low, ±1 tolerance for moderate distress
+- **Bilingual String Completeness (5):** Same keys in FR/EN, no empty strings, format placeholders match, level_labels complete
+- **End-to-End Integration (6):** Full pipeline green/red/drift conversations, output structure, 67-feature vector, distinct prompts per level
+- **Edge Cases (7):** Emoji-only, very long messages, whitespace, mixed languages, single chars, repeated messages, special characters
+- **Feature Scores Output (5):** feature_scores present with name/raw_name/score, numeric values (no NaN/Inf), top 5 limit
+- **Session Tracker Integration (3):** Real classifier results logged, multi-session longitudinal risk, handoff step logging
 
 ### Adversarial Test Suite:
 ```bash
