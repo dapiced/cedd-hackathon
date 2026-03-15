@@ -8,136 +8,36 @@ Extraction de features lexicales et structurelles des messages d'une conversatio
 Utilise uniquement numpy et re, aucun LLM.
 """
 
+import json
+import os
 import re
 import logging
 import numpy as np
 from sklearn.decomposition import PCA
 
-# ── Finality / distress lexicon (FR + EN) ────────────────────────────────────
-# Champ lexical de finalité / détresse (français + anglais)
-FINALITY_WORDS = [
-    # French / Français
-    "jamais", "toujours", "plus rien", "personne", "inutile", "fardeau",
-    "sans espoir", "impossible", "à quoi bon", "rien ne sert", "trop tard",
-    "terminé", "fini", "dernière", "dernier", "dernier fois",
-    "disparaître", "en finir", "mourir", "mort", "suicide", "tuer",
-    "adieu", "au revoir pour toujours", "plus jamais",
-    "à bout", "épuisé", "épuisée", "vide", "seul au monde", "seule au monde",
-    "abandonné", "abandonnée",
-    "partir", "à quoi ça sert", "plus envie",
-    # English / Anglais
-    "never", "nothing left", "no one", "useless", "burden",
-    "hopeless", "what's the point", "nothing matters", "too late",
-    "finished", "done", "last time", "disappear", "end it",
-    "die", "death", "suicide", "kill myself",
-    "goodbye forever", "never again", "at the end", "exhausted",
-    "empty", "all alone", "abandoned", "leave", "what's the use",
-    "don't want to anymore", "give up",
-]
 
-# ── Hope / resources lexicon (FR + EN) ───────────────────────────────────────
-# Champ lexical d'espoir / ressources (français + anglais)
-HOPE_WORDS = [
-    # French / Français
-    "demain", "essayer", "peut-être", "améliorer", "mieux", "espoir",
-    "changer", "avenir", "bientôt", "progresser", "aider", "soutien",
-    "ensemble", "solution", "possibilité", "essai", "recommencer",
-    "guérir", "récupérer", "avancer", "continuer", "tenir",
-    "famille", "ami", "rire",
-    # English / Anglais
-    "tomorrow", "try", "maybe", "better", "hope",
-    "change", "future", "soon", "progress", "help", "support",
-    "together", "solution", "possibility", "attempt", "start again",
-    "heal", "recover", "move forward", "continue", "hold on",
-    "family", "friend", "laugh",
-]
+def _load_lexicons():
+    """Load lexicons from the JSON config file."""
+    config_path = os.path.join(os.path.dirname(__file__), "lexicons.json")
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Failed to load lexicons from {config_path}: {e}")
+        return {}
 
-# ── Negative sentiment words (FR + EN) ───────────────────────────────────────
-# Mots négatifs courants (français + anglais)
-NEGATIVE_WORDS = [
-    # French / Français
-    "me sens mal", "ça va mal", "tout va mal", "me sens pas bien", "pas bien du tout",
-    "pas", "jamais", "rien", "personne", "nul", "mauvais",
-    "terrible", "horrible", "triste", "seul", "seule", "perdu", "perdue", "inutile",
-    "fatigué", "fatiguée", "épuisé", "épuisée", "peur", "anxieux", "anxieuse",
-    "inquiet", "inquiète", "déprimé", "déprimée",
-    "sombre", "noir", "vide", "fardeau", "honte", "coupable",
-    "échec", "raté", "ratée", "déchet", "merdique", "impossible",
-    "désespéré", "désespérée",
-    "pleure", "larmes", "coeur gros", "souffre", "peine",
-    # English / Anglais
-    "feel bad", "things are bad", "everything's wrong", "not feeling well", "not well at all",
-    "not", "never", "nothing", "worthless", "terrible", "horrible",
-    "sad", "alone", "lost", "tired", "scared", "anxious", "worried", "depressed",
-    "dark", "empty", "ashamed", "guilty",
-    "failure", "failed", "awful", "impossible", "hopeless",
-    "crying", "tears", "heartbroken", "suffering", "pain",
-]
 
-# ── Physical context words (FR + EN) — used by somatization detection ────────
-# Contexte physique (français + anglais) : utilisé par la détection de somatisation
-PHYSICAL_CONTEXT_WORDS = [
-    # French / Français
-    "dos", "tête", "ventre", "genou", "bras", "jambe", "gorge", "estomac",
-    "mal au", "j'ai mal",
-    # English / Anglais
-    "back", "head", "stomach", "knee", "arm", "leg", "throat", "belly",
-    "pain in my", "i hurt", "sore",
-]
+_LEXICONS = _load_lexicons()
 
-# ── Identity-conflict lexicon (FR + EN) — 2SLGBTQ+ & cultural identity ───────
-# Champ lexical de conflit identitaire (français + anglais)
-IDENTITY_CONFLICT_WORDS = [
-    # French / Français (multi-word phrases)
-    "ma famille ne m'accepte pas", "je dois faire semblant",
-    "je dois me cacher", "honte de ce que je suis",
-    "pas comme les autres", "cacher qui je suis",
-    "sortir du placard",
-    # English / Anglais (multi-word phrases)
-    "my family won't accept me", "i can't be who i am",
-    "i have to pretend", "i have to hide",
-    "ashamed of who i am", "hide who i am",
-    # Single words (both languages) / Mots simples (deux langues)
-    "rejeté", "rejected", "closeted", "coming out",
-]
-
-# ── Somatization emotional co-occurrence words ───────────────────────────────
-# Mots émotionnels co-occurrents avec plaintes physiques (somatisation)
-SOMATIZATION_EMOTIONAL_WORDS = [
-    # French / Français
-    "triste", "seul", "seule", "vide", "anxieux", "anxieuse",
-    "déprimé", "déprimée", "peur", "angoisse",
-    "pleure", "désespéré", "désespérée", "souffre", "mort", "mourir", "fardeau",
-    "abandonné", "abandonnée", "inutile", "honte",
-    # English / Anglais
-    "sad", "alone", "empty", "anxious", "depressed", "scared", "crying",
-    "hopeless", "suffering", "death", "die", "burden", "abandoned",
-    "worthless", "ashamed",
-]
-
-# ── Negation patterns (FR + EN) ───────────────────────────────────────────────
-# Patterns de négation : détectent les structures "ne...pas bien", "can't cope", etc.
-NEGATION_PATTERNS_FR = [
-    r"ne\s+\w+\s+pas\s+(bien|mieux|ok|correct)",    # ne ... pas bien/mieux
-    r"ne\s+\w+\s+plus",                               # ne ... plus
-    r"ne\s+\w+\s+jamais",                              # ne ... jamais
-    r"plus\s+envie",                                   # plus envie
-    r"pas\s+(bien|ok|correct|capable)",                # pas bien/ok/capable
-    r"pas\s+la\s+force",                               # pas la force
-    r"rien\s+ne\s+va",                                 # rien ne va
-    r"plus\s+capable",                                 # plus capable
-    r"ne\s+sers?\s+à\s+rien",                          # ne sers à rien
-]
-
-NEGATION_PATTERNS_EN = [
-    r"don'?t\s+feel\s+(good|well|better|ok|fine)",     # don't feel good/well
-    r"can'?t\s+(cope|go on|take it|do this|anymore)",  # can't cope/go on
-    r"no\s+(hope|point|reason|future|way out)",        # no hope/point/reason
-    r"never\s+(get better|be happy|feel ok|be ok)",    # never get better
-    r"not\s+(ok|fine|alright|good|well)",               # not ok/fine
-    r"nothing\s+(helps|works|matters)",                 # nothing helps/works
-    r"won'?t\s+get\s+better",                           # won't get better
-]
+# ── Lexicons ─────────────────────────────────────────────────────────────────
+FINALITY_WORDS = _LEXICONS.get("FINALITY_WORDS", [])
+HOPE_WORDS = _LEXICONS.get("HOPE_WORDS", [])
+NEGATIVE_WORDS = _LEXICONS.get("NEGATIVE_WORDS", [])
+PHYSICAL_CONTEXT_WORDS = _LEXICONS.get("PHYSICAL_CONTEXT_WORDS", [])
+IDENTITY_CONFLICT_WORDS = _LEXICONS.get("IDENTITY_CONFLICT_WORDS", [])
+SOMATIZATION_EMOTIONAL_WORDS = _LEXICONS.get("SOMATIZATION_EMOTIONAL_WORDS", [])
+NEGATION_PATTERNS_FR = _LEXICONS.get("NEGATION_PATTERNS_FR", [])
+NEGATION_PATTERNS_EN = _LEXICONS.get("NEGATION_PATTERNS_EN", [])
 
 
 # ── Word-boundary matching helper ─────────────────────────────────────────────
@@ -385,14 +285,7 @@ def extract_features(messages: list) -> np.ndarray:
 _embedding_model = None
 _crisis_centroid = None
 
-_CRISIS_PHRASES = [
-    # French / Français
-    "je veux mourir", "je n'en peux plus", "je suis un fardeau",
-    "plus rien n'a de sens", "je veux en finir",
-    # English / Anglais
-    "I want to die", "I can't take it anymore", "I am a burden",
-    "nothing matters anymore", "I want to end it all",
-]
+_CRISIS_PHRASES = _LEXICONS.get("CRISIS_PHRASES", [])
 
 
 def _get_embedding_model():
