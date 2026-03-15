@@ -292,7 +292,7 @@ All prompts are hardcoded strings — never AI-generated (safety-critical).
 ### LLM Fallback Chain
 
 ```
-1. cohere         (Cohere API, Command A — default)
+1. cohere         (Cohere API, default)
        ↓ fails?
 2. groq           (Groq API, Llama 3.3 70B Versatile — fastest inference)
        ↓ fails?
