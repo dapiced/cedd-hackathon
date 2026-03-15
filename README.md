@@ -480,7 +480,7 @@ cedd-hackathon/
 |   +-- cedd_sessions.db              # SQLite database (auto-created)
 |
 +-- models/
-|   +-- cedd_model.joblib            # Trained model (created by train.py)
+|   +-- cedd_model.skops            # Trained model (created by train.py)
 |
 +-- report.md                        # Formal hackathon report (required deliverable)
 ```
@@ -962,7 +962,7 @@ cedd-hackathon/
 |   +-- cedd_sessions.db              # Base SQLite (creee automatiquement)
 |
 +-- models/
-|   +-- cedd_model.joblib            # Modele entraine (cree par train.py)
+|   +-- cedd_model.skops            # Modele entraine (cree par train.py)
 |
 +-- report.md                        # Rapport formel de hackathon (livrable requis)
 ```

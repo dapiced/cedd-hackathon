@@ -25,7 +25,7 @@ sys.path.insert(0, PROJECT_ROOT)
 from cedd.classifier import CEDDClassifier
 
 # ── Paths / Chemins ──────────────────────────────────────────────────────────
-MODEL_PATH     = os.path.join(PROJECT_ROOT, "models", "cedd_model.joblib")
+MODEL_PATH     = os.path.join(PROJECT_ROOT, "models", "cedd_model.skops")
 TEST_CASES_PATH = os.path.join(os.path.dirname(__file__), "test_cases_adversarial.json")
 
 # ── Color labels / Labels couleur ────────────────────────────────────────────

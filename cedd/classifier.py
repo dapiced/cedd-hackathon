@@ -11,7 +11,7 @@ Utilise un GradientBoostingClassifier sklearn.
 import os
 import re
 import numpy as np
-import joblib
+import skops.io as sio
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -457,12 +457,12 @@ class CEDDClassifier:
 
     def save(self, path: str):
         """
-        Save the model with joblib.
-        Sauvegarde le modèle avec joblib.
+        Save the model with skops.
+        Sauvegarde le modèle avec skops.
         """
         if os.path.dirname(path):
             os.makedirs(os.path.dirname(path), exist_ok=True)
-        joblib.dump({
+        sio.dump({
             "pipeline":      self.pipeline,
             "is_fitted":     self.is_fitted,
             "feature_names": self.feature_names,
@@ -475,7 +475,15 @@ class CEDDClassifier:
         Load a saved model.
         Charge un modèle sauvegardé.
         """
-        data = joblib.load(path)
+        # Explicitly trust only the types required by our specific sklearn pipeline
+        # (StandardScaler + GradientBoostingClassifier) to prevent arbitrary code execution.
+        trusted_types = [
+            '_loss.CyHalfMultinomialLoss',
+            'sklearn._loss.link.Interval',
+            'sklearn._loss.link.MultinomialLogit',
+            'sklearn._loss.loss.HalfMultinomialLoss'
+        ]
+        data = sio.load(path, trusted=trusted_types)
         instance = cls()
         instance.pipeline      = data["pipeline"]
         instance.is_fitted     = data["is_fitted"]

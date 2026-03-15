@@ -41,7 +41,7 @@ from cedd.response_modulator import (
 )
 from cedd.session_tracker import SessionTracker
 
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "cedd_model.joblib")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "cedd_model.skops")
 
 
 # ── Import DEMO_SCENARIOS and STRINGS from app.py without Streamlit ──────────

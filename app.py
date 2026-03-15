@@ -28,7 +28,7 @@ from cedd.response_modulator import (
 from cedd.session_tracker import SessionTracker
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
-MODEL_PATH = "models/cedd_model.joblib"
+MODEL_PATH = "models/cedd_model.skops"
 
 LEVEL_COLORS = {0: "#2ecc71", 1: "#f1c40f", 2: "#e67e22", 3: "#e74c3c"}
 

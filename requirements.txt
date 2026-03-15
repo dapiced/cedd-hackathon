@@ -1,6 +1,6 @@
 numpy>=1.24.0
 scikit-learn>=1.3.0
-joblib>=1.3.0
+skops>=0.9.0
 streamlit>=1.28.0
 requests>=2.31.0
 matplotlib>=3.7.0
@@ -12,6 +12,6 @@ cohere>=5.0.0
 sentence-transformers>=2.2.0
 ### special vscode extension ###
 # sql lite viewer (for viewing .db files)
-# data file viewer (for viewing .joblib files) 
-# and run this ==> /home/userx/.config/Code/User/globalStorage/thecalendre.data-file-viewer/python-venv/bin/python -m pip install scikit-learn pandas numpy joblib streamlit requests matplotlib plotly h5py msgpack
+# data file viewer (for viewing .skops files)
+# and run this ==> /home/userx/.config/Code/User/globalStorage/thecalendre.data-file-viewer/python-venv/bin/python -m pip install scikit-learn pandas numpy skops streamlit requests matplotlib plotly h5py msgpack
 

@@ -20,7 +20,7 @@ from cedd.feature_extractor import extract_features, extract_trajectory_features
 from cedd.classifier import CEDDClassifier
 
 DATA_PATH   = "data/synthetic_conversations.json"
-MODEL_PATH  = "models/cedd_model.joblib"
+MODEL_PATH  = "models/cedd_model.skops"
 LABEL_NAMES = ["green", "yellow", "orange", "red"]
 
 

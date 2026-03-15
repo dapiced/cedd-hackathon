@@ -88,7 +88,7 @@ generate_synthetic_data.py  -->  600 bilingual conversations (Claude Haiku API)
                                         |
                                   train.py (cross-validate, fit, save)
                                         |
-                                  models/cedd_model.joblib
+                                  models/cedd_model.skops
 ```
 
 ### Phase 2: Live detection (Detection en temps reel)
@@ -345,7 +345,7 @@ Every conversation is generated in its target language with authentic regional e
 - **Scaler**: `StandardScaler` --- normalizes 67 features to mean=0, std=1
 - **Model**: `GradientBoostingClassifier` --- 200 trees, max_depth=3, learning_rate=0.1
 - **Validation**: `StratifiedKFold` with k=4
-- **Serialization**: `joblib` format (`models/cedd_model.joblib`)
+- **Serialization**: `skops` format (`models/cedd_model.skops`)
 
 ### LLM fallback chain (Chaine de repli LLM)
 

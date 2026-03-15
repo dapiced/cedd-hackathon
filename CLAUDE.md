@@ -39,7 +39,7 @@ generate_synthetic_data.py  →  data/synthetic_conversations.json (600 convos)
                                          ↓
                               train.py  (cross-validate → fit → save)
                                          ↓
-                              models/cedd_model.joblib
+                              models/cedd_model.skops
 
 PHASE 2: LIVE APP (runs per user chat)
 app.py loads saved model → user sends message
@@ -198,7 +198,7 @@ python train.py
 python -c "
 from cedd.classifier import CEDDClassifier
 msgs = [{'role':'user','content':'I feel terrible'},{'role':'assistant','content':'I hear you'},{'role':'user','content':'Nothing matters anymore'},{'role':'assistant','content':'Tell me more'},{'role':'user','content':'I want to disappear'}]
-clf = CEDDClassifier.load('models/cedd_model.joblib')
+clf = CEDDClassifier.load('models/cedd_model.skops')
 result = clf.get_alert_level(msgs)
 level = result['level']
 conf = result['confidence']
@@ -264,7 +264,7 @@ python tests/adversarial_suite.py --verbose           # With probabilities + top
 5. **Lexicon changes require bilingual parity** — Add FR equivalent for EN, and vice versa.
 6. **Embedding models are additive** — Complement lexical features, never replace them.
 7. **Data generation changes require retrain** — Full retrain + metric comparison.
-8. **Model serialization** — Always save via `train.py` to `models/cedd_model.joblib`.
+8. **Model serialization** — Always save via `train.py` to `models/cedd_model.skops`.
 
 ---
 

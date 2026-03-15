@@ -58,7 +58,7 @@ data/synthetic_conversations.json       (the training dataset: 480 standard + 12
                                         ↓
 train.py                    →  Reads conversations, extracts features, trains model
                                         ↓
-models/cedd_model.joblib                (the saved trained model)
+models/cedd_model.skops                (the saved trained model)
 ```
 
 ### Phase 2: Live App (runs every time a user chats)
@@ -77,7 +77,7 @@ response_modulator.py →  Picks system prompt for that alert level → calls LL
 session_tracker.py    →  Saves everything to SQLite for cross-session memory
 ```
 
-**Key point:** Phase 1 happens once. The model is saved to disk as a `.joblib` file. Phase 2 uses that saved model thousands of times without retraining.
+**Key point:** Phase 1 happens once. The model is saved to disk as a `.skops` file. Phase 2 uses that saved model thousands of times without retraining.
 
 ---
 
@@ -275,7 +275,7 @@ File: `train.py`
 
 4. **Feature importances:** GradientBoosting tracks how useful each feature was. Features used in more tree splits, at higher levels, get higher importance.
 
-5. **Save model:** `joblib.dump()` serializes the entire pipeline (scaler means/stds + all 200 trees) to `models/cedd_model.joblib`.
+5. **Save model:** `skops.io.dump()` serializes the entire pipeline (scaler means/stds + all 200 trees) to `models/cedd_model.skops`.
 
 6. **Reload test:** Load the saved model and verify it correctly classifies a crisis conversation (sanity check).
 
