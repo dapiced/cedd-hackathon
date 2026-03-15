@@ -143,6 +143,8 @@ NEGATION_PATTERNS_EN = [
 # ── Word-boundary matching helper ─────────────────────────────────────────────
 # Correspondance avec frontières de mots (évite les faux positifs de sous-chaîne)
 
+_WORD_BOUNDARY_REGEX_CACHE = {}
+
 def _word_boundary_count(word, text):
     """Count occurrences of word in text using word boundaries.
     Prevents substring matching (e.g., 'mort' won't match 'morte' or 'mortel').
@@ -151,12 +153,14 @@ def _word_boundary_count(word, text):
     Compte les occurrences d'un mot dans le texte avec frontières de mots.
     Empêche la correspondance de sous-chaîne (ex. 'mort' ne correspond pas à 'morte').
     """
-    if word == "personne":
-        return len(re.findall(
-            r'(?<!une )(?<!la )(?<!cette )(?<!chaque )(?<!toute )\bpersonne\b',
-            text
-        ))
-    return len(re.findall(r'\b' + re.escape(word) + r'\b', text))
+    if word not in _WORD_BOUNDARY_REGEX_CACHE:
+        if word == "personne":
+            _WORD_BOUNDARY_REGEX_CACHE[word] = re.compile(
+                r'(?<!une )(?<!la )(?<!cette )(?<!chaque )(?<!toute )\bpersonne\b'
+            )
+        else:
+            _WORD_BOUNDARY_REGEX_CACHE[word] = re.compile(r'\b' + re.escape(word) + r'\b')
+    return len(_WORD_BOUNDARY_REGEX_CACHE[word].findall(text))
 
 
 # ── Low-level feature functions ───────────────────────────────────────────────
