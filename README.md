@@ -395,6 +395,15 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 
 # Run adversarial tests
 python tests/adversarial_suite.py --verbose
+
+# Run unit tests (feature extractor, classifier, response modulator, session tracker)
+pytest tests/test_unit.py -v
+
+# Run integration tests (demo scenarios, cross-language, bilingual UI, edge cases)
+pytest tests/test_integration.py -v
+
+# Run all tests (unit + integration)
+pytest tests/ -v
 ```
 
 Opens at `http://localhost:8501`. Use the **profile selector** in the header to switch between demo users — each shows its trajectory label (e.g. "Shuchita (stable green)", "Dominic (escalating)"). Labels switch language with the toggle. Click **Reset / Reinitialiser** to start a new monitoring session.
@@ -417,6 +426,8 @@ Results on the 600-conversation bilingual dataset (480 standard + 120 adversaria
 | 3rd feature               | `word_count_last` (0.138)     |
 | 4th feature               | `length_delta_mean` (0.075)   |
 | Adversarial tests         | **36/36 passing**             |
+| Unit tests (pytest)       | **90/90 passing**             |
+| Integration tests (pytest)| **39/39 passing**             |
 | Critical misses           | **0**                         |
 | Languages                 | French + English (bilingual)  |
 
@@ -453,8 +464,10 @@ cedd-hackathon/
 |   +-- response_modulator.py       # Adaptive prompts (FR + EN) + LLM fallback chain
 |   +-- session_tracker.py          # Cross-session SQLite longitudinal tracking
 |
-+-- tests/                          # Adversarial test suite (Track 1)
++-- tests/                          # Test suites (Track 1)
 |   +-- adversarial_suite.py        # CLI test runner (--verbose, --category, --export)
+|   +-- test_unit.py                # 90 pytest unit tests (4 modules: features, classifier, modulator, tracker)
+|   +-- test_integration.py         # 39 pytest integration tests (demo, cross-language, bilingual UI, edge cases)
 |   +-- test_cases_adversarial.json # 36 adversarial test cases across 20 categories (FR + EN)
 |   +-- results/
 |       +-- baseline_v1.json        # Original: 7/10 passed
@@ -543,6 +556,45 @@ python tests/adversarial_suite.py --export tests/results/run_001.json
 
 > **Current (v9):** 36/36 passed, 0 critical misses -- see `tests/results/post_word_boundary_fix.json`
 > **Original baseline (v1):** 7/10 passed -- see `tests/results/baseline_v1.json`
+
+#### Unit Tests (pytest)
+
+90 automated tests covering the 4 core modules:
+
+| Module | Tests | Coverage |
+|--------|------:|----------|
+| Feature Extractor | 34 | All 10 features (FR + EN), edge cases, trajectory shapes, slope direction |
+| Classifier | 12 | All 6 safety gates, crisis keywords (FR + EN), safety floor enforcement |
+| Response Modulator | 23 | Prompt selection, crisis resources in Orange/Red, handoff steps 1-5, counselor Alex, static fallback |
+| Session Tracker | 21 | Session lifecycle, withdrawal detection, longitudinal risk (trends, consecutive high) |
+
+```bash
+pytest tests/test_unit.py -v                    # All 90 tests
+pytest tests/test_unit.py -v -k "feature"       # Feature extractor only
+pytest tests/test_unit.py -v -k "Gate"           # Classifier gates only
+```
+
+> **Known gap documented in tests:** conjugated crisis words ("killing myself") do not match keyword list entry ("kill myself") -- Gate 2 safety floor does not fire for conjugated forms.
+
+#### Integration Tests (pytest)
+
+39 tests validating presentation-readiness across 7 categories:
+
+| Category | Tests | What it catches |
+|----------|------:|-----------------|
+| Demo Scenarios | 7 | Demo freezing, wrong alert levels, crash during autopilot |
+| Cross-Language Consistency | 6 | FR and EN producing wildly different results |
+| Bilingual String Completeness | 5 | Missing translations, broken format placeholders |
+| End-to-End Integration | 6 | Pipeline producing wrong results, model file issues |
+| Edge Cases | 7 | Crash on emoji, long messages, whitespace, mixed languages |
+| Feature Scores Output | 5 | Explainability chart showing empty/broken data |
+| Session Tracker Integration | 3 | Session logging failing with real classifier results |
+
+```bash
+pytest tests/test_integration.py -v             # All 39 integration tests
+pytest tests/test_integration.py -v -k "Demo"   # Demo scenario validation
+pytest tests/ -v                                 # All 129 tests (unit + integration)
+```
 
 ---
 
@@ -841,6 +893,15 @@ python generate_synthetic_data.py --adversarial --lang en --count 10
 
 # Lancer les tests adversariaux
 python tests/adversarial_suite.py --verbose
+
+# Lancer les tests unitaires (feature extractor, classifier, response modulator, session tracker)
+pytest tests/test_unit.py -v
+
+# Lancer les tests d'integration (scenarios demo, cross-langue, UI bilingue, cas limites)
+pytest tests/test_integration.py -v
+
+# Lancer tous les tests (unitaires + integration)
+pytest tests/ -v
 ```
 
 Ouvre `http://localhost:8501`. Utiliser le **selecteur de profil** dans l'en-tete pour choisir un utilisateur demo (Shuchita, Priyanka, Amanda, Dominic, Guest). Utiliser le bouton de langue pour basculer. Cliquer sur **Reinitialiser / Reset** pour demarrer une nouvelle session.
@@ -863,6 +924,8 @@ Resultats sur le dataset de 600 conversations bilingues (480 standard + 120 adve
 | 3e feature                | `word_count_last` (0.138)      |
 | 4e feature                | `length_delta_mean` (0.075)    |
 | Tests adversariaux        | **36/36 reussis**              |
+| Tests unitaires (pytest)  | **90/90 reussis**              |
+| Tests d'integration (pytest) | **39/39 reussis**           |
 | Crises manquees           | **0**                          |
 
 #### Historique des metriques
@@ -898,8 +961,10 @@ cedd-hackathon/
 |   +-- response_modulator.py       # Prompts adaptatifs FR + EN + chaine LLM
 |   +-- session_tracker.py          # Suivi longitudinal inter-sessions SQLite
 |
-+-- tests/                          # Suite de tests adversariaux (Track 1)
++-- tests/                          # Suites de tests (Track 1)
 |   +-- adversarial_suite.py        # Runner CLI (--verbose, --category, --export)
+|   +-- test_unit.py                # 90 tests unitaires pytest (4 modules : features, classifier, modulator, tracker)
+|   +-- test_integration.py         # 39 tests d'integration pytest (demo, cross-langue, UI bilingue, cas limites)
 |   +-- test_cases_adversarial.json # 36 cas de test adversariaux, 20 categories (FR + EN)
 |   +-- results/                    # Historique des resultats
 |
@@ -957,6 +1022,45 @@ Le repertoire `tests/` fournit une suite de tests systematiques pour valider la 
 | `2` | **Crise manquee** -- crise predite comme Vert/Jaune (regression de securite) |
 
 > **Actuel (v9) :** 36/36 reussis, 0 crise manquee -- voir `tests/results/post_word_boundary_fix.json`
+
+#### Tests unitaires (pytest)
+
+90 tests automatises couvrant les 4 modules principaux :
+
+| Module | Tests | Couverture |
+|--------|------:|------------|
+| Feature Extractor | 34 | Les 10 features (FR + EN), cas limites, forme trajectoire, direction pente |
+| Classifier | 12 | Les 6 portes de securite, mots-cles de crise (FR + EN), plancher de securite |
+| Response Modulator | 23 | Selection de prompts, ressources de crise Orange/Rouge, etapes transfert 1-5, intervenant Alex, fallback statique |
+| Session Tracker | 21 | Cycle de vie session, detection de retrait, risque longitudinal (tendances, sessions consecutives) |
+
+```bash
+pytest tests/test_unit.py -v                    # Les 90 tests
+pytest tests/test_unit.py -v -k "feature"       # Feature extractor seulement
+pytest tests/test_unit.py -v -k "Gate"           # Portes du classifier seulement
+```
+
+> **Lacune documentee dans les tests :** les mots de crise conjugues ("killing myself") ne correspondent pas a l'entree du lexique ("kill myself") -- le plancher de securite Gate 2 ne se declenche pas pour les formes conjuguees.
+
+#### Tests d'integration (pytest)
+
+39 tests validant la preparation a la presentation, repartis en 7 categories :
+
+| Categorie | Tests | Ce que ca detecte |
+|-----------|------:|-------------------|
+| Scenarios demo | 7 | Demo qui plante, mauvais niveaux d'alerte, crash en autopilote |
+| Coherence cross-langue | 6 | FR et EN produisant des resultats tres differents |
+| Completude bilingue | 5 | Traductions manquantes, placeholders de format brises |
+| Integration bout en bout | 6 | Pipeline produisant de mauvais resultats, problemes de modele |
+| Cas limites | 7 | Crash sur emoji, messages longs, espaces, langues melangees |
+| Scores de features | 5 | Graphique d'explicabilite vide ou brise |
+| Integration session tracker | 3 | Echec de journalisation avec resultats reels du classifieur |
+
+```bash
+pytest tests/test_integration.py -v             # Les 39 tests d'integration
+pytest tests/test_integration.py -v -k "Demo"   # Validation scenarios demo
+pytest tests/ -v                                 # Les 129 tests (unitaires + integration)
+```
 
 ---
 
