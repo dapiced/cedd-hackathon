@@ -22,6 +22,7 @@
 13. [The Streamlit UI — How app.py Ties Everything Together](#step-13-streamlit-ui)
 14. [Synthetic Data Generation — How Training Data Is Created](#step-14-synthetic-data-generation)
 15. [Adversarial Testing — Stress-Testing the Safety System](#step-15-adversarial-testing)
+16. [Unit Testing — Automated Validation of All 4 Modules](#step-16-unit-testing)
 
 ---
 
@@ -752,5 +753,49 @@ Re-generate anytime: `python generate_slides.py`
 
 ---
 
+## Step 16: Unit Testing
+
+File: `tests/test_unit.py`
+
+### Why Unit Tests?
+
+The adversarial suite (Step 15) tests the **full pipeline end-to-end** with 36 hand-crafted conversations. But it doesn't test individual components in isolation. Unit tests validate that each module works correctly on its own — catching bugs at the source rather than through their downstream effects.
+
+### What's Tested (90 tests across 4 modules)
+
+| Module | Tests | What's Validated |
+|--------|------:|-----------------|
+| **Feature Extractor** | 34 | Each of the 10 features produces correct values for known inputs (FR + EN), edge cases (empty strings, cap at 1.0), trajectory output shapes (60 without embeddings, 67 with), slope direction (negative for shrinking messages) |
+| **Classifier** | 12 | All 6 safety gates: Gate 1 (< 3 messages → keyword only), Gate 2 (crisis words force RED floor, FR + EN), Gate 4 (valid output range), Gate 5 (short convo cap), Gate 6 (crisis then positive still RED), output structure validation, empty message resilience |
+| **Response Modulator** | 23 | All 4 levels × 2 languages have prompts, Orange/Red prompts contain crisis resources (1-800-668-6868, 686868, 911), Green prompts don't mention 911, handoff steps 1-5 exist bilingual, step 1 has no resources (validation only), step 3 has all resources, counselor Alex prompt mentions ASIST, static fallback works for all levels |
+| **Session Tracker** | 21 | Session start/end lifecycle, alert logging with truncation, handoff step logging, withdrawal detection (no history, recent activity, closed session), longitudinal risk (all-green = 0.0, all-red = 1.0, escalating = "worsening", improving = "improving", max 7 sessions, consecutive high count) |
+
+### How to Run
+
+```bash
+pytest tests/test_unit.py -v                    # All 90 tests (~10 seconds)
+pytest tests/test_unit.py -v -k "feature"       # Feature extractor only
+pytest tests/test_unit.py -v -k "classifier"    # Classifier gates only
+pytest tests/test_unit.py -v -k "Prompt"        # Response modulator only
+pytest tests/test_unit.py -v -k "Longitudinal"  # Session tracker only
+```
+
+### Difference from Adversarial Suite
+
+| | Adversarial Suite | Unit Tests |
+|---|---|---|
+| **What it tests** | Full pipeline (features + gates + ML together) | Each module in isolation |
+| **Test data** | 36 hand-crafted conversations | Simple inputs with known expected outputs |
+| **Catches** | Safety regressions, ML failures, gate interactions | Broken individual functions, edge cases, missing resources |
+| **Framework** | Custom Python (argparse) | pytest |
+| **When to run** | After ML/classifier changes | After any code change |
+
+### Known Gap Discovered by Tests
+
+The unit tests documented a gap in Gate 2: the keyword `"kill myself"` does not match the conjugated form `"killing myself"` because multi-word keyword matching uses exact substring comparison. The conjugated form slips through the safety keyword floor. The ML model and embeddings may still catch it, but the hard safety rule doesn't fire.
+
+---
+
 *Document created: March 13, 2026 — Teaching session covering the full CEDD repository*
 *Updated: March 14, 2026 — Word-boundary keyword matching, profile trajectory labels, hackathon report and presentation deck*
+*Updated: March 15, 2026 — Unit testing (90 pytest tests across 4 modules), conjugated keyword gap documented*

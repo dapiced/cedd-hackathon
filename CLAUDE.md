@@ -147,6 +147,7 @@ Claude Haiku API: 480 standard (60/class × 4 × 2 langs) + 120 adversarial (6 a
 | Training conversations | **600 (480 standard + 120 adversarial, FR + EN)** |
 | Sample:feature ratio | **9.0:1** (ideal is 10:1) |
 | Adversarial tests | **36/36 passing · 0 critical misses** |
+| Unit tests (pytest) | **90/90 passing** (feature extractor, classifier, response modulator, session tracker) |
 
 ---
 
@@ -158,6 +159,7 @@ Claude Haiku API: 480 standard (60/class × 4 × 2 langs) + 120 adversarial (6 a
 - Identity conflict detection is phrase-based (may miss coded/indirect distress)
 - Somatization relies on word co-occurrence, not clinical reasoning
 - Word-boundary `\b` regex improved but idioms like "mort de rire" still match finality lexicon
+- Conjugated crisis words ("killing myself") don't match keyword list ("kill myself") — Gate 2 floor doesn't fire
 
 ---
 
@@ -202,6 +204,23 @@ assert level >= 2, f'SAFETY FAILURE: crisis message got level {level}'
 print('Smoke test PASSED')
 "
 ```
+
+### Unit Tests (pytest):
+```bash
+pytest tests/test_unit.py -v                          # 90 tests across 4 modules
+pytest tests/test_unit.py -v -k "feature"             # Feature extractor only
+pytest tests/test_unit.py -v -k "classifier"          # Classifier gates only
+pytest tests/test_unit.py -v -k "Prompt"              # Response modulator only
+pytest tests/test_unit.py -v -k "Longitudinal"        # Session tracker only
+```
+
+**4 modules covered (90 tests):**
+- **Feature Extractor (34):** All 10 features (FR + EN), edge cases, trajectory shapes, slope direction
+- **Classifier (12):** All 6 safety gates, crisis keywords (FR + EN), safety floor, output structure
+- **Response Modulator (23):** Prompt selection, crisis resources in Orange/Red, handoff steps, counselor Alex, static fallback
+- **Session Tracker (21):** Session lifecycle, withdrawal detection, longitudinal risk (trends, consecutive high)
+
+**Known gap documented:** `"killing myself"` does not match keyword `"kill myself"` (conjugated form). Gate 2 keyword floor does not fire, but ML + embeddings may still catch it.
 
 ### Adversarial Test Suite:
 ```bash
